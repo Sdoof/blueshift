@@ -14,7 +14,7 @@ NANO = 1000000000
 START_DATE = pd.Timestamp('1990-01-01 00:00:00')
 END_DATE = pd.Timestamp(datetime.now().date()) + \
                 pd.Timedelta(weeks=52)
-OPEN_TIME = (9,30,0)
+OPEN_TIME = (10,0,0)
 CLOSE_TIME = (16,0,0)
 
 def np_search(array, value):
@@ -43,7 +43,8 @@ def days_to_nano(dts, tz, weekends):
                in range(n_days)
                if (start + pd.Timedelta(days=i)).weekday() not in weekends]
     else:
-        dts = [pd.Timestamp(dt.date()) for dt in dts]
+        dts = [pd.Timestamp(dt.date()) for dt in dts
+               if dt.weekday() not in weekends]
     try:
         dts = pd.DatetimeIndex(dts)
         if dts.tz is None:
@@ -66,8 +67,8 @@ def date_to_nano_midnight(dt, tz):
     return dt.value
 
 class TradingCalendar(object):
-    def __init__(self, name=None, tz='Etc/UTC', opens=(9,30,0),
-                 closes=(16,0,0), bizdays = None, weekends=[5,6]):
+    def __init__(self, name=None, tz='Etc/UTC', opens=OPEN_TIME,
+                 closes=CLOSE_TIME, bizdays = None, weekends=[5,6]):
         self._name = name
         assert valid_timezone(tz), 'Timezone is not valid'
         self._tz = tz
@@ -87,14 +88,14 @@ class TradingCalendar(object):
         
     @property
     def open_time(self):
-        t = datetime.fromtimestamp((self._bizdays[0] + 
-                                    self._open_nano)//NANO).time()
+        t = pd.Timestamp(self._bizdays[0] + self._open_nano,
+                         tz=self._tz).time()
         return t
         
     @property
     def close_time(self):
-        t = datetime.fromtimestamp((self._bizdays[0] + 
-                                    self._close_nano)//NANO).time()
+        t = pd.Timestamp(self._bizdays[0] + self._close_nano,
+                         tz=self._tz).time()
         return t
         
     def is_holiday(self, dt):
@@ -118,6 +119,8 @@ class TradingCalendar(object):
     def next_open(self, dt):
         dtn = date_to_nano_midnight(dt,self._tz)
         idx = np.searchsorted(self._bizdays,dtn)
+        if self._bizdays[idx] == dtn:
+            idx = idx+1
         if idx < len(self._bizdays):
             return pd.Timestamp(self._bizdays[idx] + self._open_nano,
                                 tz=self._tz)
@@ -136,6 +139,8 @@ class TradingCalendar(object):
     def next_close(self, dt):
         dtn = date_to_nano_midnight(dt,self._tz)
         idx = np.searchsorted(self._bizdays,dtn)
+        if self._bizdays[idx] == dtn:
+            idx = idx+1
         if idx < len(self._bizdays):
             return pd.Timestamp(self._bizdays[idx] + self._close_nano,
                                 tz=self._tz)
@@ -156,8 +161,8 @@ class TradingCalendar(object):
         dt2 = date_to_nano_midnight(end_dt,self._tz)
         idx1 = np.searchsorted(self._bizdays,dt1)
         idx2 = np.searchsorted(self._bizdays,dt2)
-        if self._bizdays[idx2] !=  dt2:
-            idx2 = idx2 - 1
+        if self._bizdays[idx2] ==  dt2:
+            idx2 = idx2 + 1
         idx2 = max(idx2, idx1+1)
         
         return pd.to_datetime(self._bizdays[idx1:idx2]).\
@@ -173,8 +178,9 @@ class TradingCalendar(object):
     
     def add_holidays(self, dts):
         dtsn = days_to_nano(dts, self._tz, [])
-        idx = np.where(self._bizdays == dtsn)
-        if idx[0]:
-            self._bizdays = np.delete(self._bizdays,idx[0])
+        sort_idx = self._bizdays.argsort()
+        idx = sort_idx[np.searchsorted(self._bizdays,dtsn,sorter = sort_idx)]
+        if idx.size > 0:
+            self._bizdays = np.delete(self._bizdays,idx)
         
         
