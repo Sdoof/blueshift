@@ -22,3 +22,6 @@ class BlueShiftException(Exception):
     
 class SessionOutofRange(BlueShiftException):
     msg = "{dt} outside valid sessions range"
+    
+class IllegalOrderNoSymNoSID(BlueShiftException):
+    msg = "could not create order: no symbol or SID specified"
