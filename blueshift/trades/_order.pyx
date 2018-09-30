@@ -9,7 +9,7 @@ Created on Mon Sep 24 17:14:42 2018
 
 cimport cython
 cimport _order_types
-from _order_types cimport Trade
+from _trade cimport Trade
 import uuid
 
 status_dict = {0:'complete',1:'open',2:'rejected',3:'cancelled'}
@@ -196,41 +196,62 @@ cdef class Order:
     def from_dict(cls, data):
         return cls(**data)
         
-    cpdef update(self,int user_update, object kwargs):
-        ''' Esentially implementing setattr(self, param,kwargs[param])
-            by hand to avoid overheads and improve speed. Only the 
-            properties resettable by execution engine or by user
-            updates are here
+    cpdef update(self,int update_type, object kwargs):
         '''
-        # user updates
-        if user_update:
-            self.user_update(kwargs)        
+            This method is called by the execution platform, based on the 
+            type of updates to be done appropriate arguments must be passed.
+            No validation done here.
+        '''
+        if update_type == _order_types.EXECUTION:
+            self.partial_execution(kwargs)
+        elif update_type == _order_types.MODIFICATION:
+            self.user_update(kwargs)
+        elif update_type == _order_types.CANCEL:
+            self.partial_cancel()
         else:
-            # update by execution platform
-            self.execution_update(kwargs)
+            self.reject(kwargs)
 
         
         
-    cpdef execution_update(self, object kwargs):
+    cpdef partial_execution(self, Trade trade):
         '''
-            Fields to be updated on each trade executions. All fields
-            must be present, except some IDs and timestamps.
+            Pass on a Trade object to update a full or partial execution
         '''
-        self.filled = kwargs['filled']
-        self.pending = kwargs['pending']
-        self.average_price = kwargs['average_price']
-        self.status = kwargs['status']
-        self.status_message = kwargs['status_message']
-        self.timestamp = kwargs['timestamp']
+        self.average_price = (self.filled*self.average_price + \
+                trade.quantity*trade.average_price)
+        self.filled = self.filled + trade.quantity
+        self.average_price = self.average_price/self.filled
+        self.pending = self.quantity - self.filled
+        if self.pending > 0:
+            self.status = _order_types.OPEN
+            self.status_message = 'open'
+        else:
+            self.status = _order_types.COMPLETE
+            self.status_message = 'complete'
+            
+        if self.broker_order_id is None:
+            self.broker_order_id = trade.broker_order_id
+            self.exchange_order_id = trade.exchange_order_id
+            self.exchange_timestamp = trade.exchange_timestamp
+            self.timestamp = trade.timestamp
+            
+    cpdef partial_cancel(self):
+        '''
+            This cancels the remaining part of the order. The order is marked
+            cancelled. The exeucted part should modify the corresponding
+            positions already
+        '''
+        self.status = _order_types.CANCEL
+        self.status_message = 'cancel'
         
-        if 'broker_order_id' in kwargs:
-            self.broker_order_id = kwargs['broker_order_id']
-        if 'exchange_order_id' in kwargs:
-            self.exchange_order_id = kwargs['exchange_order_id']
-        if 'parent_order_id' in kwargs:
-            self.parent_order_id = kwargs['parent_order_id']
-        if 'exchange_timestamp' in kwargs:
-            self.exchange_timestamp = kwargs['exchange_timestamp']
+    cpdef reject(self, object reason):
+        '''
+            The case of reject. A reject can never be partial. the argument
+            passed is a string explaining the reason to reject.
+        '''
+        self.status = _order_types.REJECT
+        self.status_message = reason
+            
         
     cpdef user_update(self, object kwargs):
         '''

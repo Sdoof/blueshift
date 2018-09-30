@@ -4,7 +4,7 @@ Created on Mon Sep 24 17:14:42 2018
 
 @author: prodipta
 """
-
+ 
 # compile with <cythonize -i _trade.pyx>
 
 cimport cython
@@ -48,6 +48,8 @@ cdef class Trade:
             
         self.tid = tid
         self.hashed_tid = hash(tid)
+        self.quantity = quantity
+        self.side = side
         self.oid = oid
         self.broker_order_id = broker_order_id
         self.exchange_order_id = exchange_order_id
