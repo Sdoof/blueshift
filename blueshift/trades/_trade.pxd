@@ -5,6 +5,7 @@ Created on Mon Sep 24 17:14:42 2018
 @author: prodipta
 """
 cimport cython
+from blueshift.assets._assets cimport Asset
 
 cdef class Trade:
     # class declaration for cimport
@@ -22,6 +23,7 @@ cdef class Trade:
     cdef readonly float average_price
     cdef readonly object exchange_timestamp
     cdef readonly object timestamp
+    cdef readonly Asset asset
     cdef readonly int quantity
     cpdef to_dict(self)
     cpdef __reduce__(self)

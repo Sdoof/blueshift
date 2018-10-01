@@ -11,6 +11,7 @@ cimport cython
 cimport _order_types
 from _trade cimport Trade
 import uuid
+import hashlib
 
 cdef class Position:
     '''
@@ -37,20 +38,16 @@ cdef class Position:
     cdef readonly int product_type
     
     def __init__(self,
-                 int pid,
-                 int quantity,              
-                 int side,    
-                 object oid,
-                 object broker_order_id,
-                 object exchange_order_id,
-                 object instrument_id,
                  object symbol,        
                  object exchange_name, 
-                 int sid,                
+                 int sid,
+                 int quantity,              
+                 int side,    
+                 object instrument_id,
                  int product_type,
                  float average_price,
-                 object exchange_timestamp,
-                 object timestamp):
+                 object timestamp,
+                 object exchange_timestamp):
         '''
             The algo creates a position once a new trade is done and a 
             matching position is not found. Matching is done on the underlying
@@ -68,8 +65,10 @@ cdef class Position:
             self.symbol = symbol
             self.exchange_name = exchange_name
             
-        self.pid = uuid.uuid4().hex
-        self.hashed_pid = hash(pid)
+        h = hashlib.md5()
+        h.update((symbol + exchange_name + str(sid)).encode('utf-8'))
+        self.pid = h.hexdigest()
+        self.hashed_pid = hash(self.pid)
         self.instrument_id = instrument_id
     
         self.quantity = quantity
@@ -103,8 +102,9 @@ cdef class Position:
             raise TypeError
             
     def __str__(self):
-        return 'Position:sym:%s,qty:%d,average price:%f' % (self.symbol,\
-                    self.quantity, self.average_price)
+        return 'Position:sym:%s,qty:%d,realized:%f, unrealized:%f' %\
+            (self.symbol,self.quantity, self.realized_pnl, 
+             self.unrealized_pnl)
     
     def __repr__(self):
         return self.__str__()
@@ -155,6 +155,13 @@ cdef class Position:
     def from_dict(cls, data):
         return cls(**data)
     
+    @classmethod
+    def from_trade(cls,Trade t):
+        p = Position(t.symbol, t.exchange_name, t.sid, t.quantity, 
+                     t.side, t.instrument_id, t.product_type, 
+                     t.average_price, t.exchange_timestamp, 
+                     t.timestamp)
+        return p
     
     cpdef update(self, Trade trade):
         if trade.side == _order_types.BUY:
@@ -176,12 +183,12 @@ cdef class Position:
         
         if self.buy_quantity > self.sell_quantity:
             self.realized_pnl = self.sell_quantity*\
-                                    (self.buy_price - self.sell_price)
+                                    (self.sell_price - self.buy_price)
             self.unrealized_pnl = (self.buy_quantity - self.sell_quantity)*\
                                     (self.last_price - self.buy_price)
         else:
             self.realized_pnl = self.buy_quantity*\
-                                    (self.buy_price - self.sell_price)
+                                    (self.sell_price - self.buy_price)
             self.unrealized_pnl = (self.sell_quantity - self.buy_quantity)*\
                                     (self.sell_price - self.last_price)
                                     

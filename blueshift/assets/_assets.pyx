@@ -9,6 +9,7 @@ Created on Mon Sep 24 17:14:42 2018
 
 cimport cython
 cimport _asset_class
+import hashlib
 
 cdef class MarketData:
     '''
@@ -17,13 +18,6 @@ cdef class MarketData:
         corporate fundamentals or sentiment indices are all derived
         from this generic data type.
     '''
-    cdef readonly int sid
-    cdef readonly int hashed_sid
-    cdef readonly int mktdata_type
-    cdef readonly object symbol
-    cdef readonly object name
-    cdef readonly object start_date
-    cdef readonly object end_date
     
     def __init__(self,
                  int sid,
@@ -51,7 +45,7 @@ cdef class MarketData:
     
     def __eq__(x,y):
         try:
-            return int(x) == int(y)
+            return hash(x) == hash(y)
         except (TypeError, AttributeError, OverflowError):
             raise TypeError
     
@@ -91,13 +85,6 @@ cdef class Asset(MarketData):
         OHLCV and also have asset multiplier (defaults to 1.0) and
         minimum tick size for price move (default to cent).
     '''
-    cdef readonly int asset_class
-    cdef readonly int instrument_types
-    cdef readonly float mult
-    cdef readonly float tick_size
-    cdef readonly object auto_close_date
-    cdef readonly object exchange_name
-    cdef readonly object calendar_name
     
     def __init__(self,
                  int sid,
@@ -118,6 +105,9 @@ cdef class Asset(MarketData):
                  start_date=start_date,
                  end_date=end_date)
         
+        h = hashlib.md5()
+        h.update((symbol + exchange_name + str(sid)).encode('utf-8'))
+        self.hashed_sid = hash(h.hexdigest())
         self.mult = mult
         self.tick_size = tick_size
         self.auto_close_date = auto_close_date

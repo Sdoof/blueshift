@@ -10,9 +10,11 @@ Created on Mon Sep 24 17:14:42 2018
 cimport cython
 cimport _order_types
 from _trade cimport Trade
+from blueshift.assets._assets cimport Asset
 import uuid
 
 status_dict = {0:'complete',1:'open',2:'rejected',3:'cancelled'}
+side_dict = {0:'BUY',1:'SELL'}
 
 cdef class Order:
     '''
@@ -29,6 +31,7 @@ cdef class Order:
     cdef readonly int sid
     cdef readonly object symbol
     cdef readonly object exchange_name
+    cdef readonly Asset asset
     cdef readonly object user
     cdef readonly object placed_by
     cdef readonly int product_type
@@ -42,7 +45,7 @@ cdef class Order:
     cdef readonly float price
     cdef readonly float average_price
     cdef readonly float trigger_price
-    cdef readonly object side
+    cdef readonly int side
     cdef readonly int status
     cdef readonly object status_message
     cdef readonly object exchange_timestamp
@@ -76,13 +79,15 @@ cdef class Order:
         if sid != -1:
             self.sid = sid
             #asset = asset_finder.find_by_symbol(symbol,exchange_name)
-            asset = None
-            self.symbol = asset.symbol
-            self.exchange_name = asset.exchange_name
+            self.asset = None
+            self.symbol = self.asset.symbol
+            self.exchange_name = self.asset.exchange_name
         else:
             self.sid = -1
             self.symbol = symbol
             self.exchange_name = exchange_name
+            self.asset = Asset(self.sid,self.symbol,"",
+                               exchange_name=self.exchange_name)
             
         self.side = side
         self.quantity = quantity
@@ -126,8 +131,10 @@ cdef class Order:
             raise TypeError
             
     def __str__(self):
-        return 'Order:sym:%s,qty:%d,status:%s' % (self.symbol,\
-                    self.quantity, status_dict[self.status])
+        return 'Order:sym:%s, qty:%d, side:%s, filled:%d, at:%f, status:%s' % \
+                (self.symbol,self.quantity,side_dict[self.side], 
+                 self.filled,self.average_price,
+                 status_dict[self.status])
     
     def __repr__(self):
         return self.__str__()

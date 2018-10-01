@@ -9,6 +9,7 @@ Created on Mon Sep 24 17:14:42 2018
 
 cimport cython
 cimport _order_types
+from blueshift.assets._assets cimport Asset
 
 cdef class Trade:
     '''
@@ -38,13 +39,15 @@ cdef class Trade:
         if sid != -1:
             self.sid = sid
             #asset = asset_finder.find_by_symbol(symbol,exchange_name)
-            asset = None
-            self.symbol = asset.symbol
-            self.exchange_name = asset.exchange_name
+            self.asset = None
+            self.symbol = self.asset.symbol
+            self.exchange_name = self.asset.exchange_name
         else:
             self.sid = -1
             self.symbol = symbol
             self.exchange_name = exchange_name
+            self.asset = Asset(self.sid,self.symbol,"",
+                               exchange_name=self.exchange_name)
             
         self.tid = tid
         self.hashed_tid = hash(tid)
