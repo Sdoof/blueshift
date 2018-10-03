@@ -24,7 +24,8 @@ cdef class MarketData:
                  object symbol="",
                  object name="",
                  object start_date=None,
-                 object end_date=None):
+                 object end_date=None,
+                 object ccy="local"):
 
         self.sid = sid
         self.hashed_sid = hash(self.sid)      # for dict lookups
@@ -33,6 +34,7 @@ cdef class MarketData:
         self.start_date = start_date
         self.end_date = end_date
         self.mktdata_type = -1
+        self.ccy = ccy
     
     def __int__(self):
         return self.sid
@@ -65,7 +67,8 @@ cdef class MarketData:
                 'name':self.name,
                 'start_date':self.start_date,
                 'end_date':self.end_date,
-                'mktdata_type':self.mktdata_type}
+                'mktdata_type':self.mktdata_type,
+                'ccy':self.ccy}
         
     cpdef __reduce__(self):
         return(self.__class__,(self.sid,
@@ -96,14 +99,16 @@ cdef class Asset(MarketData):
                  float tick_size=0.01,
                  object auto_close_date=None,
                  object exchange_name=None,
-                 object calendar_name=None):
+                 object calendar_name=None,
+                 object ccy="local"):
 
         super(Asset,self).__init__(
                  sid=sid,
                  symbol=symbol,
                  name=name,
                  start_date=start_date,
-                 end_date=end_date)
+                 end_date=end_date,
+                 ccy=ccy)
         
         h = hashlib.md5()
         h.update((symbol + exchange_name + str(sid)).encode('utf-8'))
@@ -115,7 +120,7 @@ cdef class Asset(MarketData):
         self.calendar_name = calendar_name
         self.mktdata_type = _asset_class.OHLCV
         self.asset_class = _asset_class.EQUITY
-        self.instrument_types = -1
+        self.instrument_type = -1
         
     cpdef to_dict(self):
         d = super(Asset,self).to_dict()
@@ -125,7 +130,7 @@ cdef class Asset(MarketData):
         d['exchange_name']=self.exchange_name
         d['calendar_name']=self.calendar_name
         d['asset_class']=self.asset_class
-        d['instrument_types']=self.instrument_types
+        d['instrument_type']=self.instrument_type
         return d
     
     cpdef __reduce__(self):
@@ -138,7 +143,8 @@ cdef class Asset(MarketData):
                                self.tick_size,
                                self.auto_close_date,
                                self.exchange_name,
-                               self.calendar_name))
+                               self.calendar_name,
+                               self.ccy))
     
 cdef class Equity(Asset):
     '''
@@ -154,7 +160,8 @@ cdef class Equity(Asset):
                  float tick_size=0.01,
                  object auto_close_date=None,
                  object exchange_name=None,
-                 object calendar_name=None):
+                 object calendar_name=None,
+                 object ccy="local"):
         super(Equity, self).__init__(
                  sid=sid,
                  symbol=symbol,
@@ -165,9 +172,10 @@ cdef class Equity(Asset):
                  tick_size=tick_size,
                  auto_close_date=auto_close_date,
                  exchange_name=exchange_name,
-                 calendar_name=calendar_name)
+                 calendar_name=calendar_name,
+                 ccy=ccy)
         self.asset_class = _asset_class.EQUITY
-        self.instrument_types = _asset_class.SPOT
+        self.instrument_type = _asset_class.SPOT
 
 cdef class EquityFutures(Asset):
     '''
@@ -193,7 +201,8 @@ cdef class EquityFutures(Asset):
                  float tick_size=0.01,
                  object auto_close_date=None,
                  object exchange_name=None,
-                 object calendar_name=None):
+                 object calendar_name=None,
+                 object ccy="local"):
         super(EquityFutures, self).__init__(
                  sid=sid,
                  symbol=symbol,
@@ -204,7 +213,8 @@ cdef class EquityFutures(Asset):
                  tick_size=tick_size,
                  auto_close_date=auto_close_date,
                  exchange_name=exchange_name,
-                 calendar_name=calendar_name)
+                 calendar_name=calendar_name,
+                 ccy=ccy)
         self.root = root
         self.underlying_sid = underlying_sid
         self.expiry_date = expiry_date
@@ -215,7 +225,7 @@ cdef class EquityFutures(Asset):
         self.notice_date = notice_date
         self.auto_close_date = auto_close_date
         self.asset_class = _asset_class.EQUITY
-        self.instrument_types = _asset_class.FUTURES
+        self.instrument_type = _asset_class.FUTURES
         
     cpdef __reduce__(self):
         return(self.__class__,(self.sid,
@@ -231,7 +241,8 @@ cdef class EquityFutures(Asset):
                                self.exchange_name,
                                self.calendar_name,
                                self.expiry_date,
-                               self.notice_date))
+                               self.notice_date,
+                               self.ccy))
 
     cpdef to_dict(self):
         d = super(EquityFutures,self).to_dict()
@@ -259,7 +270,8 @@ cdef class Forex(Asset):
                  float tick_size=0.01,
                  object auto_close_date=None,
                  object exchange_name=None,
-                 object calendar_name=None):
+                 object calendar_name=None,
+                 object ccy="local"):
         super(Forex, self).__init__(
                  sid=sid,
                  symbol=symbol,
@@ -270,12 +282,13 @@ cdef class Forex(Asset):
                  tick_size=tick_size,
                  auto_close_date=auto_close_date,
                  exchange_name=exchange_name,
-                 calendar_name=calendar_name)
+                 calendar_name=calendar_name,
+                 ccy=ccy)
         self.ccy_pair = ccy_pair
-        self.base_ccy = base_ccy,
-        self.quote_ccy = quote_ccy,
+        self.base_ccy = base_ccy
+        self.quote_ccy = quote_ccy
         self.asset_class = _asset_class.FOREX
-        self.instrument_types = _asset_class.SPOT
+        self.instrument_type = _asset_class.SPOT
         
     cpdef __reduce__(self):
         return(self.__class__,(self.sid,
@@ -290,7 +303,8 @@ cdef class Forex(Asset):
                                self.calendar_name,
                                self.ccy_pair,
                                self.base_ccy,
-                               self.quote_ccy))
+                               self.quote_ccy,
+                               self.ccy))
         
     cpdef to_dict(self):
         d = super(Forex,self).to_dict()
@@ -299,7 +313,7 @@ cdef class Forex(Asset):
         d['quote_ccy']=self.quote_ccy
         return d
     
-cdef class EquityOptions(EquityFutures):
+cdef class EquityOption(EquityFutures):
     '''
         Equity options assets. add strike compared to futures
     '''
@@ -320,8 +334,9 @@ cdef class EquityOptions(EquityFutures):
                  float tick_size=0.01,
                  object auto_close_date=None,
                  object exchange_name=None,
-                 object calendar_name=None):
-        super(EquityOptions, self).__init__(
+                 object calendar_name=None,
+                 object ccy="local"):
+        super(EquityOption, self).__init__(
                  sid=sid,
                  underlying_sid=underlying_sid,
                  symbol=symbol,
@@ -335,10 +350,11 @@ cdef class EquityOptions(EquityFutures):
                  tick_size=tick_size,
                  auto_close_date=auto_close_date,
                  exchange_name=exchange_name,
-                 calendar_name=calendar_name)
+                 calendar_name=calendar_name,
+                 ccy=ccy)
         self.strike = strike
         self.asset_class = _asset_class.EQUITY
-        self.instrument_types = _asset_class.OPT
+        self.instrument_type = _asset_class.OPT
         
     cpdef __reduce__(self):
         return(self.__class__,(self.sid,
@@ -355,10 +371,11 @@ cdef class EquityOptions(EquityFutures):
                                self.root,
                                self.expiry_date,
                                self.notice_date,
-                               self.strike))
+                               self.strike,
+                               self.ccy))
 
     cpdef to_dict(self):
-        d = super(EquityOptions,self).to_dict()
+        d = super(EquityOption,self).to_dict()
         d['strike']=self.strike
         return d
     
@@ -366,3 +383,51 @@ cdef get_class_attribs(object obj):
     attrs = [f for f in dir(obj) if not callable(getattr(obj,f)) 
         and not str(f).endswith('_') and not str(f).startswith('_')]
     return attrs
+
+cpdef create_asset_from_dict(object data):
+    cdef int asset_type
+    cdef int instrument_type
+    cdef object d
+    
+    asset_type = data["asset_class"]
+    instrument_type = data["instrument_type"]
+    
+    if asset_type == _asset_class.EQUITY and \
+        instrument_type == _asset_class.SPOT:
+            attribs = ['sid','symbol','name','start_date','end_date',
+                       'mult','tick_size','auto_close_date',
+                       'exchange_name','calendar_name','ccy']
+            d = {k: data[k] for k in attribs}
+            return Equity.from_dict(d)
+        
+    elif asset_type == _asset_class.EQUITY and \
+        instrument_type == _asset_class.FUTURES:
+            attribs = ['sid','underlying_sid','symbol','root','name',
+                       'start_date','end_date','expiry_date',
+                       'notice_date','mult','tick_size',
+                       'auto_close_date','exchange_name',
+                       'calendar_name','ccy']
+            d = {k: data[k] for k in attribs}
+            return EquityFutures.from_dict(d)
+        
+    elif asset_type == _asset_class.EQUITY and \
+        instrument_type == _asset_class.OPT:
+            attribs = ['sid','underlying_sid','symbol','root','name',
+                       'start_date','end_date','expiry_date',
+                       'notice_date','strike','mult','tick_size',
+                       'auto_close_date','exchange_name',
+                       'calendar_name','ccy']
+            d = {k: data[k] for k in attribs}
+            return EquityOption.from_dict(d)
+        
+    elif asset_type == _asset_class.FOREX and \
+        instrument_type == _asset_class.SPOT:
+            attribs = ['sid','symbol','ccy_pair','base_ccy',
+                       'quote_ccy','name','start_date','end_date',
+                       'mult','tick_size','auto_close_date',
+                       'exchange_name','calendar_name','ccy']
+            d = {k: data[k] for k in attribs}
+            return Forex.from_dict(d)
+    else:
+        raise ValueError("Unknown asset_type or instrument")
+        

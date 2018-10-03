@@ -17,12 +17,13 @@ cdef class MarketData:
     cdef readonly object name
     cdef readonly object start_date
     cdef readonly object end_date
+    cdef readonly object ccy
     cpdef to_dict(self)
     cpdef __reduce__(self)
     
 cdef class Asset(MarketData):
     cdef readonly int asset_class
-    cdef readonly int instrument_types
+    cdef readonly int instrument_type
     cdef readonly float mult
     cdef readonly float tick_size
     cdef readonly object auto_close_date
