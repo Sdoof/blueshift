@@ -1,0 +1,71 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Oct  4 18:00:23 2018
+
+@author: prodipta
+from https://stackoverflow.com/questions/1112343/how-do-i-capture-sigint-in-python
+"""
+
+import signal
+
+class BlueshiftInterruptHandler(object):
+
+    def __init__(self, algo):
+        self.sig_int = signal.SIGINT
+        self.sig_term = signal.SIGTERM
+        self.algo = algo
+
+    def __enter__(self):
+        self.interrupted = False
+        self.terminated = False
+        self.released = False
+        self.original_handler_int = signal.getsignal(self.sig_int)
+        self.original_handler_term = signal.getsignal(self.sig_term)
+        
+        signal.signal(self.sig_int, self.handler)
+        signal.signal(self.sig_term, self.handler)
+        return self
+
+    def __exit__(self, type, value, tb):
+        self.release()
+
+    def release(self):
+        if self.released:
+            return False
+        signal.signal(self.sig_int, self.original_handler_int)
+        signal.signal(self.sig_term, self.original_handler_term)
+        self.released = True
+        return True
+    
+    def handler(self, signum, frame):
+        self.release()
+        if signum == signal.SIGINT:
+            self.interrupted = True
+            self.algo_pause()
+        else:
+            self.terminated = True
+            self.algo_stop()
+            
+    def algo_pause(self):
+        print("pausing the algo, context:{}...".format(self.algo.context))
+        pass
+    
+    def algo_stop(self):
+        print("shutting down the algo, context:{}...".format(self.algo.context))
+        pass
+
+### test ##
+#import time
+#class TestAlgo():
+#    def __init__(self):
+#        self.context = {"1":1, "2":3}
+#        
+#algo = TestAlgo()        
+#with BlueshiftInterruptHandler(algo) as h:
+#    for i in range(1000):
+#        print("...")
+#        time.sleep(1)
+#        if h.interrupted:
+#            print("interrupted!...")
+#            break
+### end test ##
