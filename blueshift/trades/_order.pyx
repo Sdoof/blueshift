@@ -9,8 +9,17 @@ Created on Mon Sep 24 17:14:42 2018
 
 cimport cython
 cimport _order_types
+from blueshift.trades._order_types import (
+        ProductType,
+        OrderFlag,
+        OrderType,
+        OrderValidity,
+        OrderSide,
+        OrderStatus,
+        OrderUpdateType)
 from _trade cimport Trade
 from blueshift.assets._assets cimport Asset
+from blueshift.assets.assets import AssetFinder
 import uuid
 
 status_dict = {0:'complete',1:'open',2:'rejected',3:'cancelled'}
@@ -28,12 +37,9 @@ cdef class Order:
     cdef readonly object broker_order_id
     cdef readonly object exchange_order_id
     cdef readonly object parent_order_id
-    cdef readonly int sid
-    cdef readonly object symbol
-    cdef readonly object exchange_name
     cdef readonly Asset asset
     cdef readonly object user
-    cdef readonly object placed_by
+    cdef readonly object placed_by      # the algo ID!
     cdef readonly int product_type
     cdef readonly int order_flag
     cdef readonly int order_type
@@ -55,18 +61,16 @@ cdef class Order:
     def __init__(self,
                  int quantity,              # required
                  int side,                  # required
-                 object symbol=None,        # required/ or sid
-                 object exchange_name=None, # required/ or sid
-                 int sid=-1,                # overrides symbol+exchange
-                 int product_type=_order_types.DELIVERY,
-                 int order_flag=_order_types.NORMAL,
-                 int order_type=_order_types.NORMAL,
-                 int order_validity = _order_types.DAY,
+                 Asset asset,               # required
+                 int product_type=ProductType.DELIVERY,
+                 int order_flag=OrderFlag.NORMAL,
+                 int order_type=OrderType.NORMAL,
+                 int order_validity = OrderValidity.DAY,
                  int disclosed=0,
-                 float price=0,
-                 float trigger_price=0,
+                 float price=0,             # for limit prices
+                 float trigger_price=0,     # for stoplosses
                  object user='algo',
-                 object placed_by='algo',
+                 object placed_by='algo',   # algo ID
                  object tag='blueshift'):
         '''
             The only agent who can create (or delete) an order is 
@@ -76,19 +80,7 @@ cdef class Order:
             pending, status etc are set accordingly and are not part
             of the init arguments.
         '''
-        if sid != -1:
-            self.sid = sid
-            #asset = asset_finder.find_by_symbol(symbol,exchange_name)
-            self.asset = None
-            self.symbol = self.asset.symbol
-            self.exchange_name = self.asset.exchange_name
-        else:
-            self.sid = -1
-            self.symbol = symbol
-            self.exchange_name = exchange_name
-            self.asset = Asset(self.sid,self.symbol,"",
-                               exchange_name=self.exchange_name)
-            
+        self.asset = asset
         self.side = side
         self.quantity = quantity
         
@@ -118,21 +110,19 @@ cdef class Order:
         self.timestamp=None
         self.tag=tag
     
-    def __int__(self):
-        return self.hashed_oid
     
     def __hash__(self):
         return self.hashed_oid
     
     def __eq__(x,y):
         try:
-            return int(x) == int(y)
+            return hash(x) == hash(y)
         except (TypeError, AttributeError, OverflowError):
             raise TypeError
             
     def __str__(self):
         return 'Order:sym:%s, qty:%d, side:%s, filled:%d, at:%f, status:%s' % \
-                (self.symbol,self.quantity,side_dict[self.side], 
+                (self.asset.symbol,self.quantity,side_dict[self.side], 
                  self.filled,self.average_price,
                  status_dict[self.status])
     
@@ -146,9 +136,7 @@ cdef class Order:
                 'broker_order_id':self.broker_order_id,
                 'exchange_order_id':self.exchange_order_id,
                 'parent_order_id':self.parent_order_id,
-                'sid':self.sid,
-                'symbol':self.symbol,
-                'exchange_name':self.exchange_name,
+                'asset':self.asset,
                 'user':self.user,
                 'placed_by':self.placed_by,
                 'product_type':self.product_type,
@@ -175,9 +163,7 @@ cdef class Order:
                                 self.broker_order_id,
                                 self.exchange_order_id,
                                 self.parent_order_id,
-                                self.sid,
-                                self.symbol,
-                                self.exchange_name,
+                                self.asset,
                                 self.user,
                                 self.placed_by,
                                 self.product_type,
@@ -209,11 +195,11 @@ cdef class Order:
             type of updates to be done appropriate arguments must be passed.
             No validation done here.
         '''
-        if update_type == _order_types.EXECUTION:
+        if update_type == OrderUpdateType.EXECUTION:
             self.partial_execution(kwargs)
-        elif update_type == _order_types.MODIFICATION:
+        elif update_type == OrderUpdateType.MODIFICATION:
             self.user_update(kwargs)
-        elif update_type == _order_types.CANCEL:
+        elif update_type == OrderUpdateType.CANCEL:
             self.partial_cancel()
         else:
             self.reject(kwargs)
@@ -230,10 +216,10 @@ cdef class Order:
         self.average_price = self.average_price/self.filled
         self.pending = self.quantity - self.filled
         if self.pending > 0:
-            self.status = _order_types.OPEN
+            self.status = OrderStatus.OPEN
             self.status_message = 'open'
         else:
-            self.status = _order_types.COMPLETE
+            self.status = OrderStatus.COMPLETE
             self.status_message = 'complete'
             
         if self.broker_order_id is None:
@@ -248,7 +234,7 @@ cdef class Order:
             cancelled. The exeucted part should modify the corresponding
             positions already
         '''
-        self.status = _order_types.CANCEL
+        self.status = OrderStatus.CANCELLED
         self.status_message = 'cancel'
         
     cpdef reject(self, object reason):
@@ -256,7 +242,7 @@ cdef class Order:
             The case of reject. A reject can never be partial. the argument
             passed is a string explaining the reason to reject.
         '''
-        self.status = _order_types.REJECT
+        self.status = OrderStatus.REJECTED
         self.status_message = reason
             
         

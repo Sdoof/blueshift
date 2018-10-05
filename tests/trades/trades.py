@@ -10,22 +10,20 @@ import unittest
 from blueshift.trades._trade import Trade
 from blueshift.trades._order import Order
 from blueshift.trades._position import Position
+from blueshift.trades._order_types import (
+        OrderType,
+        OrderUpdateType)
+from blueshift.assets._assets import Asset
 import random
-
-class OrderTypes:
-    BUY = 0
-    SELL = 1
-class OrderUpdates:
-    EXECUTION = 0
 
 orders = {}
 positions = {}
 pnls = {}
 
-def order_stuff(qty, side, sym, exchange):
+def order_stuff(qty, side, asset):
     global orders
     global positions
-    o = Order(qty,side, sym, exchange)
+    o = Order(qty,side, asset)
     orders[o.oid] = o
     execute_order(o)
     return o.oid
@@ -50,9 +48,8 @@ def execute_order(order):
         ts = pd.Timestamp.now()
         t = Trade(tid, traded, order.side, order.oid, 
                   order.broker_order_id, order.exchange_order_id, 42, 
-                  order.symbol, order.exchange_name, -1, 1, 
-                  price, ts, ts)
-        orders[order.oid].update(OrderUpdates.EXECUTION,t)
+                  order.asset,1, price, ts, ts)
+        orders[order.oid].update(OrderUpdateType.EXECUTION,t)
         
         if t.asset in positions:
             positions[t.asset].update(t)
@@ -64,8 +61,9 @@ def execute_order(order):
         tid = tid + 1
 
 
-o1 = order_stuff(1500,OrderTypes.BUY,"NIFTY18OCTFUT", "NSE")
-o2 = order_stuff(1000,OrderTypes.SELL,"NIFTY18OCTFUT", "NSE")
+asset = Asset(-1,"NIFTY18OCTFUT", "NSE")
+o1 = order_stuff(1500,OrderType.BUY,asset)
+o2 = order_stuff(1000,OrderType.SELL,asset)
 
 pos = list(positions.values())[0]
 average_buy = orders[o1].average_price

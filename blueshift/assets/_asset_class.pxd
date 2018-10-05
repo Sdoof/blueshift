@@ -6,7 +6,7 @@ Created on Mon Sep 24 17:14:42 2018
 """
 cimport cython
 
-cdef enum AssetClass:
+cpdef enum AssetClass:
     EQUITY = 0,
     FOREX = 1,
     COMMODITY = 2,
@@ -15,7 +15,7 @@ cdef enum AssetClass:
     CRYPTO = 5,
     VOL = 6
     
-cdef enum InstrumentType:
+cpdef enum InstrumentType:
     SPOT = 0,
     FUTURES = 1,
     OPT = 2,

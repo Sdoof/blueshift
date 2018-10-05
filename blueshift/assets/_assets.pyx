@@ -8,7 +8,8 @@ Created on Mon Sep 24 17:14:42 2018
 # compile with <cythonize -i _assets.pyx>
 
 cimport cython
-cimport _asset_class
+cimport _assets
+from blueshift.trades._assets import AssetClass, InstrumentType, MktDataType
 import hashlib
 
 cdef class MarketData:
@@ -16,7 +17,8 @@ cdef class MarketData:
         Basic market data object. Tradeable assets are derived from 
         this class. Also data series like macro economic data or 
         corporate fundamentals or sentiment indices are all derived
-        from this generic data type.
+        from this generic data type. Note this is NOT designed to be
+        run on a distributed system - the hashing may fail!!
     '''
     
     def __init__(self,
@@ -28,8 +30,8 @@ cdef class MarketData:
                  object ccy="local"):
 
         self.sid = sid
-        self.hashed_sid = hash(self.sid)      # for dict lookups
         self.symbol = symbol
+        self.hashed_id = hash(self.symbol+str(self.sid))
         self.name = name
         self.start_date = start_date
         self.end_date = end_date
@@ -40,7 +42,7 @@ cdef class MarketData:
         return self.sid
     
     def __hash__(self):
-        return self.hashed_sid
+        return self.hashed_id
     
     def __index__(self):
         return self.sid
@@ -110,16 +112,13 @@ cdef class Asset(MarketData):
                  end_date=end_date,
                  ccy=ccy)
         
-        h = hashlib.md5()
-        h.update((symbol + exchange_name + str(sid)).encode('utf-8'))
-        self.hashed_sid = hash(h.hexdigest())
         self.mult = mult
         self.tick_size = tick_size
         self.auto_close_date = auto_close_date
         self.exchange_name = exchange_name
         self.calendar_name = calendar_name
-        self.mktdata_type = _asset_class.OHLCV
-        self.asset_class = _asset_class.EQUITY
+        self.mktdata_type = MktDataType.OHLCV
+        self.asset_class = AssetClass.EQUITY
         self.instrument_type = -1
         
     cpdef to_dict(self):
@@ -174,8 +173,8 @@ cdef class Equity(Asset):
                  exchange_name=exchange_name,
                  calendar_name=calendar_name,
                  ccy=ccy)
-        self.asset_class = _asset_class.EQUITY
-        self.instrument_type = _asset_class.SPOT
+        self.asset_class = AssetClass.EQUITY
+        self.instrument_type = InstrumentType.SPOT
 
 cdef class EquityFutures(Asset):
     '''
@@ -224,8 +223,8 @@ cdef class EquityFutures(Asset):
             auto_close_date = expiry_date
         self.notice_date = notice_date
         self.auto_close_date = auto_close_date
-        self.asset_class = _asset_class.EQUITY
-        self.instrument_type = _asset_class.FUTURES
+        self.asset_class = AssetClass.EQUITY
+        self.instrument_type = InstrumentType.FUTURES
         
     cpdef __reduce__(self):
         return(self.__class__,(self.sid,
@@ -287,8 +286,8 @@ cdef class Forex(Asset):
         self.ccy_pair = ccy_pair
         self.base_ccy = base_ccy
         self.quote_ccy = quote_ccy
-        self.asset_class = _asset_class.FOREX
-        self.instrument_type = _asset_class.SPOT
+        self.asset_class = AssetClass.FOREX
+        self.instrument_type = InstrumentType.SPOT
         
     cpdef __reduce__(self):
         return(self.__class__,(self.sid,
@@ -353,8 +352,8 @@ cdef class EquityOption(EquityFutures):
                  calendar_name=calendar_name,
                  ccy=ccy)
         self.strike = strike
-        self.asset_class = _asset_class.EQUITY
-        self.instrument_type = _asset_class.OPT
+        self.asset_class = AssetClass.EQUITY
+        self.instrument_type = InstrumentType.OPT
         
     cpdef __reduce__(self):
         return(self.__class__,(self.sid,
@@ -392,16 +391,16 @@ cpdef create_asset_from_dict(object data):
     asset_type = data["asset_class"]
     instrument_type = data["instrument_type"]
     
-    if asset_type == _asset_class.EQUITY and \
-        instrument_type == _asset_class.SPOT:
+    if asset_type == AssetClass.EQUITY and \
+        instrument_type == InstrumentType.SPOT:
             attribs = ['sid','symbol','name','start_date','end_date',
                        'mult','tick_size','auto_close_date',
                        'exchange_name','calendar_name','ccy']
             d = {k: data[k] for k in attribs}
             return Equity.from_dict(d)
         
-    elif asset_type == _asset_class.EQUITY and \
-        instrument_type == _asset_class.FUTURES:
+    elif asset_type == AssetClass.EQUITY and \
+        instrument_type == InstrumentType.FUTURES:
             attribs = ['sid','underlying_sid','symbol','root','name',
                        'start_date','end_date','expiry_date',
                        'notice_date','mult','tick_size',
@@ -410,8 +409,8 @@ cpdef create_asset_from_dict(object data):
             d = {k: data[k] for k in attribs}
             return EquityFutures.from_dict(d)
         
-    elif asset_type == _asset_class.EQUITY and \
-        instrument_type == _asset_class.OPT:
+    elif asset_type == AssetClass.EQUITY and \
+        instrument_type == InstrumentType.OPT:
             attribs = ['sid','underlying_sid','symbol','root','name',
                        'start_date','end_date','expiry_date',
                        'notice_date','strike','mult','tick_size',
@@ -420,8 +419,8 @@ cpdef create_asset_from_dict(object data):
             d = {k: data[k] for k in attribs}
             return EquityOption.from_dict(d)
         
-    elif asset_type == _asset_class.FOREX and \
-        instrument_type == _asset_class.SPOT:
+    elif asset_type == AssetClass.FOREX and \
+        instrument_type == InstrumentType.SPOT:
             attribs = ['sid','symbol','ccy_pair','base_ccy',
                        'quote_ccy','name','start_date','end_date',
                        'mult','tick_size','auto_close_date',

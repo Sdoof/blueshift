@@ -9,7 +9,16 @@ Created on Mon Sep 24 17:14:42 2018
 
 cimport cython
 cimport _order_types
+from blueshift.trades._order_types import (
+        ProductType,
+        OrderFlag,
+        OrderType,
+        OrderValidity,
+        OrderSide,
+        OrderStatus,
+        OrderUpdateType)
 from _trade cimport Trade
+from blueshift.assets._assets cimport Asset
 import uuid
 import hashlib
 
@@ -21,9 +30,7 @@ cdef class Position:
     cdef readonly object pid
     cdef readonly int hashed_pid
     cdef readonly int instrument_id
-    cdef readonly int sid
-    cdef readonly object symbol
-    cdef readonly object exchange_name
+    cdef readonly Asset asset
     cdef readonly int quantity
     cdef readonly int buy_quantity
     cdef readonly float buy_price
@@ -38,9 +45,7 @@ cdef class Position:
     cdef readonly int product_type
     
     def __init__(self,
-                 object symbol,        
-                 object exchange_name, 
-                 int sid,
+                 Asset asset,
                  int quantity,              
                  int side,    
                  object instrument_id,
@@ -54,26 +59,14 @@ cdef class Position:
             and once a position is closed, it is never re-used. A new one will
             be created instead.
         '''
-        if sid != -1:
-            self.sid = sid
-            #asset = asset_finder.find_by_symbol(symbol,exchange_name)
-            asset = None
-            self.symbol = asset.symbol
-            self.exchange_name = asset.exchange_name
-        else:
-            self.sid = -1
-            self.symbol = symbol
-            self.exchange_name = exchange_name
-            
-        h = hashlib.md5()
-        h.update((symbol + exchange_name + str(sid)).encode('utf-8'))
-        self.pid = h.hexdigest()
-        self.hashed_pid = hash(self.pid)
+        self.asset = asset
+        self.pid = hash(self.asset.symbol+str(self.asset.sid))
+        self.hashed_pid = hash(self.asset.symbol+str(self.asset.sid))
         self.instrument_id = instrument_id
     
         self.quantity = quantity
         
-        if side == _order_types.BUY:
+        if side == OrderSide.BUY:
             self.buy_price = average_price
             self.buy_quantity = quantity
         else:
@@ -88,22 +81,19 @@ cdef class Position:
         self.value = quantity*average_price
         self.product_type = product_type
         
-        
-    def __int__(self):
-        return self.hashed_pid
     
     def __hash__(self):
         return self.hashed_pid
     
     def __eq__(x,y):
         try:
-            return int(x) == int(y)
+            return hash(x) == hash(y)
         except (TypeError, AttributeError, OverflowError):
             raise TypeError
             
     def __str__(self):
         return 'Position:sym:%s,qty:%d,realized:%f, unrealized:%f' %\
-            (self.symbol,self.quantity, self.realized_pnl, 
+            (self.asset.symbol,self.quantity, self.realized_pnl, 
              self.unrealized_pnl)
     
     def __repr__(self):
@@ -113,9 +103,7 @@ cdef class Position:
         return {'pid':self.pid,
                 'hashed_pid':self.hashed_pid,
                 'instrument_id':self.instrument_id,
-                'sid':self.sid,
-                'symbol':self.symbol,
-                'exchange_name':self.exchange_name,
+                'asset':self.asset,
                 'quantity':self.quantity,
                 'buy_quantity':self.buy_quantity,
                 'buy_price':self.buy_price,
@@ -134,9 +122,7 @@ cdef class Position:
         return(self.__class__,( self.pid,
                                 self.hashed_pid,
                                 self.instrument_id,
-                                self.sid,
-                                self.symbol,
-                                self.exchange_name,
+                                self.asset,
                                 self.quantity,
                                 self.buy_quantity,
                                 self.buy_price,
@@ -157,14 +143,14 @@ cdef class Position:
     
     @classmethod
     def from_trade(cls,Trade t):
-        p = Position(t.symbol, t.exchange_name, t.sid, t.quantity, 
+        p = Position(t.asset, t.quantity, 
                      t.side, t.instrument_id, t.product_type, 
                      t.average_price, t.exchange_timestamp, 
                      t.timestamp)
         return p
     
     cpdef update(self, Trade trade):
-        if trade.side == _order_types.BUY:
+        if trade.side == OrderSide.BUY:
             self.buy_price = self.buy_quantity*self.buy_price + \
                                 trade.average_price*trade.quantity
             self.buy_quantity = self.buy_quantity + trade.quantity

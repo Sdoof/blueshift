@@ -15,9 +15,6 @@ cdef class Trade:
     cdef readonly object broker_order_id
     cdef readonly object exchange_order_id
     cdef readonly int instrument_id
-    cdef readonly int sid
-    cdef readonly object symbol
-    cdef readonly object exchange_name
     cdef readonly object side
     cdef readonly int product_type
     cdef readonly float average_price
