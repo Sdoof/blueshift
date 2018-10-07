@@ -8,9 +8,6 @@ Created on Mon Sep 24 17:14:42 2018
 # compile with <cythonize -i _assets.pyx>
 
 cimport cython
-cimport _assets
-from blueshift.trades._assets import AssetClass, InstrumentType, MktDataType
-import hashlib
 
 cdef class MarketData:
     '''

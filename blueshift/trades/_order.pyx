@@ -64,7 +64,7 @@ cdef class Order:
                  Asset asset,               # required
                  int product_type=ProductType.DELIVERY,
                  int order_flag=OrderFlag.NORMAL,
-                 int order_type=OrderType.NORMAL,
+                 int order_type=OrderType.MARKET,
                  int order_validity = OrderValidity.DAY,
                  int disclosed=0,
                  float price=0,             # for limit prices

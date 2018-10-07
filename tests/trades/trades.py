@@ -11,7 +11,7 @@ from blueshift.trades._trade import Trade
 from blueshift.trades._order import Order
 from blueshift.trades._position import Position
 from blueshift.trades._order_types import (
-        OrderType,
+        OrderSide,
         OrderUpdateType)
 from blueshift.assets._assets import Asset
 import random
@@ -61,9 +61,9 @@ def execute_order(order):
         tid = tid + 1
 
 
-asset = Asset(-1,"NIFTY18OCTFUT", "NSE")
-o1 = order_stuff(1500,OrderType.BUY,asset)
-o2 = order_stuff(1000,OrderType.SELL,asset)
+asset = Asset(-1,"NIFTY18OCTFUT", exchange_name="NSE")
+o1 = order_stuff(1500,OrderSide.BUY,asset)
+o2 = order_stuff(1000,OrderSide.SELL,asset)
 
 pos = list(positions.values())[0]
 average_buy = orders[o1].average_price
