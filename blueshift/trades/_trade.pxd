@@ -18,6 +18,9 @@ cdef class Trade:
     cdef readonly object side
     cdef readonly int product_type
     cdef readonly float average_price
+    cdef readonly float cash_flow
+    cdef readonly float margin
+    cdef readonly float commission
     cdef readonly object exchange_timestamp
     cdef readonly object timestamp
     cdef readonly Asset asset

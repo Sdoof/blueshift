@@ -36,6 +36,9 @@ cdef class Trade:
                  Asset asset,                
                  int product_type,
                  float average_price,
+                 float cash_flow,
+                 float margin,
+                 float commission,
                  object exchange_timestamp,
                  object timestamp):
         '''
@@ -53,6 +56,9 @@ cdef class Trade:
         self.instrument_id = instrument_id
         self.product_type = product_type
         self.average_price = average_price
+        self.cash_flow = cash_flow
+        self.margin = margin
+        self.commission = commission
         self.exchange_timestamp = exchange_timestamp
         self.timestamp = timestamp
         
@@ -85,6 +91,9 @@ cdef class Trade:
                 'side':self.side,
                 'product_type':self.product_type,
                 'average_price':self.average_price,
+                'cash_flow':self.cash_flow,
+                'margin':self.margin,
+                'commission':self.commission,
                 'exchange_timestamp':self.exchange_timestamp,
                 'timestamp':self.timestamp,
                 'quantity':self.quantity}
@@ -100,6 +109,9 @@ cdef class Trade:
                                 self.side,
                                 self.product_type,
                                 self.average_price,
+                                self.cash_flow,
+                                self.margin,
+                                self.commission,
                                 self.quantity,
                                 self.exchange_timestamp,
                                 self.timestamp))

@@ -17,7 +17,7 @@ from blueshift.trades._order_types import (
         OrderSide,
         OrderStatus,
         OrderUpdateType)
-from _trade cimport Trade
+from blueshift.trades._trade cimport Trade
 from blueshift.assets._assets cimport Asset
 import uuid
 import hashlib
@@ -27,22 +27,6 @@ cdef class Position:
         Trade object definition. A trade belongs to an order that 
         generated the trade(s)
     '''
-    cdef readonly object pid
-    cdef readonly int hashed_pid
-    cdef readonly int instrument_id
-    cdef readonly Asset asset
-    cdef readonly int quantity
-    cdef readonly int buy_quantity
-    cdef readonly float buy_price
-    cdef readonly int sell_quantity
-    cdef readonly float sell_price
-    cdef readonly float pnl
-    cdef readonly float realized_pnl
-    cdef readonly float unrealized_pnl
-    cdef readonly float last_price
-    cdef readonly object timestamp
-    cdef readonly float value
-    cdef readonly int product_type
     
     def __init__(self,
                  Asset asset,
@@ -51,6 +35,7 @@ cdef class Position:
                  object instrument_id,
                  int product_type,
                  float average_price,
+                 float margin,
                  object timestamp,
                  object exchange_timestamp):
         '''
@@ -69,14 +54,19 @@ cdef class Position:
         if side == OrderSide.BUY:
             self.buy_price = average_price
             self.buy_quantity = quantity
+            self.sell_quantity = 0
+            self.sell_price = 0
         else:
             self.sell_quantity = quantity
             self.sell_price = average_price
+            self.buy_price = 0
+            self.buy_quantity = 0
         
         self.pnl = 0
         self.realized_pnl = 0
         self.unrealized_pnl = 0
         self.last_price = average_price
+        self.margin = margin
         self.timestamp = timestamp
         self.value = quantity*average_price
         self.product_type = product_type
@@ -113,6 +103,7 @@ cdef class Position:
                 'realized_pnl':self.realized_pnl,
                 'unrealized_pnl':self.unrealized_pnl,
                 'last_price':self.last_price,
+                'margin':self.margin,
                 'timestamp':self.timestamp,
                 'value':self.value,
                 'product_type':self.product_type
@@ -132,6 +123,7 @@ cdef class Position:
                                 self.realized_pnl,
                                 self.unrealized_pnl,
                                 self.last_price,
+                                self.margin,
                                 self.timestamp,
                                 self.value,
                                 self.product_type
@@ -142,14 +134,14 @@ cdef class Position:
         return cls(**data)
     
     @classmethod
-    def from_trade(cls,Trade t):
+    def from_trade(cls,Trade t, float margin=0):
         p = Position(t.asset, t.quantity, 
                      t.side, t.instrument_id, t.product_type, 
-                     t.average_price, t.exchange_timestamp, 
+                     t.average_price, margin, t.exchange_timestamp, 
                      t.timestamp)
         return p
     
-    cpdef update(self, Trade trade):
+    cpdef update(self, Trade trade, float margin):
         if trade.side == OrderSide.BUY:
             self.buy_price = self.buy_quantity*self.buy_price + \
                                 trade.average_price*trade.quantity
@@ -179,6 +171,7 @@ cdef class Position:
                                     (self.sell_price - self.last_price)
                                     
         self.pnl = self.unrealized_pnl + self.realized_pnl
+        self.margin = self.margin + margin
         
     cpdef if_closed(self):
         if self.quantity == 0:

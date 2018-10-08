@@ -25,3 +25,6 @@ class SessionOutofRange(BlueShiftException):
     
 class IllegalOrderNoSymNoSID(BlueShiftException):
     msg = "could not create order: no symbol or SID specified"
+    
+class InsufficientFund(BlueShiftException):
+    msg = "could not complete transaction: insufficient fund"
