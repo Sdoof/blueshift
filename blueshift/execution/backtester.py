@@ -65,7 +65,7 @@ class BackTester(object):
         self._profile = {"name":"algo"}
         self.tid = 0
         self.api = self._api()
-        self.send(None)
+        self.api.send(None)
         
     def make_response(self, status, data):
         return {"status":status.value,"data":data}
@@ -265,9 +265,7 @@ class BackTester(object):
                 
     def _api(self):
         while True:
-            print("waiting for command...")
             order = yield               # recieve the api call
-            print("got {}".format(order))
             cmd = order['cmd']
             data = order['payload']
             timestamp = order['timestamp']
@@ -345,7 +343,9 @@ class BackTester(object):
         return 20
     
     def send(self, arg):
-        return self.api.send(arg)
+        response = self.api.send(arg)
+        next(self.api)
+        return response
     
     def close(self):
         return self.api.close()
@@ -369,7 +369,6 @@ class BackTesterAPI(AbstractBrokerAPI):
     def login(self, timestamp):
         response = self.broker.send(self.make_api_payload(APICommand.LOGIN,
                                           None,timestamp))
-        self.broker.send(None)
         return response
     
     def logout(self, timestamp):

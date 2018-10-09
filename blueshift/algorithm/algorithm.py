@@ -20,22 +20,22 @@ class Algorithm(object):
         
         
     def initialize(self, timestamp):
-        print("initialize called at {}".format(timestamp))
+        pass
     
     def before_trading_start(self,timestamp):
-        print("before_trading_start called at {}".format(timestamp))
+        pass
     
     def handle_data(self,timestamp):
-        print("handle_data called at {}".format(timestamp))
+        pass
     
     def after_trading_hours(self,timestamp):
-        print("after_trading_hours called at {}".format(timestamp))
+        pass
     
     def analyze(self,timestamp):
-        print("analyze called at {}".format(timestamp))
+        pass
         
     def heartbeat(self, timestamp):
-        print("heartbeat called at {}".format(timestamp))
+        pass
     
     def run(self):
         t1 = pd.Timestamp.now()
