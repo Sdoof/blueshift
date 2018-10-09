@@ -9,6 +9,17 @@ from blueshift.execution.backtester import BackTesterAPI
 from blueshift.trades.clocks import SimulationClock, RealtimeClock, BARS
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.execution.broker import BrokerType
+from blueshift.trades._order import Order
+from blueshift.trades._order_types import OrderSide
+from blueshift.assets.assets import (
+        AssetDBConfiguration,
+        AssetDBQueryEngineCSV,
+        AssetFinder)
+
+import random
+
+class AlgoContext(object):
+    pass
 
 class Algorithm(object):
     
@@ -16,23 +27,32 @@ class Algorithm(object):
         self.api = kwargs.get("broker",None)
         self.clock = kwargs.get("clock", None)
         self.calendar = kwargs.get("calendar", None)
-        self.context = kwargs.get("context", None)
+        self.context = kwargs.get("context", AlgoContext())
+        self.asset_finder = kwargs.get("asset_finder", None)
         
         
     def initialize(self, timestamp):
-        pass
+        self.context.asset = self.asset_finder.lookup_symbol('NIFTY-I')
     
     def before_trading_start(self,timestamp):
         pass
     
     def handle_data(self,timestamp):
-        pass
+        qty = random.randint(-500,500)
+        if qty == 0:
+            return
+        side = OrderSide.BUY if qty > 0 else OrderSide.SELL
+        o = Order(abs(qty),side,self.context.asset)
+        self.api.place_order(o,timestamp)
     
     def after_trading_hours(self,timestamp):
         pass
     
     def analyze(self,timestamp):
-        pass
+        self.context.positions = self.api.positions(timestamp)
+        self.context.orders = self.api.orders(timestamp)
+        self.open_orders = self.api.open_orders(timestamp)
+        
         
     def heartbeat(self, timestamp):
         pass
@@ -70,6 +90,11 @@ ist_cal = TradingCalendar('IST',tz='Asia/Calcutta',opens=(9,15,0),
 clock = SimulationClock(ist_cal,1,start_dt,end_dt)
 broker = BackTesterAPI('blueshift',BrokerType.BACKTESTER,ist_cal)
 
-algo = Algorithm(clock=clock, calendar = ist_cal, broker=broker)
+asset_db_config = AssetDBConfiguration()
+asset_db_query_engine = AssetDBQueryEngineCSV(asset_db_config)
+asset_finder = AssetFinder(asset_db_query_engine)
+
+algo = Algorithm(clock=clock, calendar = ist_cal, broker=broker,
+                 asset_finder=asset_finder)
 algo.run()
 

@@ -44,6 +44,10 @@ class AbstractBrokerAPI(ABC):
         pass
     
     @abstractproperty
+    def order(self, order_id):
+        pass
+    
+    @abstractproperty
     def open_orders(self):
         pass
     
@@ -68,5 +72,5 @@ class AbstractBrokerAPI(ABC):
         pass
     
     @abstractmethod
-    def adjust_capital(self, *args, **kwargs):
+    def fund_transfer(self, *args, **kwargs):
         pass

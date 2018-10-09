@@ -4,6 +4,7 @@ Created on Sat Oct  6 12:54:09 2018
 
 @author: prodi
 """
+
 from enum import Enum
 from blueshift.execution.broker import AbstractBrokerAPI, BrokerType
 from blueshift.trades._order import Order
@@ -199,6 +200,7 @@ class BackTester(object):
                                           "invalid parameter")
     
     def cancel_order(self, order_id):
+        #TODO: optimize the pop?
         order = self._open_orders.pop(order_id,None)
         if order is not None:
             self._open_orders[order_id] = order.update(OrderUpdateType.CANCEL)
@@ -209,18 +211,14 @@ class BackTester(object):
                                           "order not found")
         
     def execution_model(self, order):
-        price = min(11800,max(11000,11500 + 
-                          round((random.random()-0.5)*100,2)))
-        
-        margin = self.get_margin_requirement(order, price)
-        if margin > self._account.available.cash:
-            return price, 0
+        price = max(min(11800,max(11000,11500 + 
+                          round((random.random()-0.5)*100,2))),105)
         
         traded = round(random.random()*100)
         return price, traded
         
     def execute_orders(self, timestamp):
-        for order_id, order in self._open_orders.items():
+        for order_id, order in self._open_orders.copy().items():
             
             # obtain the traded quantity and price
             price, traded = self.execution_model(order)
@@ -241,7 +239,7 @@ class BackTester(object):
             self.tid = self.tid+1
             t = Trade(self.tid, traded, order.side, order_id, 
                       order_id, order_id, -1,  # dummy instrument ID
-                      order.asset,order.poduct_type, price, 
+                      order.asset,order.product_type, price, 
                       cash_flow, margin,commission,timestamp, 
                       timestamp)
             
@@ -250,14 +248,17 @@ class BackTester(object):
             except InsufficientFund:
                 continue
             
+            
             self._open_orders[order_id].update(OrderUpdateType.EXECUTION,t)
             
+            #TODO: optimize the pop?
             if self._open_orders[order_id].status == OrderStatus.COMPLETE:
                 self._closed_orders[order_id] = self._open_orders.pop(order_id)
             
             if t.asset in self._open_positions:
                 self._open_positions[t.asset].update(t, margin)
-                if self._open_positions[t.asset].is_close():
+                #TODO: optimize the pop?
+                if self._open_positions[t.asset].if_closed():
                     self._closed_positions[t.asset] = self._open_positions.pop(t.asset)
             else:
                 p = Position.from_trade(t, margin)
@@ -279,9 +280,9 @@ class BackTester(object):
             elif cmd == APICommand.CANCEL_ORDER:
                 response = self.cancel_order(data)
             elif cmd == APICommand.GET_OPEN_ORDERS:
-                response = self.open_orders()
+                response = self.open_orders
             elif cmd == APICommand.GET_CLOSED_OR_CANCELLED_ORDERS:
-                response = self.orders()
+                response = self.orders
             elif cmd == APICommand.GET_ORDER:
                 response = self.order_status(data)
             elif cmd == APICommand.GET_POSITIONS:
@@ -307,7 +308,7 @@ class BackTester(object):
             traded_qty = - traded
         current_exposure = 0
         
-        current_pos = self._positions.get(asset, None)
+        current_pos = self._open_positions.get(asset, None)
         if current_pos:
             current_exposure = current_pos.quantity*price
                 
@@ -374,25 +375,21 @@ class BackTesterAPI(AbstractBrokerAPI):
     def logout(self, timestamp):
         response = self.broker.send(self.make_api_payload(APICommand.LOGOUT,
                                           None,timestamp))
-        self.broker.send(None)
         return response
     
     def profile(self, timestamp):
         response = self.broker.send(self.make_api_payload(APICommand.GET_PROFILE,
                                           None,timestamp))
-        self.broker.send(None)
         return response
     
     def account(self, timestamp):
         response = self.broker.send(self.make_api_payload(APICommand.GET_ACCOUNT,
                                           None,timestamp))
-        self.broker.send(None)
         return response
     
     def positions(self, timestamp):
         response = self.broker.send(self.make_api_payload(APICommand.GET_POSITIONS,
                                           None,timestamp))
-        self.broker.send(None)
         return response
     
     def open_orders(self, timestamp):
@@ -400,10 +397,14 @@ class BackTesterAPI(AbstractBrokerAPI):
                                           None,timestamp))
         return response
     
+    def order(self, order_id, timestamp):
+        response = self.broker.send(self.make_api_payload(APICommand.GET_ORDER,
+                                          order_id,timestamp))
+        return response
+    
     def orders(self, timestamp):
         response = self.broker.send(self.make_api_payload(APICommand.GET_CLOSED_OR_CANCELLED_ORDERS,
                                           None,timestamp))
-        self.broker.send(None)
         return response
     
     def timezone(self):
@@ -412,26 +413,26 @@ class BackTesterAPI(AbstractBrokerAPI):
     def place_order(self, order, timestamp):
         response = self.broker.send(self.make_api_payload(APICommand.PLACE_ORDER,
                                           order,timestamp))
-        self.broker.send(None)
         return response
     
     def update_order(self, order_id, timestamp):
         response = self.broker.send(self.make_api_payload(APICommand.MODIFTY_ORDER,
                                           order_id,timestamp))
         
-        self.broker.send(None)
         return response
     
     def cancel_order(self, order_id, timestamp):
         response = self.broker.send(self.make_api_payload(APICommand.CANCEL_ORDER,
                                           order_id,timestamp))  
-        self.broker.send(None)
         return response
         
-    def adjust_capital(self, amount, timestamp):
+    def fund_transfer(self, amount, timestamp):
         response = self.broker.send(self.make_api_payload(APICommand.ADD_CAPITAL,
                                           amount, timestamp))
-        self.broker.send(None)
-        return response
+        
+        if response['status'] == ResponseType.SUCCESS:
+            return response['data']
+        else:
+            return None
         
         
