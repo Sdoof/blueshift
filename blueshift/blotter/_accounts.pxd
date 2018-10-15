@@ -21,13 +21,16 @@ cdef class Account:
     cdef readonly float cash
     cdef readonly float mtm
     cdef readonly float liquid_value
-    cdef readonly bool live_account
+    cdef readonly float commissions
     
     cpdef to_dict(self)
     cpdef __reduce__(self)
+    
+cdef class BacktestAccount(Account):
     cpdef settle_trade(self, Trade t)
     cpdef fund_transfer(self, float amount)
     cpdef block_margin(self, float amount)
     cpdef release_margin(self, float amount)
     cpdef update_accounts(self,float mtm, float gross, float net)
+    
     

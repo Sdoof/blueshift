@@ -28,3 +28,6 @@ class IllegalOrderNoSymNoSID(BlueShiftException):
     
 class InsufficientFund(BlueShiftException):
     msg = "could not complete transaction: insufficient fund"
+    
+class BackTestAPIError(BlueShiftException):
+    msg = "Error received from Backtester: {msg}"

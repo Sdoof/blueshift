@@ -6,15 +6,18 @@ Created on Sat Oct  6 12:54:09 2018
 """
 
 from enum import Enum
+import logging
+
 from blueshift.execution.broker import AbstractBrokerAPI, BrokerType
+from blueshift.trades.clocks import BARS
 from blueshift.trades._order import Order
 from blueshift.trades._position import Position
 from blueshift.trades._trade import Trade
 from blueshift.trades._order_types import OrderUpdateType, OrderStatus, OrderSide
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
-from blueshift.blotter._accounts import Account
+from blueshift.blotter._accounts import BacktestAccount
 from blueshift.assets._assets import InstrumentType
-from blueshift.utils.exceptions import InsufficientFund
+from blueshift.utils.exceptions import InsufficientFund, BackTestAPIError
 
 import random
 
@@ -30,7 +33,7 @@ class APICommand(Enum):
     GET_ACCOUNT = 5
     GET_ORDER = 6
     GET_OPEN_ORDERS = 7
-    GET_CLOSED_OR_CANCELLED_ORDERS = 8
+    GET_PAST_ORDERS = 8
     GET_POSITIONS = 9
     ADD_CAPITAL = 10
     LOGIN = 11
@@ -43,7 +46,20 @@ MarginDict = {
     InstrumentType.FUNDS:0,
     InstrumentType.CFD:0.05,
     InstrumentType.STRATEGY:0}
+
     
+#logger = logging.getLogger('backtest_broker')
+#logger.setLevel(logging.DEBUG)
+#fh = logging.FileHandler('backtest_broker.log')
+#fh.setLevel(logging.DEBUG)
+#ch = logging.StreamHandler()
+#ch.setLevel(logging.ERROR)
+#formatter = logging.Formatter('%(name)s-%(levelname)s-'\
+#                              '%(asctime)s: %(message)s')
+#fh.setFormatter(formatter)
+#ch.setFormatter(formatter)
+#logger.addHandler(fh)
+#logger.addHandler(ch)
 
 class BackTester(object):
     '''
@@ -54,6 +70,7 @@ class BackTester(object):
     
     def __init__(self, name, calendar, initial_capital, 
                  currency = 'local'):
+        self.timestamp = None
         self.broker_name = name
         self.authentication_token = -1
         self.calendar = calendar
@@ -61,15 +78,64 @@ class BackTester(object):
         self._closed_orders = {}
         self._open_orders = {}
         self._open_positions = {}
-        self._closed_positions = {}
-        self._account = Account(name,initial_capital, currency=currency)
+        self._closed_positions = []
+        self._account = BacktestAccount(name,initial_capital, 
+                                        currency=currency)
         self._profile = {"name":"algo"}
         self.tid = 0
+        self.dispath_dict = {}
+        self.make_dispath_dict()
         self.api = self._api()
         self.api.send(None)
         
     def make_response(self, status, data):
         return {"status":status.value,"data":data}
+    
+    def make_dispath_dict(self):
+        self.dispath_dict[APICommand.PLACE_ORDER]=self.place_order
+        self.dispath_dict[APICommand.MODIFTY_ORDER]=self.update_order
+        self.dispath_dict[APICommand.CANCEL_ORDER]=self.cancel_order
+        self.dispath_dict[APICommand.GET_PROFILE]=self.get_profile
+        self.dispath_dict[APICommand.GET_ACCOUNT]=self.get_account
+        self.dispath_dict[APICommand.GET_ORDER]=self.get_order_status
+        self.dispath_dict[APICommand.GET_OPEN_ORDERS]=self.get_open_orders
+        self.dispath_dict[APICommand.GET_PAST_ORDERS]=self.get_past_orders
+        self.dispath_dict[APICommand.GET_POSITIONS]=self.get_positions
+        self.dispath_dict[APICommand.ADD_CAPITAL]=self.get_past_positions
+        self.dispath_dict[APICommand.LOGIN]=self.login
+        self.dispath_dict[APICommand.LOGOUT]=self.logout
+        self.dispath_dict[BARS.TRADING_BAR]=self.trading_bar
+        self.dispath_dict[BARS.ALGO_START]=self.algo_start
+        self.dispath_dict[BARS.ALGO_END]=self.algo_end
+        self.dispath_dict[BARS.BEFORE_TRADING_START]=self.before_trading_start
+        self.dispath_dict[BARS.AFTER_TRADING_HOURS]=self.after_trading_hours
+        self.dispath_dict[BARS.HEAR_BEAT]=self.heart_beat
+        
+    def algo_start(self, timestamp):
+        pass
+    
+    def algo_end(self, timestamp):
+        pass
+        
+    def before_trading_start(self,timestamp):
+        pass
+    
+    def after_trading_hours(self, timestamp):
+        self._open_orders = {}
+    
+    def heart_beat(self, timestamp):
+        pass
+        
+    def trading_bar(self, timestamp):
+        self.execute_orders(timestamp)
+    
+    def no_op(self, *args, **kwargs):
+        return self.make_response(ResponseType.SUCCESS,
+                             None)
+        
+    def default_op(self, *args, **kwargs):
+        return self.make_response(ResponseType.ERROR,
+                             "unknown command")
     
     def login(self, *args, **kwargs):
         '''
@@ -87,55 +153,48 @@ class BackTester(object):
         return self.make_response(ResponseType.SUCCESS,
                              self.authentication_token)
     
-    @property
-    def profile(self):
+    def get_profile(self, *args, **kwargs):
         '''
             This process will always succeed for backtester 
         '''
         return self.make_response(ResponseType.SUCCESS,self._profile)
     
-    @property
-    def account(self):
+    def get_account(self, *args, **kwargs):
         '''
             This process will always succeed for backtester 
         '''
         return self.make_response(ResponseType.SUCCESS, 
                                   self._account.to_dict())
     
-    @property
-    def positions(self):
+    def get_positions(self, *args, **kwargs):
         '''
             This process will always succeed for backtester 
         '''
         return self.make_response(ResponseType.SUCCESS, 
                                   self._open_positions)
         
-    @property
-    def past_positions(self):
+    def get_past_positions(self, *args, **kwargs):
         '''
             This process will always succeed for backtester 
         '''
         return self.make_response(ResponseType.SUCCESS, 
                                   self._closed_positions)
     
-    @property
-    def open_orders(self):
+    def get_open_orders(self, *args, **kwargs):
         '''
             This process will always succeed for backtester 
         '''
         return self.make_response(ResponseType.SUCCESS, 
                                   self._open_orders)
     
-    @property
-    def orders(self):
+    def get_past_orders(self, *args, **kwargs):
         '''
             This process will always succeed for backtester 
         '''
         return self.make_response(ResponseType.SUCCESS, 
                                   self._closed_orders)
     
-    @property
-    def timezone(self):
+    def get_timezone(self, *args, **kwargs):
         if isinstance(self.calendar, TradingCalendar):
             return self.make_response(ResponseType.SUCCESS, 
                                       self.calendar.tz)
@@ -143,7 +202,7 @@ class BackTester(object):
             return self.make_response(ResponseType.ERROR, 
                                       "not a valid calendar")
             
-    def order_status(self, order_id):
+    def get_order_status(self, order_id):
         '''
             Query for a particular order ID
         '''
@@ -211,18 +270,17 @@ class BackTester(object):
                                           "order not found")
         
     def execution_model(self, order):
-        price = max(min(11800,max(11000,11500 + 
-                          round((random.random()-0.5)*100,2))),105)
+        price = random.randint(20,25)
         
-        traded = round(random.random()*100)
+        traded = round(random.randint(100,500))
         return price, traded
         
     def execute_orders(self, timestamp):
-        for order_id, order in self._open_orders.copy().items():
-            
+        order_ids = list(self._open_orders.keys())
+        for order_id in order_ids:
+            order = self._open_orders[order_id]
             # obtain the traded quantity and price
             price, traded = self.execution_model(order)
-            
             # ignore if traded is 0. Note traded is without sign
             # the order remains open for next exec opportunity
             if traded == 0:
@@ -244,10 +302,12 @@ class BackTester(object):
                       timestamp)
             
             try:
-                self._account.settle_trade
+                self._account.settle_trade(t)
             except InsufficientFund:
+                self._open_orders[order_id].update(OrderUpdateType.REJECT,
+                                 {"reason":"insufficient fund"})
+                self._closed_orders[order_id] = self._open_orders.pop(order_id)
                 continue
-            
             
             self._open_orders[order_id].update(OrderUpdateType.EXECUTION,t)
             
@@ -259,44 +319,11 @@ class BackTester(object):
                 self._open_positions[t.asset].update(t, margin)
                 #TODO: optimize the pop?
                 if self._open_positions[t.asset].if_closed():
-                    self._closed_positions[t.asset] = self._open_positions.pop(t.asset)
+                    self._closed_positions.append(self._open_positions.pop(t.asset))
+            
             else:
                 p = Position.from_trade(t, margin)
                 self._open_positions[t.asset] = p
-                
-    def _api(self):
-        while True:
-            order = yield               # recieve the api call
-            cmd = order['cmd']
-            data = order['payload']
-            timestamp = order['timestamp']
-            self.execute_orders(timestamp)
-            
-            # command parsing in the order of expected frequency
-            if cmd == APICommand.PLACE_ORDER :
-                response = self.place_order(data)
-            elif cmd == APICommand.MODIFTY_ORDER:
-                response = self.update_order(data)
-            elif cmd == APICommand.CANCEL_ORDER:
-                response = self.cancel_order(data)
-            elif cmd == APICommand.GET_OPEN_ORDERS:
-                response = self.open_orders
-            elif cmd == APICommand.GET_CLOSED_OR_CANCELLED_ORDERS:
-                response = self.orders
-            elif cmd == APICommand.GET_ORDER:
-                response = self.order_status(data)
-            elif cmd == APICommand.GET_POSITIONS:
-                response = self.positions
-            elif cmd == APICommand.ADD_CAPITAL:
-                response = self.add_capital(data)
-            elif cmd == APICommand.LOGIN:
-                response = self.login()
-            elif cmd == APICommand.LOGOUT:
-                response = self.logout()
-            else:
-                response = self.make_response(ResponseType.ERROR,
-                                         "unknown command")
-            yield response
     
     def compute_margin_cashflow(self, asset, price, traded, side):
         instrument_type = asset.instrument_type
@@ -307,41 +334,37 @@ class BackTester(object):
         else:
             traded_qty = - traded
         current_exposure = 0
+        new_exposure = traded_qty*price
         
         current_pos = self._open_positions.get(asset, None)
         if current_pos:
             current_exposure = current_pos.quantity*price
+            
+        square_off = abs(current_exposure) - \
+                         abs(current_exposure+new_exposure)
                 
         if instrument_type == InstrumentType.SPOT:
-            if current_exposure <= 0 and traded_qty > 0:
-                # (partially) squaring short cash positions
-                margin = -pct_margin*min(traded,
-                                         -current_exposure)
-                cash_flow = -price*traded
-            elif current_exposure <= 0 and traded_qty < 0:
-                #  adding to short positions
-                margin = pct_margin*traded
-                cash_flow = 0
-            else:
-                # adding to or reducing long positions
-                margin = 0
-                if traded_qty < 0:
-                    cash_flow = 0
-                else:
-                    cash_flow = -price*traded
+            pass
+                
         else:
             # for non cash, no price cash flows, only margins
-            square_off = abs(current_exposure) - \
-                         abs(current_exposure+traded_qty)
             margin = -pct_margin*square_off
             cash_flow = 0
                 
         return margin, cash_flow
                 
-        
-            
     def compute_commission(self, price, traded):
-        return 20
+        return 0
+    
+    def _api(self):
+        while True:
+            order = yield               # recieve the api call
+            cmd = order['cmd']
+            data = order['payload']
+            
+            # command dispatching here
+            response = self.dispath_dict.get(cmd,self.default_op)(data)
+            yield response
     
     def send(self, arg):
         response = self.api.send(arg)
@@ -364,75 +387,104 @@ class BackTesterAPI(AbstractBrokerAPI):
         else:
             self.broker = BackTester(name, calendar, initial_capital)
         
-    def make_api_payload(self, command, data, timestamp):
-        return {"cmd":command, "payload":data, "timestamp":timestamp}
-        
-    def login(self, timestamp):
-        response = self.broker.send(self.make_api_payload(APICommand.LOGIN,
-                                          None,timestamp))
-        return response
+    def make_api_payload(self, command, data):
+        return {"cmd":command, "payload":data}
     
-    def logout(self, timestamp):
-        response = self.broker.send(self.make_api_payload(APICommand.LOGOUT,
-                                          None,timestamp))
-        return response
-    
-    def profile(self, timestamp):
-        response = self.broker.send(self.make_api_payload(APICommand.GET_PROFILE,
-                                          None,timestamp))
-        return response
-    
-    def account(self, timestamp):
-        response = self.broker.send(self.make_api_payload(APICommand.GET_ACCOUNT,
-                                          None,timestamp))
-        return response
-    
-    def positions(self, timestamp):
-        response = self.broker.send(self.make_api_payload(APICommand.GET_POSITIONS,
-                                          None,timestamp))
-        return response
-    
-    def open_orders(self, timestamp):
-        response = self.broker.send(self.make_api_payload(APICommand.GET_OPEN_ORDERS,
-                                          None,timestamp))
-        return response
-    
-    def order(self, order_id, timestamp):
-        response = self.broker.send(self.make_api_payload(APICommand.GET_ORDER,
-                                          order_id,timestamp))
-        return response
-    
-    def orders(self, timestamp):
-        response = self.broker.send(self.make_api_payload(APICommand.GET_CLOSED_OR_CANCELLED_ORDERS,
-                                          None,timestamp))
-        return response
-    
-    def timezone(self):
-        pass
-    
-    def place_order(self, order, timestamp):
-        response = self.broker.send(self.make_api_payload(APICommand.PLACE_ORDER,
-                                          order,timestamp))
-        return response
-    
-    def update_order(self, order_id, timestamp):
-        response = self.broker.send(self.make_api_payload(APICommand.MODIFTY_ORDER,
-                                          order_id,timestamp))
-        
-        return response
-    
-    def cancel_order(self, order_id, timestamp):
-        response = self.broker.send(self.make_api_payload(APICommand.CANCEL_ORDER,
-                                          order_id,timestamp))  
-        return response
-        
-    def fund_transfer(self, amount, timestamp):
-        response = self.broker.send(self.make_api_payload(APICommand.ADD_CAPITAL,
-                                          amount, timestamp))
-        
-        if response['status'] == ResponseType.SUCCESS:
+    def process_response(self, response):
+        if response['status'] == ResponseType.SUCCESS.value:
             return response['data']
         else:
-            return None
+            msg = response['data']
+            raise BackTestAPIError(msg=msg)
+        
+    def login(self, *args, **kwargs):
+        response = self.broker.send(self.make_api_payload(APICommand.LOGIN,
+                                          kwargs))
+        return self.process_response(response)
+    
+    def logout(self, *args, **kwargs):
+        response = self.broker.send(self.make_api_payload(APICommand.LOGOUT,
+                                          kwargs))
+        return self.process_response(response)
+    
+    def profile(self, *args, **kwargs):
+        response = self.broker.send(self.make_api_payload(APICommand.GET_PROFILE,
+                                          kwargs))
+        return self.process_response(response)
+    
+    def account(self, *args, **kwargs):
+        response = self.broker.send(self.make_api_payload(APICommand.GET_ACCOUNT,
+                                          kwargs))
+        return self.process_response(response)
+    
+    def positions(self, *args, **kwargs):
+        response = self.broker.send(self.make_api_payload(APICommand.GET_POSITIONS,
+                                          kwargs))
+        return self.process_response(response)
+    
+    def open_orders(self, *args, **kwargs):
+        response = self.broker.send(self.make_api_payload(APICommand.GET_OPEN_ORDERS,
+                                          kwargs))
+        return self.process_response(response)
+    
+    def order(self, order_id):
+        response = self.broker.send(self.make_api_payload(APICommand.GET_ORDER,
+                                          order_id))
+        return BackTesterAPI.process_response(response)
+    
+    def orders(self, *args, **kwargs):
+        response = self.broker.send(self.make_api_payload(APICommand.GET_PAST_ORDERS,
+                                          kwargs))
+        return self.process_response(response)
+    
+    def timezone(self, *args, **kwargs):
+        pass
+    
+    def place_order(self, order):
+        response = self.broker.send(self.make_api_payload(APICommand.PLACE_ORDER,
+                                          order))
+        return self.process_response(response)
+    
+    def update_order(self, order_id, *args, **kwargs):
+        kwargs["order_id"] = order_id
+        response = self.broker.send(self.make_api_payload(APICommand.MODIFTY_ORDER,
+                                          kwargs))
+        
+        return self.process_response(response)
+    
+    def cancel_order(self, order_id):
+        response = self.broker.send(self.make_api_payload(APICommand.CANCEL_ORDER,
+                                          order_id))  
+        return self.process_response(response)
+        
+    def fund_transfer(self, amount):
+        response = self.broker.send(self.make_api_payload(APICommand.ADD_CAPITAL,
+                                          amount))
+        
+        return self.process_response(response)
+    
+    def trading_bar(self, timestamp):
+        self.broker.send(self.make_api_payload(BARS.TRADING_BAR,
+                         timestamp))
+        
+    def before_trading_start(self, timestamp):
+        self.broker.send(self.make_api_payload(BARS.BEFORE_TRADING_START,
+                         timestamp))
+        
+    def after_trading_hours(self, timestamp):
+        self.broker.send(self.make_api_payload(BARS.AFTER_TRADING_HOURS,
+                         timestamp))
+        
+    def algo_start(self, timestamp):
+        self.broker.send(self.make_api_payload(BARS.ALGO_START,
+                         timestamp))
+        
+    def algo_end(self, timestamp):
+        self.broker.send(self.make_api_payload(BARS.ALGO_END,
+                         timestamp))
+        
+    def heart_beat(self, timestamp):
+        self.broker.send(self.make_api_payload(BARS.HEART_BEAT,
+                         timestamp))
         
         

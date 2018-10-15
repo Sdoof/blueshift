@@ -38,20 +38,20 @@ class Algorithm(object):
         pass
     
     def handle_data(self,timestamp):
-        qty = random.randint(-500,500)
+        qty = random.randint(-50,50)
         if qty == 0:
             return
         side = OrderSide.BUY if qty > 0 else OrderSide.SELL
         o = Order(abs(qty),side,self.context.asset)
-        self.api.place_order(o,timestamp)
+        self.api.place_order(o)
     
     def after_trading_hours(self,timestamp):
         pass
     
     def analyze(self,timestamp):
-        self.context.positions = self.api.positions(timestamp)
-        self.context.orders = self.api.orders(timestamp)
-        self.open_orders = self.api.open_orders(timestamp)
+        self.context.positions = self.api.positions()
+        self.context.orders = self.api.orders()
+        self.open_orders = self.api.open_orders()
         
         
     def heartbeat(self, timestamp):
@@ -61,21 +61,29 @@ class Algorithm(object):
         t1 = pd.Timestamp.now()
         for t, bar in self.clock:
             if bar == BARS.ALGO_START:
+                ts = pd.Timestamp(t,unit='ns',tz=self.calendar.tz)
+                self.api.algo_start(ts)
                 self.initialize(t)
             elif bar == BARS.ALGO_END:
+                ts = pd.Timestamp(t,unit='ns',tz=self.calendar.tz)
+                self.api.algo_end(ts)
                 self.analyze(t)
             elif bar == BARS.BEFORE_TRADING_START:
                 ts = pd.Timestamp(t,unit='ns',tz=self.calendar.tz)
+                self.api.before_trading_start(ts)
                 self.before_trading_start(ts)
             elif bar == BARS.AFTER_TRADING_HOURS:
                 ts = pd.Timestamp(t,unit='ns',tz=self.calendar.tz)
+                self.api.after_trading_hours(ts)
                 self.after_trading_hours(ts)
             elif bar == BARS.TRADING_BAR:
                 ts = pd.Timestamp(t,unit='ns',tz=self.calendar.tz)
+                self.api.trading_bar(ts)
                 self.handle_data(ts)
-                algo.api.login(ts)
+                #algo.api.login(ts)
             elif bar == BARS.HEAR_BEAT:
                 ts = pd.Timestamp(t,unit='ns',tz=self.calendar.tz)
+                self.api.hear_beat(ts)
                 self.heartbeat(ts)
                 
         t2 = pd.Timestamp.now()
@@ -83,8 +91,8 @@ class Algorithm(object):
         print("run complete in {} milliseconds".format(elapsed_time))
     
 import pandas as pd
-start_dt = pd.Timestamp('2010-01-01')
-end_dt = pd.Timestamp('2018-10-04')
+start_dt = pd.Timestamp('2010-01-04')
+end_dt = pd.Timestamp('2018-01-04')
 ist_cal = TradingCalendar('IST',tz='Asia/Calcutta',opens=(9,15,0), 
                           closes=(15,30,0))
 clock = SimulationClock(ist_cal,1,start_dt,end_dt)

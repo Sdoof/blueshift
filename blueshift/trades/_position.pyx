@@ -48,15 +48,15 @@ cdef class Position:
         self.pid = hash(self.asset.symbol+str(self.asset.sid))
         self.hashed_pid = hash(self.asset.symbol+str(self.asset.sid))
         self.instrument_id = instrument_id
-    
-        self.quantity = quantity
         
         if side == OrderSide.BUY:
+            self.quantity = quantity
             self.buy_price = average_price
             self.buy_quantity = quantity
             self.sell_quantity = 0
             self.sell_price = 0
         else:
+            self.quantity = -quantity
             self.sell_quantity = quantity
             self.sell_price = average_price
             self.buy_price = 0

@@ -23,7 +23,7 @@ cdef class Account:
                  float gross_exposure=0,    # existing exposure
                  float net_exposure=0,      # existing exposure
                  float mtm=0,               # unrealized position value
-                 bool live_account=False,
+                 float commissions=0,       # cumulative commissions
                  object currency='local'):
         
         self.name = name
@@ -33,7 +33,7 @@ cdef class Account:
         self.margin = margin
         self.mtm = mtm
         self.currency = currency
-        self.live_account = live_account
+        self.commissions = commissions
         
         self.liquid_value = self.cash + self.margin
         self.net = self.mtm + self.liquid_value
@@ -51,7 +51,8 @@ cdef class Account:
                 'net_exposure':self.net_exposure,
                 'cash':self.cash,
                 'mtm':self.mtm,
-                'liquid_value':self.liquid_value}
+                'liquid_value':self.liquid_value,
+                'commissions':self.commissions}
         
     def __str__(self):
         return 'Account:name:%s, net:%.2f, cash:%.2f, mtm:%.2f' % \
@@ -71,17 +72,16 @@ cdef class Account:
                                 self.net_exposure,
                                 self.cash,
                                 self.mtm,
-                                self.liquid_value))
+                                self.liquid_value,
+                                self.commissions))
         
     @classmethod
     def from_dict(cls, data):
         return cls(**data)
     
-    # only valid for backtesting/ paper-trading
+cdef class BacktestAccount(Account):
+    
     cpdef fund_transfer(self, float amount):
-        if self.live_account:
-            return
-        
         if amount + self.cash < 0:
             raise InsufficientFund()
             
@@ -89,21 +89,21 @@ cdef class Account:
         self.net = self.net + amount
         self.liquid_value = self.liquid_value + amount
         
-    # only valid for backtesting/ paper-trading
     cpdef settle_trade(self, Trade t):
-        if self.live_account:
-            return
-        
         # a trade can require cash flow and/ or margin block
         if t.cash_flow + t.margin > self.cash:
             raise InsufficientFund()
             
         self.cash = self.cash - t.cash_flow
-        self.liquid_value = self.liquid_value - t.cash_flow
-        self.block_margin(t.margin)
+        if t.margin > 0:
+            self.block_margin(t.margin)
+        else:
+            self.release_margin(-t.margin)
         
         # ideally a trade should impact the net value only by commission
         self.net = self.net - t.commission
+        self.liquid_value = self.liquid_value - t.commission
+        self.commissions = self.commissions + t.commission
         
     cpdef release_margin(self, float amount):
         if self.margin < amount:
@@ -120,8 +120,6 @@ cdef class Account:
         self.margin = self.margin + amount
         
     cpdef update_accounts(self, float mtm, float gross, float net):
-        if self.live_account:
-            return
         
         # run all updates in series
         self.mtm = self.mtm + mtm
