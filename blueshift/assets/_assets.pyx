@@ -6,6 +6,7 @@ Created on Mon Sep 24 17:14:42 2018
 """
 
 # compile with <cythonize -i _assets.pyx>
+# TODO: add instrument id and include that in hash
 
 cimport cython
 

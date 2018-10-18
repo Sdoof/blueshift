@@ -9,7 +9,7 @@ from enum import Enum
 import logging
 
 from blueshift.execution.broker import AbstractBrokerAPI, BrokerType
-from blueshift.trades.clocks import BARS
+from blueshift.execution._clock import BARS
 from blueshift.trades._order import Order
 from blueshift.trades._position import Position
 from blueshift.trades._trade import Trade
@@ -20,6 +20,8 @@ from blueshift.assets._assets import InstrumentType
 from blueshift.utils.exceptions import InsufficientFund, BackTestAPIError
 
 import random
+
+LOGNAME = "backtest_server"
 
 class ResponseType(Enum):
     SUCCESS = "success"
@@ -48,18 +50,18 @@ MarginDict = {
     InstrumentType.STRATEGY:0}
 
     
-#logger = logging.getLogger('backtest_broker')
-#logger.setLevel(logging.DEBUG)
-#fh = logging.FileHandler('backtest_broker.log')
-#fh.setLevel(logging.DEBUG)
-#ch = logging.StreamHandler()
-#ch.setLevel(logging.ERROR)
-#formatter = logging.Formatter('%(name)s-%(levelname)s-'\
-#                              '%(asctime)s: %(message)s')
-#fh.setFormatter(formatter)
-#ch.setFormatter(formatter)
-#logger.addHandler(fh)
-#logger.addHandler(ch)
+logger = logging.getLogger(LOGNAME)
+logger.setLevel(logging.DEBUG)
+fh = logging.FileHandler(LOGNAME+'.log')
+fh.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.ERROR)
+formatter = logging.Formatter('%(name)s-%(levelname)s-'\
+                              '%(asctime)s: %(message)s')
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+logger.addHandler(fh)
+logger.addHandler(ch)
 
 class BackTester(object):
     '''
@@ -112,21 +114,27 @@ class BackTester(object):
         self.dispath_dict[BARS.HEAR_BEAT]=self.heart_beat
         
     def algo_start(self, timestamp):
+        self.timestamp = timestamp
         pass
     
     def algo_end(self, timestamp):
+        self.timestamp = timestamp
         pass
         
     def before_trading_start(self,timestamp):
+        self.timestamp = timestamp
         pass
     
     def after_trading_hours(self, timestamp):
+        self.timestamp = timestamp
         self._open_orders = {}
     
     def heart_beat(self, timestamp):
+        self.timestamp = timestamp
         pass
         
     def trading_bar(self, timestamp):
+        self.timestamp = timestamp
         self.execute_orders(timestamp)
     
     def no_op(self, *args, **kwargs):
@@ -386,6 +394,12 @@ class BackTesterAPI(AbstractBrokerAPI):
             self.broker = broker
         else:
             self.broker = BackTester(name, calendar, initial_capital)
+            
+    def __str__(self):
+        return 'Broker:name:%s, type:%s'%(self.broker_name, self.type)
+    
+    def __repr__(self):
+        return self.__str__()
         
     def make_api_payload(self, command, data):
         return {"cmd":command, "payload":data}

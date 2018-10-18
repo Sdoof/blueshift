@@ -12,6 +12,8 @@ import pymongo
 from functools import lru_cache
 from blueshift.assets._assets import create_asset_from_dict
 
+# TODO: add instrument id in hash, also add search by instrument id
+
 LRU_CACHE_SIZE = 4096
 
 class AssetDBConfiguration(object):

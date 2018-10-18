@@ -74,3 +74,4 @@ class AbstractBrokerAPI(ABC):
     @abstractmethod
     def fund_transfer(self, *args, **kwargs):
         pass
+    

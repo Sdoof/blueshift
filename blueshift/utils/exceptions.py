@@ -8,7 +8,7 @@ Created on Mon Sep 24 17:14:42 2018
 class BlueShiftException(Exception):
     msg = None
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         self.kwargs = kwargs
 
     def message(self):
@@ -31,3 +31,26 @@ class InsufficientFund(BlueShiftException):
     
 class BackTestAPIError(BlueShiftException):
     msg = "Error received from Backtester: {msg}"
+    
+class InitializationError(BlueShiftException):
+    msg = "Error during initialization: {msg}"
+    
+class APIValidationError(BlueShiftException):
+    msg = "{msg}"
+    
+class StateMachineError(BlueShiftException):
+    msg = "Error in Algo attempted state change: {msg}"
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
