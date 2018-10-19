@@ -83,7 +83,7 @@ cdef class SimulationClock(TradingClock):
         self.session_nanos = np.asarray([s.value for s in sessions])
         
     def __iter__(self):
-        yield 0, ALGO_START
+        yield self.session_nanos[0], ALGO_START
         for session_nano in self.session_nanos:
             t = session_nano+self.before_trading_start_nano
             yield t, BEFORE_TRADING_START
@@ -94,7 +94,7 @@ cdef class SimulationClock(TradingClock):
             t = session_nano+self.after_trading_hours_nano
             yield t, AFTER_TRADING_HOURS
         
-        yield 0, ALGO_END
+        yield t, ALGO_END
         
         
 cdef class RealtimeClock(TradingClock):

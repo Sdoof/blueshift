@@ -15,6 +15,7 @@ from blueshift.execution._clock import SimulationClock
 from blueshift.execution.broker import BrokerType
 from blueshift.execution.backtester import BackTesterAPI
 
+
 # default start, end dates and capital
 tz = 'Asia/Calcutta'
 start_dt = pd.Timestamp('2010-01-04',tz=tz)

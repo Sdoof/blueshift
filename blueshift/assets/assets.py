@@ -7,10 +7,12 @@ Created on Wed Oct  3 10:00:58 2018
 import os
 from abc import ABCMeta
 import pandas as pd
+import json
 import sqlalchemy as sa
 import pymongo
 from functools import lru_cache
 from blueshift.assets._assets import create_asset_from_dict
+from blueshift.utils.cutils import check_input
 
 # TODO: add instrument id in hash, also add search by instrument id
 
@@ -31,6 +33,29 @@ class AssetDBConfiguration(object):
         self.db_name = kwargs.get("db_name","asset_db.csv")
         self.sym_map = kwargs.get("sym_map",None)
         self.table_name = kwargs.get("table_name","asset_db.csv")
+        
+    def __str__(self):
+        return "AssetDBConfiguration, db type:%s, db name:%s" % (
+                self.type, self.db_name)
+        
+    def __repr__(self):
+        return self.__str__()
+    
+    def to_json(self):
+        d = {}
+        d['type'] = self.type
+        d['conn_string'] = self.conn_string
+        d['db_name'] = self.db_name
+        d['sym_map'] = self.sym_map
+        d['table_name'] = self.table_name
+        return json.dumps(d)
+    
+    @classmethod
+    def from_json(cls, jsonstr:str):
+        check_input(cls.from_json,locals())
+        d = json.loads(jsonstr)
+        return cls(**d)
+
         
 
 class AssetDBQueryInterface(metaclass=ABCMeta):

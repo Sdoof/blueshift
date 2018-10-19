@@ -8,9 +8,15 @@ import pandas as pd
 import numpy as np
 import pytz
 from datetime import datetime, time
-from blueshift.utils.exceptions import SessionOutofRange
+import json
 
+from blueshift.utils.exceptions import SessionOutofRange
+from blueshift.utils.cutils import check_input
+
+# constat values
 NANO = 1000000000
+
+# defaults for calendar creations
 START_DATE = pd.Timestamp('1990-01-01 00:00:00')
 END_DATE = pd.Timestamp(datetime.now().date()) + \
                 pd.Timedelta(weeks=52)
@@ -34,6 +40,9 @@ def make_consistent_tz(dt, tz):
     return dt
 
 def days_to_nano(dts, tz, weekends):
+    '''
+        convert a list of bizdays to a list of sessions in nanos
+    '''
     dtsn = []
     if dts is None:
         start = make_consistent_tz(START_DATE, tz)
@@ -67,11 +76,18 @@ def date_to_nano_midnight(dt, tz):
     return dt.value
 
 class TradingCalendar(object):
+    '''
+        Base trading calendar. Takes in a list of bizdays and standard
+        weekends and create a list of valid trading sessions between
+        dates.
+    '''
     def __init__(self, name=None, tz='Etc/UTC', opens=OPEN_TIME,
                  closes=CLOSE_TIME, bizdays = None, weekends=[5,6]):
         self._name = name
         assert valid_timezone(tz), 'Timezone is not valid'
         self._tz = tz
+        self._saved_bizdays = bizdays
+        self._saved_weekends = weekends
         self._bizdays = days_to_nano(bizdays, tz, weekends)
         open_time = time(*opens)
         self._open_nano = (open_time.hour*60 + open_time.minute)*60*NANO
@@ -98,6 +114,54 @@ class TradingCalendar(object):
                          tz=self._tz).time()
         return t
         
+    def __str__(self):
+        return "Trading Calendar:%s, timezone:%s" % (self.name,
+                                                       self.tz)
+        
+    def to_json(self):
+        d = {}
+        d['name'] = self._name
+        d['tz'] = self._tz
+        open_secs = int(self._open_nano/1E9)
+        d['opens'] = (int(open_secs/3600), 
+                         int(open_secs/60) % 60, 
+                         open_secs % 60)
+        close_secs = int(self._close_nano/1E9)
+        d['closes'] = (int(close_secs/3600), 
+                         int(close_secs/60) % 60, 
+                         close_secs % 60)
+        d['bizdays'] = self._saved_bizdays
+        d['weekends'] = self._saved_weekends
+        return json.dumps(d)
+    
+    @classmethod
+    def from_json(cls, jsonstr:str):
+        check_input(cls.from_json,locals())
+        d = json.loads(jsonstr)
+        
+        return cls(d['name'],d['tz'],d['opens'],d['closes'],
+                   d['bizdays'],d['weekends'])
+    
+    def __reduce__(self):
+        open_secs = int(self._open_nano/1E9)
+        opens = (int(open_secs/3600), 
+                         int(open_secs/60) % 60, 
+                         open_secs % 60)
+        close_secs = int(self._close_nano/1E9)
+        closes = (int(close_secs/3600), 
+                         int(close_secs/60) % 60, 
+                         close_secs % 60)
+        
+        return (self.__class__,(self._name,
+                                self._tz,
+                                opens,
+                                closes,
+                                self._saved_bizdays,
+                                self._saved_weekends))
+    
+    def __repr__(self):
+        return self.__str__()
+    
     def is_holiday(self, dt):
         return not self.is_session(dt)
     

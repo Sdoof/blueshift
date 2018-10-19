@@ -29,8 +29,6 @@ from blueshift.utils.exceptions import (
         ValidationError,
         BrokerAPIError)
 
-import random
-
 class MODE(Enum):
     BACKTEST = 0
     LIVE = 1
@@ -131,6 +129,13 @@ class TradingAlgorithm(object):
         self._heartbeat = self.namespace.get('heartbeat', noop)
         self._analyze = self.namespace.get('analyze', noop)
 
+    def __str__(self):
+        return "Algorithm: name:%s, broker:%s" % (self.name,
+                                                  self.context.broker)
+    
+    def __repr__(self):
+        return self.__str__()
+    
     def initialize(self, timestamp):
         if self.state != STATE.DORMANT:
             raise StateMachineError(msg="Initialize called from wrong" 

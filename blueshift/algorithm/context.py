@@ -70,6 +70,13 @@ class AlgoContext(object):
                 raise InitializationError(msg="context parent is of "
                                           "invalid type")
         
+    def __str__(self):
+        return "Context: name:%s, broker:%s" % (self.name,
+                                                self.broker)
+    
+    def __repr__(self):
+        return self.__str__()
+    
     @property
     def name(self):
         return self._name

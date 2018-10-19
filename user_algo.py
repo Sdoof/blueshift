@@ -9,7 +9,7 @@ import pandas as pd
 
 def initialize(context):
     context.t1 = pd.Timestamp.now()
-    print("initialize")
+    print("initialize {}".format(context.timestamp))
     context.asset = symbol("NIFTY-I")
     context.a = 0
     
@@ -21,7 +21,7 @@ def handle_data(context, data):
     pass
     
 def analyze(context):
-    print("analyze")
+    print("analyze {}".format(context.timestamp))
     print(context.asset)
     t2 = pd.Timestamp.now()
     elapsed_time = (t2-context.t1).total_seconds()*1000

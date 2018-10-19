@@ -23,6 +23,12 @@ class AbstractBrokerAPI(ABC):
         self.type = broker_type
         self.calendar = calendar
         
+    def __str__(self):
+        return "Broker: name:%s" % (self.broker_name)
+    
+    def __repr__(self):
+        return self.__str__()
+        
     @abstractmethod
     def login(self, *args, **kwargs):
         pass

@@ -87,12 +87,18 @@ class BackTester(object):
         self._closed_positions = []
         self._account = BacktestAccount(name,initial_capital, 
                                         currency=currency)
-        self._profile = {"name":"algo"}
+        self._profile = {"name":"blueshift"}
         self.tid = 0
         self.dispath_dict = {}
         self.make_dispath_dict()
         self.api = self._api()
         self.api.send(None)
+        
+    def __str__(self):
+        return "Backtester: name:%s" % (self.broker_name)
+    
+    def __repr__(self):
+        return self.__str__()
         
     def make_response(self, status, data):
         return {"status":status.value,"data":data}
