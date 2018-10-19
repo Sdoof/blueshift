@@ -11,10 +11,13 @@ from functools import partial
 
 import blueshift.algorithm.api
 from blueshift.algorithm.context import AlgoContext
-from blueshift.utils.cutils import check_input
-from blueshift.execution.backtester import BackTesterAPI 
-from blueshift.execution._clock import SimulationClock, BARS
-from blueshift.utils.calendars.trading_calendar import TradingCalendar
+from blueshift.utils.cutils import check_input 
+from blueshift.execution.broker import AbstractBrokerAPI
+from blueshift.execution._clock import (SimulationClock, 
+                                        BARS,
+                                        RealtimeClock)
+from blueshift.assets.assets import AssetFinder
+from blueshift.data.dataportal import DataPortal
 from blueshift.execution.broker import BrokerType
 from blueshift.trades._order import Order
 from blueshift.trades._order_types import OrderSide
@@ -22,7 +25,9 @@ from blueshift.trades._order_types import OrderSide
 from blueshift.utils.exceptions import (
         StateMachineError,
         APIValidationError,
-        InitializationError)
+        InitializationError,
+        ValidationError,
+        BrokerAPIError)
 
 import random
 
@@ -52,19 +57,44 @@ def api_method(f):
     f.is_api = True
     return f
 
-class Algorithm(object):
+class TradingAlgorithm(object):
     
     def __init__(self, *args, **kwargs):
+        self.name = kwargs.get("name","")
         self.mode = kwargs.get("mode",MODE.BACKTEST)
         self.state = STATE.DORMANT
         self.namespace = {}
         
-        self.api = kwargs.get("broker",None)
-        self.clock = kwargs.get("clock", None)
-        self.calendar = kwargs.get("calendar", None)
-        self.context = kwargs.get("context", AlgoContext())
-        self.asset_finder = kwargs.get("asset_finder", None)
+        # two ways to kickstart, specify the components...
+        param_test = 0
+        broker = kwargs.get("broker",None)
+        if isinstance(broker, AbstractBrokerAPI):
+            param_test = 1
+        clock = kwargs.get("clock", None)
+        if isinstance(clock, (SimulationClock,RealtimeClock)):
+            param_test = param_test|2
+        asset_finder = kwargs.get("asset_finder", None)
+        if isinstance(asset_finder, AssetFinder):
+            param_test = param_test|4
+        data_portal = kwargs.get("data_portal", None)
+        if isinstance(data_portal, DataPortal):
+            param_test = param_test|8
         
+        # or specify the context. Both not acceptable
+        self.context = kwargs.get("context", None)
+        if self.context:
+            if param_test == 15:
+                raise InitializationError(msg="too many parameters"
+                                    " passed in algo {} init".format(
+                                                  self.name))
+            # else selectively add the components to context
+            else:
+                self.context.update(*args, **kwargs)
+        elif param_test == 15:
+            self.context = AlgoContext(*args, **kwargs)
+        else:
+            self.context = AlgoContext(*args, **kwargs)
+        # we should have a proper algo context by this time
         
         # extract the user algo
         def noop(*args, **kwargs):
@@ -94,14 +124,17 @@ class Algorithm(object):
         
         self._initialize = self.namespace.get('initialize', noop) 
         self._handle_data = self.namespace.get('handle_data', noop)
-        self._before_trading_start = self.namespace.get('before_trading_start', noop)
-        self._after_trading_hours = self.namespace.get('after_trading_hours', noop)
+        self._before_trading_start = self.namespace.\
+                                    get('before_trading_start', noop)
+        self._after_trading_hours = self.namespace.\
+                                    get('after_trading_hours', noop)
         self._heartbeat = self.namespace.get('heartbeat', noop)
         self._analyze = self.namespace.get('analyze', noop)
 
     def initialize(self, timestamp):
         if self.state != STATE.DORMANT:
-            raise StateMachineError("Initialize called from wrong state")
+            raise StateMachineError(msg="Initialize called from wrong" 
+                                    " state")
         self._initialize(self.context)
         # ready to go to the next state
         self.state = STATE.STARTUP
@@ -110,83 +143,91 @@ class Algorithm(object):
         if self.state not in [STATE.STARTUP, \
                               STATE.AFTER_TRADING_HOURS,\
                               STATE.HEARTBEAT]:
-            raise StateMachineError("Before trading start called from wrong state")
-        self._before_trading_start(self.context, self.context.data)
+            raise StateMachineError(msg="Before trading start called"
+                                    " from wrong state")
+        self._before_trading_start(self.context, 
+                                   self.context.data_portal)
         # ready to go to the next state
         self.state = STATE.BEFORE_TRADING_START
     
     def handle_data(self,timestamp):
         # we take a risk not checking the state maching state at 
         # handle_data, primarily to speed up things
-        self._handle_data(self.context, self.context.data)
-#        qty = random.randint(-50,50)
-#        if qty == 0:
-#            return
-#        side = OrderSide.BUY if qty > 0 else OrderSide.SELL
-#        o = Order(abs(qty),side,self.context.asset)
-#        self.api.place_order(o)
-        
+        self._handle_data(self.context, self.context.data_portal)
     
     def after_trading_hours(self,timestamp):
-        # we jump from before trading to after trading hours!
+        # we can jump from before trading to after trading hours!
         if self.state not in [STATE.BEFORE_TRADING_START, \
                               STATE.TRADING_BAR]:
-            raise StateMachineError("After trading hours called from wrong state")
-        self._after_trading_hours(self.context, self.context.data)
+            raise StateMachineError(msg="After trading hours called"
+                                    " from wrong state")
+        self._after_trading_hours(self.context, 
+                                  self.context.data_portal)
         # ready to go to the next state
         self.state = STATE.AFTER_TRADING_HOURS
     
     def analyze(self,timestamp):
         if self.state not in [STATE.HEARTBEAT, \
                               STATE.AFTER_TRADING_HOURS]:
-            raise StateMachineError("Analyze called from wrong state")
-        self._heartbeat(self.context)
-        
+            raise StateMachineError(msg="Analyze called from wrong"
+                                    " state")
+        self._analyze(self.context)
         
     def heartbeat(self, timestamp):
         if self.state not in [STATE.BEFORE_TRADING_START, \
                               STATE.AFTER_TRADING_HOURS, \
                               STATE.TRADING_BAR]:
-            raise StateMachineError("Heartbeat called from wrong state")
+            raise StateMachineError(msg="Heartbeat called from wrong"
+                                    " state")
         self._heartbeat(self.context)
         self.state = STATE.HEARTBEAT
     
-    def run(self):
-        t1 = pd.Timestamp.now()
-        for t, bar in self.clock:
+    def back_test_run(self):
+        if self.mode != MODE.BACKTEST:
+            raise StateMachineError(msg="mode must be back-test")
+        if not isinstance(self.context.clock, SimulationClock):
+            raise ValidationError(msg="mode must be back-test")
+        
+        for t, bar in self.context.clock:
             if bar == BARS.TRADING_BAR:
-                ts = pd.Timestamp(t,unit='ns',tz=self.calendar.tz)
-                self.api.trading_bar(ts)
+                ts = pd.Timestamp(t,unit='ns',
+                                  tz=self.context.trading_calendar.tz)
+                self.context.broker.trading_bar(ts)
+                self.context.set_timestamp(ts)
                 self.context.BAR_update(ts)
                 self.handle_data(ts)
-            elif bar == BARS.ALGO_START:
-                ts = pd.Timestamp(t,unit='ns',tz=self.calendar.tz)
-                self.api.algo_start(ts)
-                self.context.set_up(timestamp=ts, broker=self.api)
-                self.initialize(t)
-            elif bar == BARS.ALGO_END:
-                ts = pd.Timestamp(t,unit='ns',tz=self.calendar.tz)
-                self.api.algo_end(ts)
-                self.analyze(t)
             elif bar == BARS.BEFORE_TRADING_START:
-                ts = pd.Timestamp(t,unit='ns',tz=self.calendar.tz)
-                self.api.before_trading_start(ts)
+                ts = pd.Timestamp(t,unit='ns',
+                                  tz=self.context.trading_calendar.tz)
+                self.context.broker.before_trading_start(ts)
+                self.context.set_timestamp(ts)
                 self.before_trading_start(ts)
             elif bar == BARS.AFTER_TRADING_HOURS:
-                ts = pd.Timestamp(t,unit='ns',tz=self.calendar.tz)
-                self.api.after_trading_hours(ts)
+                ts = pd.Timestamp(t,unit='ns',
+                                  tz=self.context.trading_calendar.tz)
+                self.context.broker.after_trading_hours(ts)
+                self.context.set_timestamp(ts)
                 self.context.BAR_update(ts)
                 self.context.EOD_update(ts)
                 self.after_trading_hours(ts)
-                #algo.api.login(ts)
             elif bar == BARS.HEAR_BEAT:
-                ts = pd.Timestamp(t,unit='ns',tz=self.calendar.tz)
-                self.api.hear_beat(ts)
+                ts = pd.Timestamp(t,unit='ns',
+                                  tz=self.context.trading_calendar.tz)
+                self.context.broker.hear_beat(ts)
+                self.context.set_timestamp(ts)
                 self.heartbeat(ts)
-                
-        t2 = pd.Timestamp.now()
-        elapsed_time = (t2-t1).total_seconds()*1000
-        print("run complete in {} milliseconds".format(elapsed_time))
+            elif bar == BARS.ALGO_START:
+                ts = pd.Timestamp(t,unit='ns',
+                                  tz=self.context.trading_calendar.tz)
+                self.context.broker.algo_start(ts)
+                self.context.set_up(timestamp=ts)
+                self.initialize(ts)
+            elif bar == BARS.ALGO_END:
+                ts = pd.Timestamp(t,unit='ns',
+                                  tz=self.context.trading_calendar.tz)
+                self.context.broker.algo_end(ts)
+                self.context.set_timestamp(ts)
+                self.analyze(t)
     
     @api_method
     def symbol(self,symbol_str:str):
@@ -196,4 +237,25 @@ class Algorithm(object):
     @api_method
     def symbols(self, symbol_list):
         return self.context.asset_finder.lookup_symbols(symbol_list)
-
+    
+    @api_method
+    def order(self, asset, quantity):
+        if quantity == 0:
+            return
+        side = OrderSide.BUY if quantity > 0 else OrderSide.SELL
+        o = Order(abs(quantity),side,asset)
+        try:
+            order_id = self.context.broker.place_order(o)
+            return order_id
+        except BrokerAPIError:
+            pass
+        
+    @api_method
+    def cancel_order(self, order_id):
+        if order_id is None:
+            return
+        try:
+            order_id = self.context.broker.cancel_order(order_id)
+            return order_id
+        except BrokerAPIError:
+            pass
