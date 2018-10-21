@@ -9,6 +9,8 @@ import os
 import pandas as pd
 from functools import partial
 
+from tqdm import tqdm 
+
 import blueshift.algorithm.api
 from blueshift.algorithm.context import AlgoContext
 from blueshift.utils.cutils import check_input 
