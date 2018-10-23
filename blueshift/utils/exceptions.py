@@ -63,4 +63,8 @@ class BacktestUnexpectedExit(BlueShiftException):
     msg = "The backtest generator of {msg} exited unexpectedly"
     handling = ExceptionHandling.TERMINATE
     
+class ClockError(BlueShiftException):
+    msg = "Unexpected Error in Clock:{msg}"
+    handling = ExceptionHandling.TERMINATE
+    
 

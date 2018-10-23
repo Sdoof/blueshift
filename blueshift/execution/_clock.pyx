@@ -21,13 +21,6 @@ cpdef enum BARS:
 NANO_SECOND = 1000000000
     
 cdef class TradingClock(object):
-    cdef object trading_calendar
-    cdef int emit_frequency
-    cdef np.int64_t open_nano
-    cdef np.int64_t close_nano
-    cdef np.int64_t before_trading_start_nano
-    cdef np.int64_t after_trading_hours_nano
-    cdef np.int64_t[:] intraday_nanos
     
     def __init__(self, object trading_calendar, 
                  int emit_frequency):
@@ -66,10 +59,6 @@ cdef class TradingClock(object):
             self.intraday_nanos = self.intraday_nanos[:-1]
         
 cdef class SimulationClock(TradingClock):
-    cdef np.int64_t start_nano
-    cdef np.int64_t end_nano
-    cdef np.int64_t[:] session_nanos
-    
     
     def __init__(self, object trading_calendar,
                            int emit_frequency,
@@ -97,8 +86,7 @@ cdef class SimulationClock(TradingClock):
         yield t, ALGO_END
         
         
-cdef class RealtimeClock(TradingClock):
-        pass
+
         
         
         
