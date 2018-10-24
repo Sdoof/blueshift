@@ -193,7 +193,7 @@ class TradingAlgorithm(object):
         if self.mode != MODE.BACKTEST:
             raise StateMachineError(msg="mode must be back-test")
         if not isinstance(self.context.clock, SimulationClock):
-            raise ValidationError(msg="mode must be back-test")
+            raise ValidationError(msg="clock must be simulation clock")
         
         for t, bar in self.context.clock:
             if bar == BARS.TRADING_BAR:
