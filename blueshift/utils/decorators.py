@@ -32,20 +32,35 @@ def api_rate_limit(f):
     '''
     @wraps(f)
     def decorated(self, *args, **kwargs):
+        
         if self._rate_limit_since is None:
             self._rate_limit_since = pd.Timestamp.now(self.tz)
             self._rate_limit_count == self._rate_limit
         else:
             t = pd.Timestamp.now(self.tz)
-            min_elapsed = (t - self._rate_limit_since).total_seconds()
-            print(min_elapsed)
-            if math.floor(min_elapsed) > 0:
-                self._rate_limit_count == self._rate_limit
-                self._rate_limit_since = pd.Timestamp.now(self.tz)
-        
+            sec_elapsed = (t - self._rate_limit_since).total_seconds()
+            if math.floor(sec_elapsed) > (self._rate_period-1):
+                self.reset_rate_limits()
+
         if self._rate_limit_count == 0:
             raise APIRateLimitCoolOff(msg="Exceeded API rate limit")
         
         self._rate_limit_count = self._rate_limit_count - 1
-        return f(*args, **kwargs)
+        return f(self, *args, **kwargs)
     return decorated
+
+class singleton(object):
+    '''
+        Standard singleton class decorator. The side-effect is for
+        any inherited class, the super call with class name will fail,
+        as the class name is now a singleton callable, not a class. 
+        Way around is to use self.__class__ directly, but there should
+        be a cleaner way.
+    '''
+    def __init__(self,cls):
+        self.cls = cls
+        self.instance = None
+    def __call__(self,*args,**kwds):
+        if self.instance == None:
+            self.instance = self.cls(*args,**kwds)
+        return self.instance

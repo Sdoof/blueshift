@@ -12,8 +12,10 @@ from kiteconnect import KiteConnect
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.configs.authentications import TokenAuth
 from blueshift.data.rest_data import RESTData
-from blueshift.utils.exceptions import AuthenticationError, ExceptionHandling
-from blueshift.utils.decorators import api_rate_limit
+from blueshift.utils.exceptions import (AuthenticationError, 
+                                        ExceptionHandling,
+                                        APIRateLimitCoolOff)
+from blueshift.utils.decorators import api_rate_limit, singleton
 
 class KiteConnect3(KiteConnect):
     def __str__(self):
@@ -24,7 +26,7 @@ class KiteConnect3(KiteConnect):
     
 kite_calendar = TradingCalendar('NSE',tz='Asia/Calcutta',opens=(9,15,0), 
                                 closes=(15,30,0))
-
+@singleton
 class KiteAuth(TokenAuth):
     
     def __init__(self, *args, **kwargs):
@@ -42,7 +44,7 @@ class KiteAuth(TokenAuth):
         
         if not kwargs.get('name',None):
             kwargs['name'] = 'kite'
-        super(KiteAuth, self).__init__(*args, **kwargs)
+        super(self.__class__, self).__init__(*args, **kwargs)
         self._api_key = kwargs.get('api_key',None)
         self._api_secret = kwargs.get('api_secret',None)
         self._user_id = kwargs.get('id',None)
@@ -108,7 +110,7 @@ class KiteAuth(TokenAuth):
             handling = ExceptionHandling.WARN
             raise AuthenticationError(msg=msg, handling=handling)
 
-
+@singleton
 class KiteRestData(RESTData):
     
     def __init__(self, *args, **kwargs):
@@ -124,7 +126,7 @@ class KiteRestData(RESTData):
         if config:
             kwargs = {**config, **kwargs}
         
-        super(KiteRestData, self).__init__(*args, **kwargs)
+        super(self.__class__, self).__init__(*args, **kwargs)
         
         if not self._api:
             if not self._auth:
@@ -137,7 +139,8 @@ class KiteRestData(RESTData):
             self._max_instruments = 400
         
         if not self._rate_limit:
-            self._rate_limit = 40 # Kite has 60, we are conservative 
+            # Kite has 3 per sec, we are conservative
+            self._rate_limit = 5
             self._rate_limit_count = self._rate_limit
             
         if not self._trading_calendar:
@@ -159,7 +162,7 @@ class KiteRestData(RESTData):
         else:
             try:
                 self._instruments_list = pd.DataFrame(self._api.\
-                                                      instruments())
+                                                instruments())
             except Exception as e:
                 print(e)
                 raise e
@@ -168,12 +171,14 @@ class KiteRestData(RESTData):
         self._instrument_list_valid_till = t.normalize()
         
     @api_rate_limit
-    def current(assets, fields):
+    def current(self, assets, fields):
         print("current")
         
     @api_rate_limit
-    def history(assets, fields):
+    def history(self, assets, fields):
         print("current")
+        
+
             
 kite_auth = KiteAuth(config='kite_config.json',tz='Asia/Calcutta',
                      timeout=(8,45))
@@ -183,10 +188,19 @@ except Exception as e:
     print(e)
     print(e.handling)
             
+instruments_list = pd.DataFrame(kite_auth._api.instruments())
+
 kite_data = KiteRestData(auth=kite_auth, 
                          instruments_list=instruments_list)
             
 
-for i in range(200):
-    kite_data.current(1,2)
+for i in range(10):
+    try:
+        kite_data.current(1,2)
+        print(i)
+    except APIRateLimitCoolOff:
+        print(f"rate limit exeeded: sleeping now for {kite_data._rate_period}s")
+        kite_data.cool_off()
             
+
+    
