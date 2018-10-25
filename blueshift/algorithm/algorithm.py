@@ -23,6 +23,7 @@ from blueshift.data.dataportal import DataPortal
 from blueshift.execution.broker import BrokerType
 from blueshift.trades._order import Order
 from blueshift.trades._order_types import OrderSide
+from blueshift.utils.decorators import api_method
 
 from blueshift.utils.exceptions import (
         StateMachineError,
@@ -43,19 +44,6 @@ class STATE(Enum):
     SHUTDOWN = 4
     HEARTBEAT = 5
     DORMANT = 6
-
-
-def api_method(f):
-    '''
-        decorator to map bound API functions to unbound user 
-        functions. First add to the function to the list of available 
-        API functions in the api module. Then set the api attribute to 
-        scan during init for late binding.
-    '''
-    setattr(blueshift.algorithm.api, f.__name__, f)
-    blueshift.algorithm.api.__all__.append(f.__name__)
-    f.is_api = True
-    return f
 
 class TradingAlgorithm(object):
     

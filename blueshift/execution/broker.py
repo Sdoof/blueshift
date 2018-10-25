@@ -67,17 +67,17 @@ class AbstractBrokerAPI(ABC):
     
     @abstractmethod
     def place_order(self, *args, **kwargs):
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def update_order(self, *args, **kwargs):
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def cancel_order(self, *args, **kwargs):
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def fund_transfer(self, *args, **kwargs):
-        pass
+        raise NotImplementedError
     
