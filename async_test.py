@@ -52,7 +52,7 @@ class Consumer(object):
             print("{}: got {}".format(t, tick))
             await asyncio.sleep(0)
             self.i = self.i + 1
-            if self.i == 1:
+            if self.i == 5:
                 raise ValueError("some message")
             
     def reset_clock(self, delay=1):

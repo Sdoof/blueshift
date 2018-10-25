@@ -14,7 +14,7 @@ async def echo():
         msg_s = yield
         await ws.send(msg_s)
         msg_r = await ws.recv()
-        yield msg_r
+        yield 2*msg_r
         i = i + 1
             
 
