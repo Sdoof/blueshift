@@ -67,4 +67,11 @@ class ClockError(BlueShiftException):
     msg = "Unexpected Error in Clock:{msg}"
     handling = ExceptionHandling.TERMINATE
     
+class AuthenticationError(BlueShiftException):
+    msg = "Authentication Error: {msg}"
+    handling = ExceptionHandling.TERMINATE
+    
+class APIRateLimitCoolOff(BlueShiftException):
+    msg = "Authentication Error: {msg}"
+    handling = ExceptionHandling.WARN
 
