@@ -5,12 +5,13 @@ Created on Wed Oct  3 10:00:58 2018
 @author: academy
 """
 import os
-from abc import ABCMeta
+from abc import ABC, abstractmethod
 import pandas as pd
 import json
 import sqlalchemy as sa
 import pymongo
 from functools import lru_cache
+
 from blueshift.assets._assets import create_asset_from_dict
 from blueshift.utils.cutils import check_input
 
@@ -58,7 +59,7 @@ class AssetDBConfiguration(object):
 
         
 
-class AssetDBQueryInterface(metaclass=ABCMeta):
+class AssetDBQueryInterface(ABC):
     '''
         ABC for the asset db implementation interface. Any type of
         asset db (csv, sqlite, mongo or others) must implement this
@@ -68,24 +69,31 @@ class AssetDBQueryInterface(metaclass=ABCMeta):
     def __init__(self, asset_db_config):
         self.asset_db_config = asset_db_config
     
+    @abstractmethod
     def query_asset_class_type(self,sids):
         raise NotImplementedError
-        
+    
+    @abstractmethod    
     def query_instrument_type(self,sids):
         raise NotImplementedError
-        
+
+    @abstractmethod        
     def query_marketdata_type(self,sids):
         raise NotImplementedError
         
+    @abstractmethod
     def query_symbols(self,sids):
         raise NotImplementedError
         
+    @abstractmethod
     def query_exchange(self,sids):
         raise NotImplementedError
         
+    @abstractmethod
     def query_calendar(self,sids):
         raise NotImplementedError
         
+    @abstractmethod
     def query_cols_filtered(self,query_col, *fetch_cols, filter_col, 
                             filter_value):
         raise NotImplementedError
@@ -161,11 +169,18 @@ class AssetFinder(object):
         look up assets.
     '''
     
-    def __init__(self, query_engine):
+    def __init__(self, query_engine, name=""):
+        self.name = name
         self.query_engine = query_engine
         self._caches = (self._asset_cache, self._sym_map_cache) \
                     = {}, {}
         
+    def __str__(self):
+        return "AssetFinder:%s" % self.name
+    
+    def __repr__(self):
+        return self.__str__()
+    
     @lru_cache(maxsize=LRU_CACHE_SIZE,typed=False)
     def fetch_asset(self, sid):
         asset_data = self.query_engine.query_all_filtered("sid",sid,"equals")
@@ -198,13 +213,68 @@ class AssetFinder(object):
             assets.append(self.lookup_symbol(sym,as_of_date))
             
         return assets
+    
+class NoAssetFinder(AssetFinder):
+    '''
+        The asset finder that has no underlying database. Implements the
+        class methods all returning null. This enables user to use live
+        trading for a broker even without the need of an existing 
+        asset database
+    '''
+    
+    def __init__(self, query_engine=None, name=""):
+        self.name = name
+        
+    def __str__(self):
+        return "NoAssetFinder:%s" % self.name
+    
+    def __repr__(self):
+        return self.__str__()
+    
+    def fetch_asset(self, sid):
+        return
+    
+    def fetch_assets(self, sids):
+        return []
+    
+    def lookup_symbol(self, sym, as_of_date=None):
+        return
+    
+    def lookup_symbols(self, syms, as_of_date=None):
+        return []
         
         
             
+class BrokerAssetFinder(ABC):
+    '''
+        Class to match our assets to vendor identifiers. This are usually
+        based on either a instrument number or trading symbol, or in some
+        cases even a full blown object giving the entire contract specs.
+        The mapping is mostly based on heuristics. If a list of tradeable
+        instruments available from the broker, we can store and do search
+        on this to find a match. This specific implementation is delegated
+        to particular broker on a case by case basis.
+    '''
+    def __init__(self, *args, **kwargs):
+        self._asset_finder = kwargs.get("asset_finder",None)
         
+    @property    
+    def asset_finder(self):
+        return self._asset_finder
+    
+    @abstractmethod
+    def symbol_to_asset(self, tradingsymbol):
+        raise NotImplementedError
         
+    @abstractmethod
+    def id_to_asset(self, instrument_id):
+        raise NotImplementedError
         
+    @abstractmethod
+    def asset_to_symbol(self, tradingsymbol):
+        raise NotImplementedError
         
+    
         
         
         

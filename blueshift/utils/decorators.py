@@ -7,6 +7,7 @@ Created on Thu Oct 25 15:24:19 2018
 import pandas as pd
 from functools import wraps
 import math
+import time
 
 import blueshift.algorithm.api
 from blueshift.utils.exceptions import APIRateLimitCoolOff
@@ -27,25 +28,25 @@ def api_method(f):
 def api_rate_limit(f):
     '''
         decorator to enforce rate limits on API calls. This assumes a member
-        variable `_rate_limit_count` to keep track of limit consumption and
-        a variable ``
+        variable `rate_limit_count` to keep track of limit consumption and
+        a variable `rate_limit_since`
     '''
     @wraps(f)
     def decorated(self, *args, **kwargs):
         
-        if self._rate_limit_since is None:
-            self._rate_limit_since = pd.Timestamp.now(self.tz)
-            self._rate_limit_count == self._rate_limit
+        if self.rate_limit_since is None:
+            self.rate_limit_since = pd.Timestamp.now(self.tz)
+            self.rate_limit_count == self.rate_limit
         else:
             t = pd.Timestamp.now(self.tz)
-            sec_elapsed = (t - self._rate_limit_since).total_seconds()
+            sec_elapsed = (t - self.rate_limit_since).total_seconds()
             if math.floor(sec_elapsed) > (self._rate_period-1):
                 self.reset_rate_limits()
 
-        if self._rate_limit_count == 0:
+        if self.rate_limit_count == 0:
             raise APIRateLimitCoolOff(msg="Exceeded API rate limit")
         
-        self._rate_limit_count = self._rate_limit_count - 1
+        self.rate_limit_count = self.rate_limit_count - 1
         return f(self, *args, **kwargs)
     return decorated
 
@@ -57,10 +58,32 @@ class singleton(object):
         Way around is to use self.__class__ directly, but there should
         be a cleaner way.
     '''
-    def __init__(self,cls):
+    def __init__(self,cls, *args, **kwargs):
         self.cls = cls
         self.instance = None
-    def __call__(self,*args,**kwds):
+    def __call__(self,*args,**kwargs):
         if self.instance == None:
-            self.instance = self.cls(*args,**kwds)
+            self.instance = self.cls(*args,**kwargs)
         return self.instance
+
+def api_retry(delays=[0,5,30,90,180,300], exception=Exception):
+    '''
+        Decorator to try API for a given number of times, with sleeps in
+        between. It should catch only the appropriate exceptions, passing
+        on anything which may obviate the need for any retries.
+    '''
+    def decorator(f):
+        @wraps(f)
+        def decorated(self, *args, **kwargs):
+            for delay in [*delays,None]:
+                try:
+                    return f(self, *args, **kwargs)
+                except exception as e:
+                    if delay is None:
+                        raise e
+                    else:
+                        time.sleep(delay)
+        return decorated
+    return decorator
+
+

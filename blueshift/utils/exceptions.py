@@ -74,4 +74,8 @@ class AuthenticationError(BlueShiftException):
 class APIRateLimitCoolOff(BlueShiftException):
     msg = "Authentication Error: {msg}"
     handling = ExceptionHandling.WARN
+    
+class APIException(BlueShiftException):
+    msg = "API Error: {msg}"
+    handling = ExceptionHandling.WARN
 
