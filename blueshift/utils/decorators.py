@@ -80,8 +80,10 @@ def api_retry(delays=[0,5,30,90,180,300], exception=Exception):
                     return f(self, *args, **kwargs)
                 except exception as e:
                     if delay is None:
+                        print("attempt failed permanently, quitting ")
                         raise e
                     else:
+                        print(f"failed, sleeping {delay}s before retry")
                         time.sleep(delay)
         return decorated
     return decorator

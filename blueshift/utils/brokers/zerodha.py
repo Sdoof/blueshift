@@ -6,8 +6,10 @@ Created on Thu Oct 25 10:04:34 2018
 """
 import json
 import pandas as pd
+from functools import lru_cache
 
 from kiteconnect import KiteConnect
+from kiteconnect.exceptions import KiteException
 
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.configs.authentications import TokenAuth
@@ -21,6 +23,7 @@ from blueshift.assets.assets import BrokerAssetFinder, NoAssetFinder
 from blueshift.assets._assets import (Asset, Equity, EquityFutures, Forex,
                                       EquityOption)
 
+LRU_CACHE_SIZE = 512
 '''
     Create the default calendar for kiteconnect. The market is NSE.
 '''
@@ -220,10 +223,11 @@ class KiteAssetFinder(BrokerAssetFinder):
             
         self._instruments_list = None
         self._instruments_list_valid_till = None
+        self.expiries = None
+        self.cds_expiries = None
         
         instruments_list = kwargs.get("instruments_list",None)
         self.update_instruments_list(instruments_list)
-        self.filter_instruments_list()
     
     @property
     def tz(self):
@@ -239,7 +243,7 @@ class KiteAssetFinder(BrokerAssetFinder):
     def __repr__(self):
         return self.__str__()
     
-    @api_retry()
+    @api_retry(exception=KiteException)
     def update_instruments_list(self, instruments_list=None):
         '''
             Download the instruments list for the day, if not already
@@ -257,29 +261,38 @@ class KiteAssetFinder(BrokerAssetFinder):
         try:
             self._instruments_list = pd.DataFrame(self._api.\
                                             instruments())
+            self._filter_instruments_list()
+            self._extract_expiries_underlyings()
+            t = pd.Timestamp.now(tz=self.tz) + pd.Timedelta(days=1)
+            self._instruments_list_valid_till = t.normalize()
         except Exception as e:
+            raise e
             msg = str(e)
             handling = ExceptionHandling.TERMINATE
             raise APIException(msg=msg, handling=handling)
         
-        t = pd.Timestamp.now(tz=self.tz) + pd.Timedelta(days=1)
-        self._instruments_list_valid_till = t.normalize()
         
-    def filter_instruments_list(self):
+        
+    def _filter_instruments_list(self):
         '''
             Filter instruments that we do not want - the non EQ segment
             cash instruments + single stock options + bond futures and
-            indices which are not tradeable.
+            indices which are not tradeable. We also drop expiries 
+            with more than 15 weeks from today.
         '''
+        self._instruments_list.dropna(inplace=True)
         # drop exchanges we do not want
         self._instruments_list = self._instruments_list.loc[
             self._instruments_list.exchange.isin(self.__class__.EXCHANGES)]
         
-        # drop the indices, these are not tradeable
+        # drop the indices, these are not tradeable and VIX
         self._instruments_list = self._instruments_list[
                 self._instruments_list.segment != "NSE-INDICES"]
         self._instruments_list = self._instruments_list[
                 self._instruments_list.segment != "INDICES"]
+        self._instruments_list = self._instruments_list[
+                self._instruments_list.tradingsymbol.str.\
+                    contains('INDIAVIX')==False]
         
         # drop esoteric market segments tickers
         def flag(s):
@@ -310,42 +323,173 @@ class KiteAssetFinder(BrokerAssetFinder):
                 for i, r in self._instruments_list.iterrows()]
         self._instruments_list = self._instruments_list[keep]
         
-        # remove expiries more than 15 weeks from now
-        max_expiry = self._instruments_list_valid_till \
-                        + pd.Timedelta(weeks=15)
-        self._instruments_list.loc[
-                self._instruments_list.expiry == "","expiry"] = 0
-        expiry = pd.to_datetime(self._instruments_list.expiry.values).\
-                                                        tz_localize(self.tz)
-        self._instruments_list.expiry = pd.to_datetime(
+        # keep the first three monthly expiries, remove all else
+        today = pd.Timestamp.now().normalize()
+        self._instruments_list.dropna(inplace=True)
+        self._instruments_list['expiry'] = pd.to_datetime(
                 self._instruments_list.expiry)
+        self._instruments_list.loc[pd.isnull(
+                self._instruments_list.expiry),"expiry"] \
+                    = pd.Timestamp.now().normalize()
         self._instruments_list = self._instruments_list[
-                self._instruments_list.expiry < max_expiry]
+                self._instruments_list.expiry \
+                    < today + pd.Timedelta(weeks=15)]
         
+        self.expiries = set(self._instruments_list.expiry[
+                (self._instruments_list['exchange']=="NFO") &\
+                (self._instruments_list["instrument_type"]=="FUT")])
+        
+        self.cds_expiries = set(self._instruments_list.expiry[
+                (self._instruments_list['exchange']=="CDS") &\
+                (self._instruments_list["instrument_type"]=="FUT")])
+        
+        self.expiries = sorted(list(self.expiries)[:3])
+        self.cds_expiries = sorted(list(self.cds_expiries)[:3])
+        
+        self._instruments_list = self._instruments_list[
+                self._instruments_list.expiry.isin(set([*self.expiries,
+                                                  *self.cds_expiries,
+                                                  today]))]
+        
+    def _extract_expiries_underlyings(self):
+        '''
+            Separates underlyings and and expiry month number to 
+            enable searching either NIFTY18DECFUT or NIFTY-II.
+        '''
+        def underlying(s,e):
+            s = s.split(e.strftime('%y%b').upper())
+            return s[0]
+        underlyings = [underlying(r['tradingsymbol'],r['expiry']) \
+                for i, r in self._instruments_list.iterrows()]
+        self._instruments_list['underlying'] = underlyings
+        
+        exp1_dict = dict(zip(self.expiries,['I',"II","III"]))
+        exp2_dict = dict(zip(self.cds_expiries,['I',"II","III"]))
+        def expiry_month(e,i,s, d1, d2):
+            if i != "FUT":
+                return ""
+            else:
+                if s == "NFO":
+                    return d1.get(e,"")
+                elif s == "CDS":
+                    return d2.get(e,"")
+                else:
+                    return ""
+        
+        exp = [expiry_month(r["expiry"],
+                                r["instrument_type"],
+                                r["exchange"],exp1_dict,exp2_dict)\
+            for i, r in self._instruments_list.iterrows()]
+        self._instruments_list['exp'] = exp
+        
+    def _asset_from_row(self, row):
+        '''
+            Create an asset from a matching row from the instruments
+            list.
+        '''
+        if row['instrument_type'] == 'EQ':
+            asset = Equity(-1,symbol=row['tradingsymbol'], 
+                           tick_size=row['tick_size'],
+                           exchange_name='NSE')
+        elif row['segment']=='NFO-FUT':
+            asset = EquityFutures(-1,symbol=row['tradingsymbol'],
+                                  root=row['underlying'],
+                                  name=row['name'],
+                                  end_date=row['expiry'],
+                                  expiry_date = row['expiry'],
+                                  mult=row['lot_size'],
+                                  tick_size=row['tick_size'],
+                                  exchange_name='NSE')
+        elif row['segment']=='NFO-OPT':
+            asset = EquityOption(-1,symbol=row['tradingsymbol'],
+                                  root=row['underlying'],
+                                  name=row['name'],
+                                  end_date=row['expiry'],
+                                  expiry_date = row['expiry'],
+                                  strike = row['strike'],
+                                  mult=row['lot_size'],
+                                  tick_size=row['tick_size'],
+                                  exchange_name='NSE')
+        elif row['segment'] == 'CDS-FUT':
+            base = 'INR'
+            quote = row['underlying'][:3]
+            asset = Forex(-1, symbol=row['tradingsymbol'],
+                                  ccy_pair=quote+'/'+base,
+                                  base_ccy=base,
+                                  quote_ccy = quote,
+                                  name = row['name'],
+                                  end_date=row['expiry'],
+                                  mult=row['lot_size'],
+                                  tick_size=row['tick_size'],
+                                  exchange_name='NSE')
+        else:
+            asset = None
+            
+        return asset
+        
+    @lru_cache(maxsize=LRU_CACHE_SIZE,typed=False)
     def symbol_to_asset(self, tradingsymbol):
+        '''
+            Asset finder that first looks at the provided asset
+            finder. If no match found, it searches the current
+            list of instruments and creates an asset. This asset 
+            can only be used for sending orders and fetching data
+            from the broker directly, not from our database. If no
+            match found even in instrument list, returns None. The
+            symbol stored, if not matched in our databse, is always
+            the tradeable symbol.
+        '''
         asset = self._asset_finder.lookup_symbol(tradingsymbol)
         if asset is not None:
+            # we got a match in our databse, return early
             return asset
+
+        sym = tradingsymbol.split(":")[-1]
+        bases = sym.split("-I")
+        
+        if bases[0] != sym:
+            exp = bases[-1]+'I'
+            row = self._instruments_list.loc[
+                    (self._instruments_list.underlying==bases[0]) &\
+                    (self._instruments_list.exp == exp) &\
+                    (self._instruments_list.instrument_type=='FUT'),]
         else:
-            sym = tradingsymbol.split(":")[-1]
-            base = sym.split("-I")[1]
-            if base != sym:
-                sym = ""
             row = self._instruments_list.loc[
                     self._instruments_list.tradingsymbol==sym,]
-            constructor = self.__class__.AssetConstructorDispatch[\
-                    row['instrument_type'] + row['exchange']]
-            asset = constructor(-1, )
+        
+        if row.empty:
+            # no match found. Refuse to trade the symbol
+            return None
+        
+        row = row.iloc[0].to_dict()
+        return self._asset_from_row(row)
                 
-        
+    @lru_cache(maxsize=LRU_CACHE_SIZE,typed=False)
     def id_to_asset(self, instrument_id):
-        pass
+        '''
+            create an asset from the instrument id. First extract
+            the matching row and search for the asset in our own
+            database. If no match found, create an asset and return.
+        '''
+        row = self._instruments_list[self._instruments_list.\
+                                     instrument_token==instrument_id]
+        row = row.iloc[0].to_dict()
+        asset = self._asset_finder.lookup_symbol(row['tradingsymbol'])
         
-    def asset_to_symbol(self, tradingsymbol):
-        pass
+        if asset:
+            return asset
+        
+        return self._asset_from_row(row)
+        
+    def asset_to_symbol(self, asset):
+        return asset.symbol
     
-    def asset_to_id(self, tradingsymbol):
-        pass
+    @lru_cache(maxsize=LRU_CACHE_SIZE,typed=False)
+    def asset_to_id(self, asset):
+        row = self._instruments_list[self._instruments_list.\
+                                     tradingsymbol==asset.symbol] 
+        row = row.iloc[0].to_dict()
+        return row['instrument_token']
     
         
         
