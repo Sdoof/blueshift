@@ -78,4 +78,10 @@ class APIRateLimitCoolOff(BlueShiftException):
 class APIException(BlueShiftException):
     msg = "API Error: {msg}"
     handling = ExceptionHandling.WARN
+    
+class SymbolNotFound(BlueShiftException):
+    msg = "Symbol not found {msg}"
+    handling = ExceptionHandling.LOG
+    
+
 

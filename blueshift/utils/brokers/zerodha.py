@@ -14,14 +14,15 @@ from kiteconnect.exceptions import KiteException
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.configs.authentications import TokenAuth
 from blueshift.data.rest_data import RESTData
+from blueshift.data.dataportal import OHLCV_FIELDS
 from blueshift.utils.exceptions import (AuthenticationError, 
                                         ExceptionHandling,
                                         APIException,
-                                        BlueShiftException)
+                                        SymbolNotFound)
 from blueshift.utils.decorators import api_rate_limit, singleton, api_retry
 from blueshift.assets.assets import BrokerAssetFinder, NoAssetFinder
-from blueshift.assets._assets import (Asset, Equity, EquityFutures, Forex,
-                                      EquityOption)
+from blueshift.assets._assets import (Equity, EquityFutures, Forex,
+                                      EquityOption, OptionType)
 
 LRU_CACHE_SIZE = 512
 '''
@@ -174,13 +175,45 @@ class KiteRestData(RESTData):
         
         self._rate_limit_since = None # we reset this value on first call
         
+        self._asset_finder = kwargs.get("asset_finder", None)
+        if self._asset_finder is None:
+            self._asset_finder = KiteRestData(auth=self._auth)
+        
     @api_rate_limit
     def current(self, assets, fields):
-        print("current")
+        instruments = [asset.exchange_name+":"+asset.symbol for\
+                          asset in assets]
+        if len(instruments) > self._max_instruments:
+            instruments = instruments[:self._max_instruments]
+        try:
+            data = self._api.ohlc(instruments)
+            return self._ohlc_to_df(data, instruments, assets, 
+                                    fields)
+        except KiteException as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARNING
+            raise APIException(msg=msg, handling=handling)
         
     @api_rate_limit
     def history(self, assets, fields):
-        print("current")
+        instrument_ids = [self._asset_finder.asset_to_id(asset) for assets\
+                          in assets]
+        
+    def _ohlc_to_df(self, data, instruments, assets, fields):
+        fields = [f for f in fields if f in OHLCV_FIELDS]
+        out = {}
+        
+        def get_val(data,inst,key):
+            try:
+                return data[inst]['ohlc'][key]
+            except KeyError:
+                return 0
+        
+        for f in fields:
+            key = "close" if f == "last" else f
+            out[f] = [get_val(data,inst,key) for inst in instruments]
+        
+        return pd.DataFrame(out, index = assets)
         
 @singleton
 class KiteAssetFinder(BrokerAssetFinder):
@@ -247,7 +280,8 @@ class KiteAssetFinder(BrokerAssetFinder):
     def update_instruments_list(self, instruments_list=None):
         '''
             Download the instruments list for the day, if not already
-            downloaded before.
+            downloaded before. If we fail, we cannot continue and so
+            raise a TERMINATE level exception.
         '''
         if instruments_list is not None:
             self._instruments_list = instruments_list
@@ -278,14 +312,15 @@ class KiteAssetFinder(BrokerAssetFinder):
             Filter instruments that we do not want - the non EQ segment
             cash instruments + single stock options + bond futures and
             indices which are not tradeable. We also drop expiries 
-            with more than 15 weeks from today.
+            more than next three monthly ones.
         '''
         self._instruments_list.dropna(inplace=True)
         # drop exchanges we do not want
         self._instruments_list = self._instruments_list.loc[
             self._instruments_list.exchange.isin(self.__class__.EXCHANGES)]
         
-        # drop the indices, these are not tradeable and VIX
+        # drop the indices, these are not tradeable. We also remove
+        # VIX, NIFTYIT and NIFTYMID futures
         self._instruments_list = self._instruments_list[
                 self._instruments_list.segment != "NSE-INDICES"]
         self._instruments_list = self._instruments_list[
@@ -293,6 +328,12 @@ class KiteAssetFinder(BrokerAssetFinder):
         self._instruments_list = self._instruments_list[
                 self._instruments_list.tradingsymbol.str.\
                     contains('INDIAVIX')==False]
+        self._instruments_list = self._instruments_list[
+                self._instruments_list.tradingsymbol.str.\
+                    contains('NIFTYIT')==False]
+        self._instruments_list = self._instruments_list[
+                self._instruments_list.tradingsymbol.str.\
+                    contains('NIFTYMID50')==False]
         
         # drop esoteric market segments tickers
         def flag(s):
@@ -330,10 +371,7 @@ class KiteAssetFinder(BrokerAssetFinder):
                 self._instruments_list.expiry)
         self._instruments_list.loc[pd.isnull(
                 self._instruments_list.expiry),"expiry"] \
-                    = pd.Timestamp.now().normalize()
-        self._instruments_list = self._instruments_list[
-                self._instruments_list.expiry \
-                    < today + pd.Timedelta(weeks=15)]
+                    = today
         
         self.expiries = set(self._instruments_list.expiry[
                 (self._instruments_list['exchange']=="NFO") &\
@@ -389,7 +427,8 @@ class KiteAssetFinder(BrokerAssetFinder):
         '''
         if row['instrument_type'] == 'EQ':
             asset = Equity(-1,symbol=row['tradingsymbol'], 
-                           tick_size=row['tick_size'],
+                           mult=int(row['lot_size']),
+                           tick_size=int(row['tick_size']*10000),
                            exchange_name='NSE')
         elif row['segment']=='NFO-FUT':
             asset = EquityFutures(-1,symbol=row['tradingsymbol'],
@@ -397,19 +436,23 @@ class KiteAssetFinder(BrokerAssetFinder):
                                   name=row['name'],
                                   end_date=row['expiry'],
                                   expiry_date = row['expiry'],
-                                  mult=row['lot_size'],
-                                  tick_size=row['tick_size'],
-                                  exchange_name='NSE')
+                                  mult=int(row['lot_size']),
+                                  tick_size=int(row['tick_size']*10000),
+                                  exchange_name='NFO')
         elif row['segment']=='NFO-OPT':
+            opt_type = row['instrument_type']
+            opt_type = OptionType.PUT if opt_type == 'PE' else\
+                        OptionType.CALL
             asset = EquityOption(-1,symbol=row['tradingsymbol'],
                                   root=row['underlying'],
                                   name=row['name'],
                                   end_date=row['expiry'],
                                   expiry_date = row['expiry'],
                                   strike = row['strike'],
-                                  mult=row['lot_size'],
-                                  tick_size=row['tick_size'],
-                                  exchange_name='NSE')
+                                  mult=int(row['lot_size']),
+                                  tick_size=int(row['tick_size']*10000),
+                                  option_type = opt_type,
+                                  exchange_name='NFO')
         elif row['segment'] == 'CDS-FUT':
             base = 'INR'
             quote = row['underlying'][:3]
@@ -419,9 +462,9 @@ class KiteAssetFinder(BrokerAssetFinder):
                                   quote_ccy = quote,
                                   name = row['name'],
                                   end_date=row['expiry'],
-                                  mult=row['lot_size'],
-                                  tick_size=row['tick_size'],
-                                  exchange_name='NSE')
+                                  mult=int(row['lot_size']),
+                                  tick_size=int(row['tick_size']*10000),
+                                  exchange_name='CDS')
         else:
             asset = None
             
@@ -459,7 +502,7 @@ class KiteAssetFinder(BrokerAssetFinder):
         
         if row.empty:
             # no match found. Refuse to trade the symbol
-            return None
+            raise SymbolNotFound(msg=tradingsymbol)
         
         row = row.iloc[0].to_dict()
         return self._asset_from_row(row)
@@ -473,6 +516,9 @@ class KiteAssetFinder(BrokerAssetFinder):
         '''
         row = self._instruments_list[self._instruments_list.\
                                      instrument_token==instrument_id]
+        if row.empty:
+            raise SymbolNotFound(msg=f"no asset found for {instrument_id}")
+            
         row = row.iloc[0].to_dict()
         asset = self._asset_finder.lookup_symbol(row['tradingsymbol'])
         
@@ -488,6 +534,9 @@ class KiteAssetFinder(BrokerAssetFinder):
     def asset_to_id(self, asset):
         row = self._instruments_list[self._instruments_list.\
                                      tradingsymbol==asset.symbol] 
+        if row.empty:
+            raise SymbolNotFound(msg=f"no id found for {asset.symbol}")
+        
         row = row.iloc[0].to_dict()
         return row['instrument_token']
     

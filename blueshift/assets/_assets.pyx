@@ -95,8 +95,8 @@ cdef class Asset(MarketData):
                  object name="",
                  object start_date=None,
                  object end_date=None,
-                 float mult=1.0,
-                 float tick_size=0.01,
+                 int mult=1,
+                 int tick_size=100, # mult by 10000
                  object auto_close_date=None,
                  object exchange_name=None,
                  object calendar_name=None,
@@ -153,8 +153,8 @@ cdef class Equity(Asset):
                  object name="",
                  object start_date=None,
                  object end_date=None,
-                 float mult=1.0,
-                 float tick_size=0.01,
+                 int mult=1,
+                 int tick_size=100,
                  object auto_close_date=None,
                  object exchange_name=None,
                  object calendar_name=None,
@@ -194,8 +194,8 @@ cdef class EquityFutures(Asset):
                  object end_date=None,
                  object expiry_date=None,
                  object notice_date=None,
-                 float mult=1.0,
-                 float tick_size=0.01,
+                 int mult=1,
+                 int tick_size=100,
                  object auto_close_date=None,
                  object exchange_name=None,
                  object calendar_name=None,
@@ -263,8 +263,8 @@ cdef class Forex(Asset):
                  object name="",
                  object start_date=None,
                  object end_date=None,
-                 float mult=1.0,
-                 float tick_size=0.01,
+                 int mult=1,
+                 int tick_size=100,
                  object auto_close_date=None,
                  object exchange_name=None,
                  object calendar_name=None,
@@ -315,6 +315,7 @@ cdef class EquityOption(EquityFutures):
         Equity options assets. add strike compared to futures
     '''
     cdef readonly float strike
+    cdef readonly int option_type
     
     def __init__(self,
                  int sid,
@@ -327,8 +328,9 @@ cdef class EquityOption(EquityFutures):
                  object expiry_date=None,
                  object notice_date=None,
                  float strike = 0,
-                 float mult=1.0,
-                 float tick_size=0.01,
+                 int mult=1,
+                 int tick_size=100,
+                 int option_type = OptionType.CALL,
                  object auto_close_date=None,
                  object exchange_name=None,
                  object calendar_name=None,
@@ -352,6 +354,7 @@ cdef class EquityOption(EquityFutures):
         self.strike = strike
         self.asset_class = AssetClass.EQUITY
         self.instrument_type = InstrumentType.OPT
+        self.option_type = option_type
         
     cpdef __reduce__(self):
         return(self.__class__,(self.sid,
@@ -362,6 +365,7 @@ cdef class EquityOption(EquityFutures):
                                self.end_date,
                                self.mult,
                                self.tick_size,
+                               self.option_type,
                                self.auto_close_date,
                                self.exchange_name,
                                self.calendar_name,
@@ -374,6 +378,7 @@ cdef class EquityOption(EquityFutures):
     cpdef to_dict(self):
         d = super(EquityOption,self).to_dict()
         d['strike']=self.strike
+        d['option_type']=self.option_type
         return d
     
 cdef get_class_attribs(object obj):

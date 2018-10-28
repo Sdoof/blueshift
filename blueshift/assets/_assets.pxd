@@ -28,6 +28,10 @@ cpdef enum MktDataType:
     SERIES = 1,      # single point series data tied to a sym
     GENERAL = 2,     # general purpose multi-column data for a sym
     
+cpdef enum OptionType:
+    CALL = 0        # european call
+    PUT = 1         # european put
+
 cdef class MarketData:
     cdef readonly int sid
     cdef readonly hashed_id
@@ -43,8 +47,8 @@ cdef class MarketData:
 cdef class Asset(MarketData):
     cdef readonly int asset_class
     cdef readonly int instrument_type
-    cdef readonly float mult
-    cdef readonly float tick_size
+    cdef readonly int mult
+    cdef readonly int tick_size # ticksize is multiplied by 10000
     cdef readonly object auto_close_date
     cdef readonly object exchange_name
     cdef readonly object calendar_name
