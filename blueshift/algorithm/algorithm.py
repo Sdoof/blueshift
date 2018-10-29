@@ -16,8 +16,8 @@ from blueshift.algorithm.context import AlgoContext
 from blueshift.utils.cutils import check_input 
 from blueshift.execution.broker import AbstractBrokerAPI
 from blueshift.execution._clock import (SimulationClock, 
-                                        BARS,
-                                        RealtimeClock)
+                                        BARS)
+from blueshift.execution.clock import RealtimeClock
 from blueshift.assets.assets import AssetFinder
 from blueshift.data.dataportal import DataPortal
 from blueshift.execution.broker import BrokerType

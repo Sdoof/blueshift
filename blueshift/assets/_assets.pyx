@@ -50,6 +50,24 @@ cdef class MarketData:
             return hash(x) == hash(y)
         except (TypeError, AttributeError, OverflowError):
             raise TypeError
+            
+    def __lt__(x,y):
+        try:
+            return hash(x) < hash(y)
+        except (TypeError, AttributeError, OverflowError):
+            raise TypeError
+            
+    def __gt__(x,y):
+        try:
+            return hash(x) > hash(y)
+        except (TypeError, AttributeError, OverflowError):
+            raise TypeError
+            
+    def __ne__(x,y):
+        try:
+            return hash(x) != hash(y)
+        except (TypeError, AttributeError, OverflowError):
+            raise TypeError
     
     def __str__(self):
         if self.symbol:

@@ -410,31 +410,33 @@ class BackTester(object):
 class BackTesterAPI(AbstractBrokerAPI):
     
     def __init__(self, 
-                 name:str, 
+                 name:str,
                  broker_type:BrokerType, 
                  calendar:TradingCalendar, 
                  initial_capital:positive_num,
-                 broker = None):
+                 **kwargs):
         check_input(BackTesterAPI.__init__, locals())
-        super(BackTesterAPI, self).__init__(name, broker_type, calendar)
+        super(BackTesterAPI, self).__init__(name, broker_type, calendar,
+                                             **kwargs)
+        api = kwargs.get("broker",None)
         
-        if broker:
-            if isinstance(broker, BackTester):
-                self.broker = broker
+        if api:
+            if isinstance(api, BackTester):
+                self._api = api
             else:
-                self.broker = BackTester(name, calendar, 
+                self._api = BackTester(name, calendar, 
                                          initial_capital)
         else:
-            self.broker = BackTester(name, calendar, initial_capital)
+            self._api = BackTester(name, calendar, initial_capital)
         
-        self.calendar = calendar
+        self._calendar = calendar
         self.initial_capital = initial_capital
-        self.name = name
+        self._name = name
         # backtester is always connected
-        self.connected = True
+        self._connected = True
             
     def __str__(self):
-        return 'Broker:name:%s, type:%s'%(self.broker_name, self.type)
+        return 'Broker:name:%s, type:%s'%(self._name, self._type)
     
     def __repr__(self):
         return self.__str__()
@@ -450,107 +452,107 @@ class BackTesterAPI(AbstractBrokerAPI):
             raise BrokerAPIError(msg=msg)
         
     def login(self, *args, **kwargs):
-        response = self.broker.send(self.make_api_payload(APICommand.\
+        response = self._api.send(self.make_api_payload(APICommand.\
                                                           LOGIN,
                                           kwargs))
         return self.process_response(response)
     
     def logout(self, *args, **kwargs):
-        response = self.broker.send(self.make_api_payload(APICommand.\
+        response = self._api.send(self.make_api_payload(APICommand.\
                                                           LOGOUT,
                                           kwargs))
         return self.process_response(response)
     
     def profile(self, *args, **kwargs):
-        response = self.broker.send(self.make_api_payload(APICommand.\
+        response = self._api.send(self.make_api_payload(APICommand.\
                                                           GET_PROFILE,
                                           kwargs))
         return self.process_response(response)
     
     def account(self, *args, **kwargs):
-        response = self.broker.send(self.make_api_payload(APICommand.\
+        response = self._api.send(self.make_api_payload(APICommand.\
                                                           GET_ACCOUNT,
                                           kwargs))
         return self.process_response(response)
     
     def positions(self, *args, **kwargs):
-        response = self.broker.send(self.make_api_payload(APICommand.\
+        response = self._api.send(self.make_api_payload(APICommand.\
                                         GET_POSITIONS,
                                         kwargs))
         return self.process_response(response)
     
     def open_orders(self, *args, **kwargs):
-        response = self.broker.send(self.make_api_payload(APICommand.\
+        response = self._api.send(self.make_api_payload(APICommand.\
                                         GET_OPEN_ORDERS,
                                         kwargs))
         return self.process_response(response)
     
     def order(self, order_id):
-        response = self.broker.send(self.make_api_payload(APICommand.\
+        response = self._api.send(self.make_api_payload(APICommand.\
                                                           GET_ORDER,
                                           order_id))
         return BackTesterAPI.process_response(response)
     
     def orders(self, *args, **kwargs):
-        response = self.broker.send(self.make_api_payload(APICommand.\
+        response = self._api.send(self.make_api_payload(APICommand.\
                                         GET_PAST_ORDERS,
                                         kwargs))
         return self.process_response(response)
     
-    def timezone(self, *args, **kwargs):
-        pass
+    def tz(self, *args, **kwargs):
+        return self._calendar.tz
     
     def place_order(self, order):
-        response = self.broker.send(self.make_api_payload(APICommand.\
+        response = self._api.send(self.make_api_payload(APICommand.\
                                                           PLACE_ORDER,
                                           order))
         return self.process_response(response)
     
     def update_order(self, order_id, *args, **kwargs):
         kwargs["order_id"] = order_id
-        response = self.broker.send(self.make_api_payload(APICommand.\
+        response = self._api.send(self.make_api_payload(APICommand.\
                                         MODIFTY_ORDER,
                                         kwargs))
         
         return self.process_response(response)
     
     def cancel_order(self, order_id):
-        response = self.broker.send(self.make_api_payload(APICommand.\
+        response = self._api.send(self.make_api_payload(APICommand.\
                                         CANCEL_ORDER,
                                         order_id))  
         return self.process_response(response)
         
     def fund_transfer(self, amount):
-        response = self.broker.send(self.make_api_payload(APICommand.\
+        response = self._api.send(self.make_api_payload(APICommand.\
                                         ADD_CAPITAL,
                                         amount))
         
         return self.process_response(response)
     
     def trading_bar(self, timestamp):
-        self.broker.send(self.make_api_payload(BARS.TRADING_BAR,
+        self._api.send(self.make_api_payload(BARS.TRADING_BAR,
                          timestamp))
         
     def before_trading_start(self, timestamp):
-        self.broker.send(self.make_api_payload(BARS.\
+        self._api.send(self.make_api_payload(BARS.\
                                                BEFORE_TRADING_START,
                          timestamp))
         
     def after_trading_hours(self, timestamp):
-        self.broker.send(self.make_api_payload(BARS.\
+        self._api.send(self.make_api_payload(BARS.\
                                                AFTER_TRADING_HOURS,
                          timestamp))
         
     def algo_start(self, timestamp):
-        self.broker.send(self.make_api_payload(BARS.ALGO_START,
+        self._api.send(self.make_api_payload(BARS.ALGO_START,
                          timestamp))
         
     def algo_end(self, timestamp):
-        self.broker.send(self.make_api_payload(BARS.ALGO_END,
+        self._api.send(self.make_api_payload(BARS.ALGO_END,
                          timestamp))
         
     def heart_beat(self, timestamp):
-        self.broker.send(self.make_api_payload(BARS.HEART_BEAT,
+        self._api.send(self.make_api_payload(BARS.HEART_BEAT,
                          timestamp))
         
         

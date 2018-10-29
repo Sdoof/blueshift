@@ -83,5 +83,9 @@ class SymbolNotFound(BlueShiftException):
     msg = "Symbol not found {msg}"
     handling = ExceptionHandling.LOG
     
+class UnsupportedFrequency(BlueShiftException):
+    msg = "Frequency not supported {msg}"
+    handling = ExceptionHandling.LOG
+    
 
 

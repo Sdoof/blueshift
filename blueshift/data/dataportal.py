@@ -7,7 +7,7 @@ Created on Fri Oct 19 01:28:32 2018
 from abc import ABC, abstractmethod
 from enum import Enum
 
-OHLCV_FIELDS = ['open', 'high', 'close', 'last', 'volume']
+OHLCV_FIELDS = ['open', 'high', 'low', 'close', 'volume']
 
 class DataPortalFlag(Enum):
     FILEBASE = 1

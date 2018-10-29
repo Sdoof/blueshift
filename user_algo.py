@@ -17,7 +17,7 @@ def before_trading_start(context, data):
     return
     
 def handle_data(context, data):
-    order(context.asset, random.randint(10,50))
+    #order(context.asset, random.randint(10,50))
     pass
     
 def analyze(context):

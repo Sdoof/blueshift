@@ -17,14 +17,15 @@ class BrokerType(Enum):
 
 class AbstractBrokerAPI(ABC):
     
-    def __init__(self, name, broker_type, calendar):
-        self.broker_name = name
-        self.authentication_token = None
-        self.type = broker_type
-        self.calendar = calendar
+    def __init__(self, name, broker_type, calendar, **kwargs):
+        self._name = name
+        self._type = broker_type
+        self._calendar = calendar
+        self._auth_token = None
+        self._connected = False
         
     def __str__(self):
-        return "Broker: name:%s" % (self.broker_name)
+        return "Broker: name:%s" % (self._name)
     
     def __repr__(self):
         return self.__str__()
@@ -62,7 +63,7 @@ class AbstractBrokerAPI(ABC):
         pass
     
     @abstractproperty
-    def timezone(self):
+    def tz(self):
         pass
     
     @abstractmethod

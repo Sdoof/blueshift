@@ -102,9 +102,9 @@ class RESTData(ABC):
         if rate_period:
             self._rate_period = rate_period
             
-    def cool_off(self):
+    def cool_off(self, mult=1):
         '''
             blocking sleep to cool off rate limit violation
         '''
-        time.sleep(self._rate_period)
+        time.sleep(self._rate_period*mult)
         

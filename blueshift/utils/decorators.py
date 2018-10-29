@@ -37,6 +37,7 @@ def api_rate_limit(f):
         if self.rate_limit_since is None:
             self.rate_limit_since = pd.Timestamp.now(self.tz)
             self.rate_limit_count == self.rate_limit
+            sec_elapsed = 0
         else:
             t = pd.Timestamp.now(self.tz)
             sec_elapsed = (t - self.rate_limit_since).total_seconds()
@@ -44,7 +45,9 @@ def api_rate_limit(f):
                 self.reset_rate_limits()
 
         if self.rate_limit_count == 0:
-            raise APIRateLimitCoolOff(msg="Exceeded API rate limit")
+            self.cool_off(mult=1.5)
+            self.reset_rate_limits()
+            #raise APIRateLimitCoolOff(msg="Exceeded API rate limit")
         
         self.rate_limit_count = self.rate_limit_count - 1
         return f(self, *args, **kwargs)

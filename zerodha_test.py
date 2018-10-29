@@ -7,30 +7,16 @@ Created on Fri Oct 26 10:42:50 2018
 import pandas as pd
 import random
 
-from blueshift.utils.brokers.zerodha import (KiteAuth, 
-                                             KiteRestData,
-                                             KiteAssetFinder)
-
-from blueshift.utils.exceptions import APIRateLimitCoolOff
+from blueshift.utils.brokers.zerodha import (KiteAuth,
+                                             KiteAssetFinder,
+                                             KiteRestData)
 
 kite_auth = KiteAuth(config='kite_config.json',tz='Asia/Calcutta',
                      timeout=(8,45))
-
-kite_auth.login(auth_token="oVwrXjnbR5sYXyY9sxXrWpeyx6q5c8ih")
-
+kite_auth.login(auth_token='YxMfTOa1S1i5Gmadi7AJY6wGeu2h3xSf')
 kite_asset_finder = KiteAssetFinder(auth=kite_auth)
-
 kite_data = KiteRestData(auth=kite_auth)
-            
-# test api rate limit
-for i in range(10):
-    try:
-        kite_data.current(1,2)
-        print(i)
-    except APIRateLimitCoolOff:
-        print(f"rate limit exeeded: sleeping now for {kite_data._rate_period}s")
-        kite_data.cool_off()
-        
+
 # test asset creation
 tickers = kite_asset_finder._instruments_list.tradingsymbol
 n = len(tickers)-1
@@ -50,9 +36,25 @@ time_elapsed = (t2-t1).total_seconds()*1000
 print(f"time elapsed {time_elapsed}")
 
 # test data fetching
-syms = ['ACC','NIFTY-I','NIFTY-II','USDINR-I','GBPINR18DECFUT']
+syms = ['ACC','NIFTY-I','NIFTY-II','USDINR-II','GBPINR18DECFUT']
 assets = [kite_asset_finder.symbol_to_asset(sym) for sym in syms]
 df = kite_data.current(assets, ['open','close', 'last', 'volume'])
 
 
+# test history function
+syms = ['ACC','INFY','NIFTY18DEC10900CE','NIFTY-I','NIFTY-II',
+        'NIFTY18DEC10900PE','NIFTY18DEC11000CE','USDINR-II',
+        'GBPINR18DECFUT','BANKNIFTY-I','NIFTY18DEC12000CE',
+        'BANKNIFTY-II']
+assets = [kite_asset_finder.symbol_to_asset(sym) for sym in syms]
+t1 = pd.Timestamp.now()
+df = kite_data.history(assets,['open','close','volume'],375,"1m")
+t2 = pd.Timestamp.now()
+time_elapsed = (t2-t1).total_seconds()*1000
+print(f"time elapsed {time_elapsed}")
 
+for asset in assets:
+    try:
+        print(len(df.loc[asset]))
+    except:
+        print(f'not found {asset.symbol}')

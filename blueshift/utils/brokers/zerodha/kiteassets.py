@@ -1,220 +1,31 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Oct 25 10:04:34 2018
+Created on Mon Oct 29 16:27:26 2018
 
 @author: prodipta
 """
-import json
+
 import pandas as pd
 from functools import lru_cache
 
-from kiteconnect import KiteConnect
+
 from kiteconnect.exceptions import KiteException
 
-from blueshift.utils.calendars.trading_calendar import TradingCalendar
-from blueshift.configs.authentications import TokenAuth
-from blueshift.data.rest_data import RESTData
-from blueshift.data.dataportal import OHLCV_FIELDS
+
 from blueshift.utils.exceptions import (AuthenticationError, 
                                         ExceptionHandling,
                                         APIException,
                                         SymbolNotFound)
-from blueshift.utils.decorators import api_rate_limit, singleton, api_retry
+
+from blueshift.utils.decorators import singleton, api_retry
 from blueshift.assets.assets import BrokerAssetFinder, NoAssetFinder
 from blueshift.assets._assets import (Equity, EquityFutures, Forex,
                                       EquityOption, OptionType)
 
+from blueshift.utils.brokers.zerodha.kiteauth import kite_calendar
+
 LRU_CACHE_SIZE = 512
-'''
-    Create the default calendar for kiteconnect. The market is NSE.
-'''
-kite_calendar = TradingCalendar('NSE',tz='Asia/Calcutta',opens=(9,15,0), 
-                                closes=(15,30,0))
 
-
-@singleton
-class KiteConnect3(KiteConnect):
-    '''
-        kiteconnect modified to force a singleton (and to print pretty).
-    '''
-    def __str__(self):
-        return "Kite Connect API v3.0"
-    
-    def __repr__(self):
-        return self.__str__()
-
-@singleton
-class KiteAuth(TokenAuth):
-    '''
-        The authentication class handles the user login/ logout and 
-        managing of the sessions validity etc. It creates and validate
-        the underlying API object which shall be passed around for any
-        subsequent interaction.
-    '''
-    def __init__(self, *args, **kwargs):
-        config = None
-        config_file = kwargs.pop('config',None)
-        if config_file:
-            try:
-                with open(config_file) as fp:
-                    config = json.load(fp)
-            except:
-                pass
-        
-        if config:
-            kwargs = {**config, **kwargs}
-        
-        if not kwargs.get('name',None):
-            kwargs['name'] = 'kite'
-        super(self.__class__, self).__init__(*args, **kwargs)
-        self._api_key = kwargs.get('api_key',None)
-        self._api_secret = kwargs.get('api_secret',None)
-        self._user_id = kwargs.get('id',None)
-        self._request_token = kwargs.get('reuest_token',None)
-        
-        self._access_token = self.auth_token
-        self._api = KiteConnect3(self._api_key)
-        
-    @property
-    def api_key(self):
-        return self._api_key
-    
-    @property
-    def api_secret(self):
-        return self._api_secret
-    
-    @property
-    def user_id(self):
-        return self._user_id
-    
-    def login(self, *args, **kwargs):
-        '''
-            Set access token if available. Else do an API call to obtain
-            an access token. If it fails, it is catastrophic. We cannot
-            continue and raise TERMINATE level error.
-        '''
-        auth_token = kwargs.pop("auth_token",None)
-        if auth_token:
-            self.set_token(auth_token, *args, **kwargs)
-            self._access_token = auth_token
-            self._api.set_access_token(auth_token)
-            return
-        
-        request_token = kwargs.get("request_token",None)
-        if not request_token:
-            msg = "no authentication or request token supplied for login"
-            handling = ExceptionHandling.TERMINATE
-            raise AuthenticationError(msg=msg, handling=handling)
-            
-        self._request_token = request_token
-        try:
-            data = self._api.generate_session(self._request_token, 
-                                             api_secret=self._api_secret)
-            self._api.set_access_token(data["access_token"])
-            self._access_token = data["access_token"]
-            self.set_token(self._access_token)
-        except Exception as e:
-            msg = str(e)
-            handling = ExceptionHandling.TERMINATE
-            raise AuthenticationError(msg=msg, handling=handling)
-        
-    def logout(self):
-        '''
-            API call to logout. If it fails, it is not catastrophic. We
-            just warn about it.
-        '''
-        try:
-            self._api.invalidate_access_token()
-            self._access_token = self._auth_token = None
-            self._last_login = self._valid_till = None
-        except Exception as e:
-            msg = str(e)
-            handling = ExceptionHandling.WARN
-            raise AuthenticationError(msg=msg, handling=handling)
-
-@singleton
-class KiteRestData(RESTData):
-    '''
-        Encalsulates the RESTful historical and current market data API
-        for Zerodha kite. It contains a kite authentication object and
-        access the underlying KiteConnect API via that.
-    '''
-    def __init__(self, *args, **kwargs):
-        config = None
-        config_file = kwargs.pop('config',None)
-        if config_file:
-            try:
-                with open(config_file) as fp:
-                    config = json.load(fp)
-            except:
-                pass
-        
-        if config:
-            kwargs = {**config, **kwargs}
-        
-        super(self.__class__, self).__init__(*args, **kwargs)
-        
-        if not self._api:
-            if not self._auth:
-                msg = "authentication and API missing"
-                handling = ExceptionHandling.TERMINATE
-                raise AuthenticationError(msg=msg, handling=handling)
-            self._api = self._auth._api
-        
-        if not self._rate_limit:
-            # Kite has 3 per sec, we are conservative
-            self._rate_limit = 3
-            self._rate_limit_count = self._rate_limit
-            
-        if not self._trading_calendar:
-            self._trading_calendar = kite_calendar
-            
-        if not self._max_instruments:
-            # max allowed at present is 500
-            self._max_instruments = 400
-        
-        self._rate_limit_since = None # we reset this value on first call
-        
-        self._asset_finder = kwargs.get("asset_finder", None)
-        if self._asset_finder is None:
-            self._asset_finder = KiteRestData(auth=self._auth)
-        
-    @api_rate_limit
-    def current(self, assets, fields):
-        instruments = [asset.exchange_name+":"+asset.symbol for\
-                          asset in assets]
-        if len(instruments) > self._max_instruments:
-            instruments = instruments[:self._max_instruments]
-        try:
-            data = self._api.ohlc(instruments)
-            return self._ohlc_to_df(data, instruments, assets, 
-                                    fields)
-        except KiteException as e:
-            msg = str(e)
-            handling = ExceptionHandling.WARNING
-            raise APIException(msg=msg, handling=handling)
-        
-    @api_rate_limit
-    def history(self, assets, fields):
-        instrument_ids = [self._asset_finder.asset_to_id(asset) for assets\
-                          in assets]
-        
-    def _ohlc_to_df(self, data, instruments, assets, fields):
-        fields = [f for f in fields if f in OHLCV_FIELDS]
-        out = {}
-        
-        def get_val(data,inst,key):
-            try:
-                return data[inst]['ohlc'][key]
-            except KeyError:
-                return 0
-        
-        for f in fields:
-            key = "close" if f == "last" else f
-            out[f] = [get_val(data,inst,key) for inst in instruments]
-        
-        return pd.DataFrame(out, index = assets)
-        
 @singleton
 class KiteAssetFinder(BrokerAssetFinder):
     '''
@@ -320,7 +131,7 @@ class KiteAssetFinder(BrokerAssetFinder):
             self._instruments_list.exchange.isin(self.__class__.EXCHANGES)]
         
         # drop the indices, these are not tradeable. We also remove
-        # VIX, NIFTYIT and NIFTYMID futures
+        # VIX, NIFTYIT and NIFTYMID futures and currency options.
         self._instruments_list = self._instruments_list[
                 self._instruments_list.segment != "NSE-INDICES"]
         self._instruments_list = self._instruments_list[
@@ -334,6 +145,8 @@ class KiteAssetFinder(BrokerAssetFinder):
         self._instruments_list = self._instruments_list[
                 self._instruments_list.tradingsymbol.str.\
                     contains('NIFTYMID50')==False]
+        self._instruments_list = self._instruments_list[
+                self._instruments_list.segment != "CDS-OPT"]
         
         # drop esoteric market segments tickers
         def flag(s):
@@ -381,8 +194,8 @@ class KiteAssetFinder(BrokerAssetFinder):
                 (self._instruments_list['exchange']=="CDS") &\
                 (self._instruments_list["instrument_type"]=="FUT")])
         
-        self.expiries = sorted(list(self.expiries)[:3])
-        self.cds_expiries = sorted(list(self.cds_expiries)[:3])
+        self.expiries = sorted(list(self.expiries))[:3]
+        self.cds_expiries = sorted(list(self.cds_expiries))[:3]
         
         self._instruments_list = self._instruments_list[
                 self._instruments_list.expiry.isin(set([*self.expiries,
@@ -425,6 +238,7 @@ class KiteAssetFinder(BrokerAssetFinder):
             Create an asset from a matching row from the instruments
             list.
         '''
+        # TODO: replace this by create_asset_from_dict from _assets
         if row['instrument_type'] == 'EQ':
             asset = Equity(-1,symbol=row['tradingsymbol'], 
                            mult=int(row['lot_size']),
@@ -491,11 +305,15 @@ class KiteAssetFinder(BrokerAssetFinder):
         bases = sym.split("-I")
         
         if bases[0] != sym:
-            exp = bases[-1]+'I'
-            row = self._instruments_list.loc[
-                    (self._instruments_list.underlying==bases[0]) &\
-                    (self._instruments_list.exp == exp) &\
-                    (self._instruments_list.instrument_type=='FUT'),]
+            if len(bases)>1 and bases[-1] in ['','I','II']:
+                exp = bases[-1]+'I'
+                row = self._instruments_list.loc[
+                        (self._instruments_list.underlying==bases[0]) &\
+                        (self._instruments_list.exp == exp) &\
+                        (self._instruments_list.instrument_type=='FUT'),]
+            else:
+                row = self._instruments_list.loc[
+                        self._instruments_list.tradingsymbol==sym,]
         else:
             row = self._instruments_list.loc[
                     self._instruments_list.tradingsymbol==sym,]
@@ -539,9 +357,3 @@ class KiteAssetFinder(BrokerAssetFinder):
         
         row = row.iloc[0].to_dict()
         return row['instrument_token']
-    
-        
-        
-        
-        
-        

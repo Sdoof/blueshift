@@ -14,6 +14,7 @@ from functools import lru_cache
 
 from blueshift.assets._assets import create_asset_from_dict
 from blueshift.utils.cutils import check_input
+from blueshift.utils.exceptions import SymbolNotFound
 
 # TODO: add instrument id in hash, also add search by instrument id
 
@@ -186,7 +187,7 @@ class AssetFinder(object):
         asset_data = self.query_engine.query_all_filtered("sid",sid,"equals")
     
         if asset_data.empty:
-            return None
+            raise SymbolNotFound(msg=f"could not find sid {sid}")
         
         return create_asset_from_dict(asset_data.iloc[0].to_dict())
     
@@ -203,7 +204,7 @@ class AssetFinder(object):
                                                     "equals",
                                                     "sid")
         if sid.empty:
-            return None
+           raise SymbolNotFound(msg=f"could not find symbol {sym}")
         
         return self.fetch_asset(sid.iloc[0])
     

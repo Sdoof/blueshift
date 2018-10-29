@@ -17,8 +17,8 @@ from blueshift.utils.exceptions import (InitializationError,
 from blueshift.assets.assets import AssetFinder
 from blueshift.execution.broker import AbstractBrokerAPI
 from blueshift.data.dataportal import DataPortal
-from blueshift.execution._clock import (SimulationClock,
-                                        RealtimeClock)
+from blueshift.execution._clock import SimulationClock
+from blueshift.execution.clock import RealtimeClock
 from blueshift.configs.defaults import (default_asset_finder,
                                         default_data_portal,
                                         default_broker,
@@ -53,7 +53,7 @@ class AlgoContext(object):
                                        default_broker(capital))        
         if not isinstance(self.__broker_api, AbstractBrokerAPI):
             raise
-        self.__calendar = self.__broker_api.calendar
+        self.__calendar = self.__broker_api._calendar
         self.__account = self.__broker_api.account()
         self.__portfolio = self.__broker_api.positions()
             
