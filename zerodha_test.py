@@ -9,13 +9,15 @@ import random
 
 from blueshift.utils.brokers.zerodha import (KiteAuth,
                                              KiteAssetFinder,
-                                             KiteRestData)
+                                             KiteRestData,
+                                             KiteBroker)
 
 kite_auth = KiteAuth(config='kite_config.json',tz='Asia/Calcutta',
                      timeout=(8,45))
-kite_auth.login(auth_token='YxMfTOa1S1i5Gmadi7AJY6wGeu2h3xSf')
+kite_auth.login(auth_token='GxvtFrJfgtY0bFTDWthNh41UlrZqa2Uu')
 kite_asset_finder = KiteAssetFinder(auth=kite_auth)
 kite_data = KiteRestData(auth=kite_auth)
+kite_broker = KiteBroker(auth = kite_auth)
 
 # test asset creation
 tickers = kite_asset_finder._instruments_list.tradingsymbol

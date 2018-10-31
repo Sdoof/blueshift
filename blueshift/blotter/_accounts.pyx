@@ -129,3 +129,8 @@ cdef class BacktestAccount(Account):
         self.net_exposure = self.net_exposure + net
         self.gross_leverage = round(self.gross_exposure/self.liquid_value,2)
         self.net_leverage = round(self.net_exposure/self.liquid_value,2)
+        
+cdef class EquityAccount(Account):
+    
+    cpdef reconcile(self, object trades, object positions):
+        pass

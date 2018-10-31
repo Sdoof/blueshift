@@ -13,7 +13,9 @@ from blueshift.execution._clock import BARS
 from blueshift.trades._order import Order
 from blueshift.trades._position import Position
 from blueshift.trades._trade import Trade
-from blueshift.trades._order_types import OrderUpdateType, OrderStatus, OrderSide
+from blueshift.trades._order_types import (OrderUpdateType, 
+                                           OrderStatus, 
+                                           OrderSide)
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.blotter._accounts import BacktestAccount
 from blueshift.assets._assets import InstrumentType

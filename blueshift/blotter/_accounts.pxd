@@ -33,4 +33,5 @@ cdef class BacktestAccount(Account):
     cpdef release_margin(self, float amount)
     cpdef update_accounts(self,float mtm, float gross, float net)
     
-    
+cdef class EquityAccount(Account):
+    cpdef reconcile(self, object trades, object positions)
