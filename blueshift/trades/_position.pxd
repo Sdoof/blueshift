@@ -19,8 +19,7 @@ from blueshift.assets._assets cimport Asset
 
 cdef class Position:
     cdef readonly object pid
-    cdef readonly int hashed_pid
-    cdef readonly int instrument_id
+    cdef readonly object instrument_id
     cdef readonly Asset asset
     cdef readonly int quantity
     cdef readonly int buy_quantity

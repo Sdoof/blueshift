@@ -41,7 +41,7 @@ class APICommand(Enum):
     GET_ACCOUNT = 5
     GET_ORDER = 6
     GET_OPEN_ORDERS = 7
-    GET_PAST_ORDERS = 8
+    GET_ORDERS = 8
     GET_POSITIONS = 9
     ADD_CAPITAL = 10
     LOGIN = 11
@@ -114,8 +114,8 @@ class BackTester(object):
         self.dispath_dict[APICommand.GET_ORDER]=self.get_order_status
         self.dispath_dict[APICommand.GET_OPEN_ORDERS]=\
                                                 self.get_open_orders
-        self.dispath_dict[APICommand.GET_PAST_ORDERS]=\
-                                                self.get_past_orders
+        self.dispath_dict[APICommand.GET_ORDERS]=\
+                                                self.get_orders
         self.dispath_dict[APICommand.GET_POSITIONS]=self.get_positions
         self.dispath_dict[APICommand.ADD_CAPITAL]=\
                                                 self.get_past_positions
@@ -212,12 +212,12 @@ class BackTester(object):
         return self.make_response(ResponseType.SUCCESS, 
                                   self._open_orders)
     
-    def get_past_orders(self, *args, **kwargs):
+    def get_orders(self, *args, **kwargs):
         '''
             This process will always succeed for backtester 
         '''
-        return self.make_response(ResponseType.SUCCESS, 
-                                  self._closed_orders)
+        d = {**self._open_orders, **self._closed_orders}
+        return self.make_response(ResponseType.SUCCESS,d)
     
     def get_timezone(self, *args, **kwargs):
         if isinstance(self.calendar, TradingCalendar):
@@ -497,7 +497,7 @@ class BackTesterAPI(AbstractBrokerAPI):
     
     def orders(self, *args, **kwargs):
         response = self._api.send(self.make_api_payload(APICommand.\
-                                        GET_PAST_ORDERS,
+                                        GET_ORDERS,
                                         kwargs))
         return self.process_response(response)
     

@@ -37,8 +37,12 @@ cdef class Account:
         
         self.liquid_value = self.cash + self.margin
         self.net = self.mtm + self.liquid_value
-        self.gross_leverage = round(self.gross_exposure/self.liquid_value,2)
-        self.net_leverage = round(self.net_exposure/self.liquid_value,2)
+        if self.liquid_value > 0:
+            self.gross_leverage = round(self.gross_exposure/self.liquid_value,2)
+            self.net_leverage = round(self.net_exposure/self.liquid_value,2)
+        else:
+            self.gross_leverage = 0
+            self.net_leverage = 0
             
     cpdef to_dict(self):
         return {'margin':self.margin,

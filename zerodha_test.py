@@ -14,10 +14,11 @@ from blueshift.utils.brokers.zerodha import (KiteAuth,
 
 kite_auth = KiteAuth(config='kite_config.json',tz='Asia/Calcutta',
                      timeout=(8,45))
-kite_auth.login(auth_token='GxvtFrJfgtY0bFTDWthNh41UlrZqa2Uu')
+kite_auth.login(request_token='Wmj70hvTxW4I7x3slxcnhjCdoKhzn4xN')
 kite_asset_finder = KiteAssetFinder(auth=kite_auth)
 kite_data = KiteRestData(auth=kite_auth)
-kite_broker = KiteBroker(auth = kite_auth)
+kite_broker = KiteBroker(auth = kite_auth, 
+                         asset_finder=kite_asset_finder)
 
 # test asset creation
 tickers = kite_asset_finder._instruments_list.tradingsymbol

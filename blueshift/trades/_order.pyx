@@ -188,6 +188,35 @@ cdef class Order:
     @classmethod
     def from_dict(cls, data):
         return cls(**data)
+    
+    @classmethod
+    def create_order(cls, data):
+        order = cls(data['quantity'],data['side'],data['asset'])
+        order.oid = data['oid']
+        order.hashed_oid = hash(order.oid)
+        order.broker_order_id = data['broker_order_id']
+        order.exchange_order_id = data['exchange_order_id']
+        order.parent_order_id = data['parent_order_id']
+        order.user = data['user']
+        order.placed_by = data['placed_by']
+        order.product_type = data['product_type']
+        order.order_flag = data['order_flag']
+        order.order_type = data['order_type']
+        order.order_validity = data['order_validity']
+        order.filled = data['filled']
+        order.pending = data['pending']
+        order.disclosed = data['disclosed']
+        order.price = data['price']
+        order.average_price = data['average_price']
+        order.trigger_price = data['trigger_price']
+        order.status = data['status']
+        order.status_message = data['status_message']
+        order.exchange_timestamp = data['exchange_timestamp']
+        order.timestamp = data['timestamp']
+        order.tag = data['tag']
+        
+        return order
+
         
     cpdef update(self,int update_type, object kwargs):
         '''

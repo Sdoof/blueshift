@@ -51,10 +51,6 @@ class AbstractBrokerAPI(ABC):
         pass
     
     @abstractproperty
-    def order(self, order_id):
-        pass
-    
-    @abstractproperty
     def open_orders(self):
         pass
     
@@ -64,6 +60,10 @@ class AbstractBrokerAPI(ABC):
     
     @abstractproperty
     def tz(self):
+        pass
+    
+    @abstractmethod
+    def order(self, order_id):
         pass
     
     @abstractmethod

@@ -233,16 +233,10 @@ class NoAssetFinder(AssetFinder):
         return self.__str__()
     
     def fetch_asset(self, sid):
-        return
-    
-    def fetch_assets(self, sids):
-        return []
+        raise SymbolNotFound(msg=f"could not find sid {sid}")
     
     def lookup_symbol(self, sym, as_of_date=None):
-        return
-    
-    def lookup_symbols(self, syms, as_of_date=None):
-        return []
+        raise SymbolNotFound(msg=f"could not find symbol {sym}")
         
         
             

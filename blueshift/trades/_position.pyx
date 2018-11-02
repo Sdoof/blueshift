@@ -37,7 +37,15 @@ cdef class Position:
                  float average_price,
                  float margin,
                  object timestamp,
-                 object exchange_timestamp):
+                 object exchange_timestamp,
+                 int buy_quantity=0,
+                 float buy_price=0,
+                 int sell_quantity=0,
+                 float sell_price=0,
+                 float pnl=0,
+                 float realized_pnl=0,
+                 float unrealized_pnl=0,
+                 float last_price=0):
         '''
             The algo creates a position once a new trade is done and a 
             matching position is not found. Matching is done on the underlying
@@ -45,35 +53,48 @@ cdef class Position:
             be created instead.
         '''
         self.asset = asset
-        self.pid = hash(self.asset.symbol+str(self.asset.sid))
-        self.hashed_pid = hash(self.asset.symbol+str(self.asset.sid))
+        self.pid = hash(asset)
         self.instrument_id = instrument_id
         
-        if side == OrderSide.BUY:
-            self.quantity = quantity
-            self.buy_price = average_price
-            self.buy_quantity = quantity
-            self.sell_quantity = 0
-            self.sell_price = 0
+        if side != -1:
+            if side == OrderSide.BUY:
+                self.quantity = quantity
+                self.buy_price = average_price
+                self.buy_quantity = quantity
+                self.sell_quantity = 0
+                self.sell_price = 0
+            else:
+                self.quantity = -quantity
+                self.sell_quantity = quantity
+                self.sell_price = average_price
+                self.buy_price = 0
+                self.buy_quantity = 0
+            self.pnl = 0
+            self.realized_pnl = 0
+            self.unrealized_pnl = 0
+            self.last_price = average_price
+            self.margin = margin
+            self.timestamp = timestamp
+            self.value = quantity*average_price
+            self.product_type = product_type
         else:
-            self.quantity = -quantity
-            self.sell_quantity = quantity
-            self.sell_price = average_price
-            self.buy_price = 0
-            self.buy_quantity = 0
-        
-        self.pnl = 0
-        self.realized_pnl = 0
-        self.unrealized_pnl = 0
-        self.last_price = average_price
-        self.margin = margin
-        self.timestamp = timestamp
-        self.value = quantity*average_price
-        self.product_type = product_type
+            self.quantity = quantity
+            self.buy_price = buy_price
+            self.buy_quantity = buy_quantity
+            self.sell_quantity = sell_quantity
+            self.sell_price = sell_price
+            self.pnl = pnl
+            self.realized_pnl = realized_pnl
+            self.unrealized_pnl = unrealized_pnl
+            self.last_price = last_price
+            self.margin = margin
+            self.timestamp = timestamp
+            self.value = quantity*last_price
+            self.product_type = product_type
         
     
     def __hash__(self):
-        return self.hashed_pid
+        return self.pid
     
     def __eq__(x,y):
         try:
@@ -90,8 +111,7 @@ cdef class Position:
         return self.__str__()
     
     cpdef to_dict(self):
-        return {'pid':self.pid,
-                'hashed_pid':self.hashed_pid,
+        return {'pid':self.pid,                
                 'instrument_id':self.instrument_id,
                 'asset':self.asset,
                 'quantity':self.quantity,
@@ -111,7 +131,6 @@ cdef class Position:
         
     cpdef __reduce__(self):
         return(self.__class__,( self.pid,
-                                self.hashed_pid,
                                 self.instrument_id,
                                 self.asset,
                                 self.quantity,

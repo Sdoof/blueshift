@@ -59,9 +59,6 @@ class KiteAssetFinder(BrokerAssetFinder):
                 raise AuthenticationError(msg=msg, handling=handling)
             self._api = self._auth._api
             
-        if not self._asset_finder:
-            self._asset_finder = NoAssetFinder()
-            
         if not self._trading_calendar:
             self._trading_calendar = kite_calendar
             
@@ -285,7 +282,7 @@ class KiteAssetFinder(BrokerAssetFinder):
         return asset
         
     @lru_cache(maxsize=LRU_CACHE_SIZE,typed=False)
-    def symbol_to_asset(self, tradingsymbol):
+    def symbol_to_asset(self, tradingsymbol, as_of_date=None):
         '''
             Asset finder that first looks at the provided asset
             finder. If no match found, it searches the current
@@ -296,10 +293,14 @@ class KiteAssetFinder(BrokerAssetFinder):
             symbol stored, if not matched in our databse, is always
             the tradeable symbol.
         '''
-        asset = self._asset_finder.lookup_symbol(tradingsymbol)
-        if asset is not None:
-            # we got a match in our databse, return early
-            return asset
+        if self._asset_finder is not None:
+            try:
+                asset = self._asset_finder.lookup_symbol(tradingsymbol,
+                                                 as_of_date)
+                # we got a match in our databse, return early
+                return asset
+            except SymbolNotFound:
+                pass
 
         sym = tradingsymbol.split(":")[-1]
         bases = sym.split("-I")
@@ -338,10 +339,13 @@ class KiteAssetFinder(BrokerAssetFinder):
             raise SymbolNotFound(msg=f"no asset found for {instrument_id}")
             
         row = row.iloc[0].to_dict()
-        asset = self._asset_finder.lookup_symbol(row['tradingsymbol'])
         
-        if asset:
-            return asset
+        if self._asset_finder is not None:
+            try:
+                asset = self._asset_finder.lookup_symbol(row['tradingsymbol'])
+                return asset
+            except SymbolNotFound:
+                pass
         
         return self._asset_from_row(row)
         
@@ -350,6 +354,11 @@ class KiteAssetFinder(BrokerAssetFinder):
     
     @lru_cache(maxsize=LRU_CACHE_SIZE,typed=False)
     def asset_to_id(self, asset):
+        '''
+            Given an asset retrieve the instrument id. Instrument ID
+            is required for placing trades or querying hisotrical
+            data.
+        '''
         row = self._instruments_list[self._instruments_list.\
                                      tradingsymbol==asset.symbol] 
         if row.empty:
@@ -357,3 +366,22 @@ class KiteAssetFinder(BrokerAssetFinder):
         
         row = row.iloc[0].to_dict()
         return row['instrument_token']
+    
+    def lookup_symbol(self, sym, as_of_date=None):
+        '''
+            Implementation of the interface. The plural version will
+            remains same as the parent class
+        '''
+        return self.symbol_to_asset(sym)
+    
+    def fetch_asset(self, sid):
+        '''
+            Implementation of the interface. The plural version will
+            remains same as the parent class. For an SID different 
+            than -1, it implies the asset is in our database and 
+            a search is done using the underlying asset finder.
+        '''
+        if self._asset_finder is not None:
+            return self._asset_finder.fetch_asset(sid)
+        else:
+            raise SymbolNotFound(msg=f"could not find sid {sid}")

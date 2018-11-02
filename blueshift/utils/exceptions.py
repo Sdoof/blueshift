@@ -87,5 +87,9 @@ class UnsupportedFrequency(BlueShiftException):
     msg = "Frequency not supported {msg}"
     handling = ExceptionHandling.LOG
     
+class ZeroCashBalance(BlueShiftException):
+    msg = "cash balance or liquidation value is zero"
+    handling = ExceptionHandling.TERMINATE
+    
 
 
