@@ -10,6 +10,8 @@ Created on Mon Oct 29 16:27:37 2018
 '''
 
 import json
+import pandas as pd
+import time
 
 from kiteconnect import KiteConnect
 from kiteconnect.exceptions import KiteException
@@ -29,11 +31,93 @@ class KiteConnect3(KiteConnect):
     '''
         kiteconnect modified to force a singleton (and to print pretty).
     '''
+    def __init__(self, *args, **kwargs):
+        super(self.__class__, self).__init__(*args, **kwargs)
+        self._trading_calendar = kwargs.get("trading_calendar",None)
+        # calls per period
+        self._rate_limit = kwargs.get("rate_limit",None)
+        # limit period in sec
+        self._rate_period = kwargs.get("rate_period",1) 
+        # running count
+        self._rate_limit_count = self._rate_limit
+        # time since last limit reset
+        self._rate_limit_since = None
+        # max instruments that can be queried at one call
+        self._max_instruments = kwargs.get("max_instruments",None)
+        
+        if not self._rate_limit:
+            # Kite has 3 per sec, we are conservative
+            self._rate_limit = 2
+            self._rate_limit_count = self._rate_limit
+            
+        if not self._max_instruments:
+            # max allowed is 500 for current, and one for history
+            self._max_instruments = 50
+            
+        # we reset this value on first call
+        self._rate_limit_since = None 
+        
+        if not self._trading_calendar:
+            self._trading_calendar = kite_calendar
+    
     def __str__(self):
         return "Kite Connect API v3.0"
     
     def __repr__(self):
         return self.__str__()
+    
+    @property
+    def tz(self):
+        return self._trading_calendar.tz
+    
+    @property
+    def login_url(self):
+        return self.login_url()
+    
+    @property
+    def rate_limit(self):
+        return self._rate_limit
+    
+    @property
+    def rate_period(self):
+        return self._rate_period
+    
+    @property
+    def rate_limit_since(self):
+        return self._rate_limit_since
+    
+    @rate_limit_since.setter
+    def rate_limit_since(self, value):
+        self._rate_limit_since = value
+    
+    @property
+    def rate_limit_count(self):
+        return self._rate_limit_count
+    
+    @rate_limit_count.setter
+    def rate_limit_count(self, value):
+        self._rate_limit_count = max(0, value)
+        
+    def reset_rate_limits(self):
+        '''
+            Reset limit consumption and timing
+        '''
+        self._rate_limit_count = self._rate_limit
+        self._rate_limit_since = pd.Timestamp.now(self.tz)
+        
+    def update_rate_limits(self, rate_limit, rate_period=None):
+        '''
+            Update rate limits parameters on the fly
+        '''
+        self._rate_limit = rate_limit
+        if rate_period:
+            self._rate_period = rate_period
+            
+    def cool_off(self, mult=1):
+        '''
+            blocking sleep to cool off rate limit violation
+        '''
+        time.sleep(self._rate_period*mult)
 
 @singleton
 class KiteAuth(TokenAuth):

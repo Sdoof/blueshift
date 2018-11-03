@@ -29,27 +29,27 @@ def api_rate_limit(f):
     '''
         decorator to enforce rate limits on API calls. This assumes a member
         variable `rate_limit_count` to keep track of limit consumption and
-        a variable `rate_limit_since`
+        a variable `rate_limit_since`.
     '''
     @wraps(f)
     def decorated(self, *args, **kwargs):
         
-        if self.rate_limit_since is None:
-            self.rate_limit_since = pd.Timestamp.now(self.tz)
-            self.rate_limit_count == self.rate_limit
+        if self._api.rate_limit_since is None:
+            self._api.rate_limit_since = pd.Timestamp.now(self.tz)
+            self._api.rate_limit_count == self._api.rate_limit
             sec_elapsed = 0
         else:
             t = pd.Timestamp.now(self.tz)
-            sec_elapsed = (t - self.rate_limit_since).total_seconds()
-            if math.floor(sec_elapsed) > (self._rate_period-1):
-                self.reset_rate_limits()
+            sec_elapsed = (t - self._api.rate_limit_since).total_seconds()
+            if math.floor(sec_elapsed) > (self._api._rate_period-1):
+                self._api.reset_rate_limits()
 
-        if self.rate_limit_count == 0:
-            self.cool_off(mult=1.5)
-            self.reset_rate_limits()
+        if self._api.rate_limit_count == 0:
+            self._api.cool_off(mult=1.5)
+            self._api.reset_rate_limits()
             #raise APIRateLimitCoolOff(msg="Exceeded API rate limit")
         
-        self.rate_limit_count = self.rate_limit_count - 1
+        self._api.rate_limit_count = self._api.rate_limit_count - 1
         return f(self, *args, **kwargs)
     return decorated
 

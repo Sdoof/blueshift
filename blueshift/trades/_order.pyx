@@ -71,7 +71,18 @@ cdef class Order:
                  float trigger_price=0,     # for stoplosses
                  object user='algo',
                  object placed_by='algo',   # algo ID
-                 object tag='blueshift'):
+                 object tag='blueshift',
+                 object oid=None,
+                 object broker_order_id=None,
+                 object exchange_order_id=None,
+                 object parent_order_id=None,
+                 int filled=0,
+                 int pending=0,
+                 float average_price=0,
+                 int status=OrderStatus.OPEN,
+                 object status_message=None,
+                 object exchange_timestamp=None,
+                 object timestamp=None):
         '''
             The only agent who can create (or delete) an order is 
             the user trading agent. The broker cannot create an order.
@@ -84,11 +95,11 @@ cdef class Order:
         self.side = side
         self.quantity = quantity
         
-        self.oid = uuid.uuid4().hex
+        self.oid = uuid.uuid4().hex if oid is None else oid
         self.hashed_oid = hash(self.oid)
-        self.broker_order_id=None
-        self.exchange_order_id = None
-        self.parent_order_id = None
+        self.broker_order_id=broker_order_id
+        self.exchange_order_id = exchange_order_id
+        self.parent_order_id = parent_order_id
     
         self.user=user
         self.placed_by=placed_by
@@ -97,17 +108,17 @@ cdef class Order:
         self.order_type=order_type
         self.order_validity=order_validity
         
-        self.filled=0
-        self.pending=self.quantity
+        self.filled=filled
+        self.pending=pending if pending != 0 else (quantity-filled)
         self.disclosed=disclosed
         self.price=price
-        self.average_price=0
+        self.average_price=average_price
         self.trigger_price=trigger_price
     
-        self.status=_order_types.OPEN
-        self.status_message=""
-        self.exchange_timestamp=None
-        self.timestamp=None
+        self.status=status
+        self.status_message=status_message
+        self.exchange_timestamp=exchange_timestamp
+        self.timestamp=timestamp
         self.tag=tag
     
     
@@ -188,34 +199,6 @@ cdef class Order:
     @classmethod
     def from_dict(cls, data):
         return cls(**data)
-    
-    @classmethod
-    def create_order(cls, data):
-        order = cls(data['quantity'],data['side'],data['asset'])
-        order.oid = data['oid']
-        order.hashed_oid = hash(order.oid)
-        order.broker_order_id = data['broker_order_id']
-        order.exchange_order_id = data['exchange_order_id']
-        order.parent_order_id = data['parent_order_id']
-        order.user = data['user']
-        order.placed_by = data['placed_by']
-        order.product_type = data['product_type']
-        order.order_flag = data['order_flag']
-        order.order_type = data['order_type']
-        order.order_validity = data['order_validity']
-        order.filled = data['filled']
-        order.pending = data['pending']
-        order.disclosed = data['disclosed']
-        order.price = data['price']
-        order.average_price = data['average_price']
-        order.trigger_price = data['trigger_price']
-        order.status = data['status']
-        order.status_message = data['status_message']
-        order.exchange_timestamp = data['exchange_timestamp']
-        order.timestamp = data['timestamp']
-        order.tag = data['tag']
-        
-        return order
 
         
     cpdef update(self,int update_type, object kwargs):

@@ -14,7 +14,7 @@ from blueshift.utils.brokers.zerodha import (KiteAuth,
 
 kite_auth = KiteAuth(config='kite_config.json',tz='Asia/Calcutta',
                      timeout=(8,45))
-kite_auth.login(request_token='yzL3q8bnvdI66HZHZb3pQ3cjnFD2Jg7V')
+kite_auth.login(request_token='Ag4A6hfrSk9dRYDfiyKp6ZulnTqlIBDZ')
 kite_asset_finder = KiteAssetFinder(auth=kite_auth)
 kite_data = KiteRestData(auth=kite_auth)
 kite_broker = KiteBroker(auth = kite_auth, 
@@ -51,7 +51,7 @@ syms = ['ACC','INFY','NIFTY18DEC10900CE','NIFTY-I','NIFTY-II',
         'BANKNIFTY-II']
 assets = [kite_asset_finder.symbol_to_asset(sym) for sym in syms]
 t1 = pd.Timestamp.now()
-df = kite_data.history(assets,['open','close','volume'],375,"1m")
+df = kite_data.history(assets,['open','close','volume'],250,"1d")
 t2 = pd.Timestamp.now()
 time_elapsed = (t2-t1).total_seconds()*1000
 print(f"time elapsed {time_elapsed}")
@@ -61,3 +61,9 @@ for asset in assets:
         print(len(df.loc[asset]))
     except:
         print(f'not found {asset.symbol}')
+        
+        
+# test order and position fetching
+positions = kite_broker.positions
+orders = kite_broker.orders
+positions = kite_broker.open_positions        

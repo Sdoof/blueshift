@@ -30,6 +30,7 @@ from blueshift.trades._order_types import (ProductType,
                                            OrderStatus,
                                            OrderType)
 from blueshift.trades._order import Order
+from blueshift.utils.decorators import api_rate_limit, singleton
 
 class ResponseType(Enum):
     SUCCESS = "success"
@@ -53,6 +54,7 @@ order_type_map = {'MARKET':OrderType.MARKET,
                   'STOPLOSS':OrderType.STOPLOSS,
                   'STOPLOSS_MARKET':OrderType.STOPLOSS_MARKET}
 
+@singleton
 class KiteBroker(AbstractBrokerAPI):
     
     def __init__(self, 
@@ -119,6 +121,7 @@ class KiteBroker(AbstractBrokerAPI):
         self._auth.logout()
         
     @property
+    @api_rate_limit
     def profile(self):
         try:
             return self._api.profile()
@@ -128,6 +131,7 @@ class KiteBroker(AbstractBrokerAPI):
             raise BrokerAPIError(msg=msg, handling=handling)
         
     @property
+    @api_rate_limit
     def account(self):
         try:
             margins = self._api.margins()
@@ -138,6 +142,7 @@ class KiteBroker(AbstractBrokerAPI):
             raise BrokerAPIError(msg=msg, handling=handling)
     
     @property
+    @api_rate_limit
     def positions(self):
         try:
             position_details = self._api.positions()
@@ -159,11 +164,13 @@ class KiteBroker(AbstractBrokerAPI):
             raise BrokerAPIError(msg=msg, handling=handling)
     
     @property
+    @api_rate_limit
     def open_orders(self):
         _ = self.orders
         return self._open_orders
     
     @property
+    @api_rate_limit
     def orders(self, *args, **kwargs):
         try:
             orders = self._api.orders()
@@ -187,7 +194,8 @@ class KiteBroker(AbstractBrokerAPI):
         return self._calendar.tz
     
     def order(self, order_id):
-        pass
+        orders = self.orders
+        return orders.get(order_id, None)
     
     def place_order(self, order):
         pass
@@ -232,7 +240,6 @@ class KiteBroker(AbstractBrokerAPI):
         asset = self._asset_finder.lookup_symbol(o['tradingsymbol'])
         
         order_dict['oid'] = o['order_id']
-        order_dict['hashed_oid'] = hash(order_dict['oid'])
         order_dict['broker_order_id'] = o['order_id']
         order_dict['exchange_order_id'] = o['exchange_order_id']
         order_dict['parent_order_id'] = o['parent_order_id']
@@ -259,9 +266,9 @@ class KiteBroker(AbstractBrokerAPI):
         order_dict['timestamp'] = pd.Timestamp(o['order_timestamp'])
         order_dict['tag'] = o['tag']
 
-        order = Order.create_order(order_dict)        
+        order = Order.from_dict(order_dict)        
         
-        return order['oid'], order
+        return order.oid, order
         
         
         

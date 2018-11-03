@@ -54,21 +54,10 @@ class KiteRestData(RESTData):
                 handling = ExceptionHandling.TERMINATE
                 raise AuthenticationError(msg=msg, handling=handling)
             self._api = self._auth._api
-        
-        if not self._rate_limit:
-            # Kite has 3 per sec, we are conservative
-            self._rate_limit = 2
-            self._rate_limit_count = self._rate_limit
             
         if not self._trading_calendar:
             self._trading_calendar = kite_calendar
             
-        if not self._max_instruments:
-            # max allowed is 500 for current, and one for history
-            self._max_instruments = 50
-        
-        self._rate_limit_since = None # we reset this value on first call
-        
         self._asset_finder = kwargs.get("asset_finder", None)
         if self._asset_finder is None:
             self._asset_finder = KiteAssetFinder(auth=self._auth)
@@ -79,8 +68,8 @@ class KiteRestData(RESTData):
     @api_rate_limit
     def current(self, assets, fields):
         # prune the list if we exceed max instruments
-        if len(assets) > self._max_instruments:
-            assets = assets[:self._max_instruments]
+        if len(assets) > self._api._max_instruments:
+            assets = assets[:self._api._max_instruments]
             
         instruments = [asset.exchange_name+":"+asset.symbol for\
                           asset in assets]
@@ -95,8 +84,8 @@ class KiteRestData(RESTData):
         
     def history(self, assets, fields, nbar, frequency):
         # prune the list if we exceed max instruments
-        if len(assets) > self._max_instruments:
-            assets = assets[:self._max_instruments]
+        if len(assets) > self._api._max_instruments:
+            assets = assets[:self._api._max_instruments]
             
         frequency = frequency.lower()
         
@@ -124,8 +113,9 @@ class KiteRestData(RESTData):
         for asset in assets:
             try:
                 instrument = self._asset_finder.asset_to_id(asset)
-                data[asset] = self._history(instrument, from_date,to_date, interval, 
-                                     nbar)
+                data[asset] = self._history(instrument, 
+                                from_date,to_date, interval, nbar,
+                                fields)
             except SymbolNotFound:
                 pass
             except KiteException as e:
@@ -136,11 +126,15 @@ class KiteRestData(RESTData):
         return pd.concat(data)
         
     @api_rate_limit
-    def _history(self, instrument_id, from_date, to_date, interval, nbar):
+    def _history(self, instrument_id, from_date, to_date, interval, 
+                 nbar, fields):
+        valid_fields = [f for f in fields if f in OHLCV_FIELDS]
         try:
             data = self._api.historical_data(instrument_id,from_date.date(),
                                              to_date.date(), interval)
-            return self._list_to_df(data)[-nbar:]
+            nbar = min(nbar,len(data))
+            data = self._list_to_df(data)[-nbar:]
+            return data[:, valid_fields]
         except KiteException as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
