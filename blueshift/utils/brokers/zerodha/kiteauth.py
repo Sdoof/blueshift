@@ -33,6 +33,9 @@ class KiteConnect3(KiteConnect):
     '''
     def __init__(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
+        
+        # store login_url bound method
+        
         self._trading_calendar = kwargs.get("trading_calendar",None)
         # calls per period
         self._rate_limit = kwargs.get("rate_limit",None)
@@ -69,10 +72,6 @@ class KiteConnect3(KiteConnect):
     @property
     def tz(self):
         return self._trading_calendar.tz
-    
-    @property
-    def login_url(self):
-        return self.login_url()
     
     @property
     def rate_limit(self):
