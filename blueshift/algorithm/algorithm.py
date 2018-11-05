@@ -8,6 +8,7 @@ from enum import Enum
 import os
 import pandas as pd
 from functools import partial
+import asyncio
 
 from tqdm import tqdm 
 
@@ -17,7 +18,7 @@ from blueshift.utils.cutils import check_input
 from blueshift.execution.broker import AbstractBrokerAPI
 from blueshift.execution._clock import (SimulationClock, 
                                         BARS)
-from blueshift.execution.clock import RealtimeClock
+from blueshift.execution.clock import RealtimeClock, ClockQueue
 from blueshift.assets.assets import AssetFinder
 from blueshift.data.dataportal import DataPortal
 from blueshift.execution.broker import BrokerType
@@ -33,10 +34,16 @@ from blueshift.utils.exceptions import (
         BrokerAPIError)
 
 class MODE(Enum):
+    '''
+        Track the current running mode - live or backtest.
+    '''
     BACKTEST = 0
     LIVE = 1
     
 class STATE(Enum):
+    '''
+        Track the current state of the machine.
+    '''
     STARTUP = 0
     BEFORE_TRADING_START = 1
     TRADING_BAR = 2
@@ -44,10 +51,44 @@ class STATE(Enum):
     SHUTDOWN = 4
     HEARTBEAT = 5
     DORMANT = 6
+    
 
 class TradingAlgorithm(object):
     
+    def _make_bars_dispatch(self):
+        '''
+            Dispatch dictionary for user defined functions.
+        '''
+        self._USER_FUNC_DISPATCH = {
+            BARS.ALGO_START:self.initialize,
+            BARS.BEFORE_TRADING_START:self.before_trading_start,
+            BARS.TRADING_BAR:self.handle_data,
+            BARS.AFTER_TRADING_HOURS:self.after_trading_hours,
+            BARS.HEAR_BEAT:self.heartbeat,
+            BARS.ALGO_END:self.analyze
+        }
+        
+    def _make_broker_dispatch(self):
+        '''
+            Dispatch dictionary for backtest broker processing.
+        '''
+        self._BROKER_FUNC_DISPATCH = {
+            BARS.ALGO_START:self.context.broker.algo_start,
+            BARS.BEFORE_TRADING_START:self.context.broker.\
+                                            before_trading_start,
+            BARS.TRADING_BAR:self.context.broker.trading_bar,
+            BARS.AFTER_TRADING_HOURS:self.context.broker.\
+                                            after_trading_hours,
+            BARS.HEAR_BEAT:self.context.broker.heart_beat,
+            BARS.ALGO_END:self.context.broker.algo_end
+        }
+
     def __init__(self, *args, **kwargs):
+        '''
+            Get the arguments and resolve them to a consistent context
+            object. Then read the user algo and extract the API 
+            functions and create the dispatcher.
+        '''
         self.name = kwargs.get("name","")
         self.mode = kwargs.get("mode",MODE.BACKTEST)
         self.state = STATE.DORMANT
@@ -86,6 +127,7 @@ class TradingAlgorithm(object):
         
         # extract the user algo
         def noop(*args, **kwargs):
+            # pylint: disable=unused-argument
             pass
         
         self.algo = kwargs.get("algo", None)
@@ -118,6 +160,16 @@ class TradingAlgorithm(object):
                                     get('after_trading_hours', noop)
         self._heartbeat = self.namespace.get('heartbeat', noop)
         self._analyze = self.namespace.get('analyze', noop)
+        
+        # the async loop and message queue for the realtime clock
+        self._loop = None
+        self._queue = None
+        
+        # create the bars dispatch dictionaries
+        self.USER_FUNC_DISPATCH = {}
+        self._BROKER_FUNC_DISPATCH = {}
+        
+        self._make_bars_dispatch()
 
     def __str__(self):
         return "Algorithm: name:%s, broker:%s" % (self.name,
@@ -126,7 +178,16 @@ class TradingAlgorithm(object):
     def __repr__(self):
         return self.__str__()
     
+    def _bar_noop(self, timestamp):
+        '''
+            null operation for a bar function.
+        '''
+        pass
+    
     def initialize(self, timestamp):
+        '''
+            Called at the start of the algo.
+        '''
         if self.state != STATE.DORMANT:
             raise StateMachineError(msg="Initialize called from wrong" 
                                     " state")
@@ -135,6 +196,9 @@ class TradingAlgorithm(object):
         self.state = STATE.STARTUP
     
     def before_trading_start(self,timestamp):
+        '''
+            Called at the start of the session.
+        '''
         if self.state not in [STATE.STARTUP, \
                               STATE.AFTER_TRADING_HOURS,\
                               STATE.HEARTBEAT]:
@@ -146,11 +210,17 @@ class TradingAlgorithm(object):
         self.state = STATE.BEFORE_TRADING_START
     
     def handle_data(self,timestamp):
+        '''
+            Called at the start of each trading bar.
+        '''
         # we take a risk not checking the state maching state at 
         # handle_data, primarily to speed up things
         self._handle_data(self.context, self.context.data_portal)
     
     def after_trading_hours(self,timestamp):
+        '''
+            Called at the end of the session.
+        '''
         # we can jump from before trading to after trading hours!
         if self.state not in [STATE.BEFORE_TRADING_START, \
                               STATE.TRADING_BAR]:
@@ -162,6 +232,9 @@ class TradingAlgorithm(object):
         self.state = STATE.AFTER_TRADING_HOURS
     
     def analyze(self,timestamp):
+        '''
+            Called at the end of the algo run.
+        '''
         if self.state not in [STATE.HEARTBEAT, \
                               STATE.AFTER_TRADING_HOURS]:
             raise StateMachineError(msg="Analyze called from wrong"
@@ -169,68 +242,141 @@ class TradingAlgorithm(object):
         self._analyze(self.context)
         
     def heartbeat(self, timestamp):
+        '''
+            Called when we are not in a session.
+        '''
         if self.state not in [STATE.BEFORE_TRADING_START, \
                               STATE.AFTER_TRADING_HOURS, \
-                              STATE.TRADING_BAR]:
+                              STATE.TRADING_BAR,\
+                              STATE.HEARTBEAT]:
             raise StateMachineError(msg="Heartbeat called from wrong"
                                     " state")
         self._heartbeat(self.context)
         self.state = STATE.HEARTBEAT
     
     def back_test_run(self):
+        '''
+            The entry point for backtest run.
+        '''
         if self.mode != MODE.BACKTEST:
             raise StateMachineError(msg="mode must be back-test")
         if not isinstance(self.context.clock, SimulationClock):
             raise ValidationError(msg="clock must be simulation clock")
+            
+        self._make_broker_dispatch() # only useful for backtest
         
         for t, bar in self.context.clock:
+            ts = pd.Timestamp(t,unit='ns',
+                              tz=self.context.trading_calendar.tz)
+            
+            if bar == BARS.ALGO_START:
+                self.context.set_up(timestamp=ts)
+                
+            self.context.set_timestamp(ts)
+            self._BROKER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
+            
             if bar == BARS.TRADING_BAR:
-                ts = pd.Timestamp(t,unit='ns',
-                                  tz=self.context.trading_calendar.tz)
-                self.context.broker.trading_bar(ts)
-                self.context.set_timestamp(ts)
                 self.context.BAR_update(ts)
-                self.handle_data(ts)
-            elif bar == BARS.BEFORE_TRADING_START:
-                ts = pd.Timestamp(t,unit='ns',
-                                  tz=self.context.trading_calendar.tz)
-                self.context.broker.before_trading_start(ts)
-                self.context.set_timestamp(ts)
-                self.before_trading_start(ts)
-            elif bar == BARS.AFTER_TRADING_HOURS:
-                ts = pd.Timestamp(t,unit='ns',
-                                  tz=self.context.trading_calendar.tz)
-                self.context.broker.after_trading_hours(ts)
-                self.context.set_timestamp(ts)
+            
+            if bar == BARS.AFTER_TRADING_HOURS:
                 self.context.BAR_update(ts)
                 self.context.EOD_update(ts)
-                self.after_trading_hours(ts)
-            elif bar == BARS.HEAR_BEAT:
-                ts = pd.Timestamp(t,unit='ns',
-                                  tz=self.context.trading_calendar.tz)
-                self.context.broker.hear_beat(ts)
-                self.context.set_timestamp(ts)
-                self.heartbeat(ts)
-            elif bar == BARS.ALGO_START:
-                ts = pd.Timestamp(t,unit='ns',
-                                  tz=self.context.trading_calendar.tz)
-                self.context.broker.algo_start(ts)
+                
+            self._USER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
+    
+    def _get_event_loop(self):
+        '''
+            Obtain the current event loop or create one.
+        '''
+        if self._loop is None:
+            self._loop = asyncio.get_event_loop()
+        if self._loop.is_closed():
+            asyncio.set_event_loop(asyncio.new_event_loop())
+            self._loop = asyncio.get_event_loop()
+    
+    def _reset_clock(self, delay=1):
+        '''
+            Reset the realtime clock
+        '''
+        self._get_event_loop()
+        self._queue = ClockQueue(loop=self._loop)
+        self.context.clock.reset(self._queue, delay)
+        
+    async def _process_tick(self):
+        '''
+            Process ticks from real clock asynchronously.
+        '''
+        while True:
+            # start from the beginning, process all ticks except
+            # TRADING_BAR or HEAR_BEAT. For these we skip to the last
+            # TODO: implement this logic in ClockQueue
+            t, bar = await self._queue.get_last()
+            ts = pd.Timestamp.now(tz=self.context.trading_calendar.tz)
+            print("{}: got {}".format(ts, bar))
+            
+            if bar == BARS.ALGO_START:
                 self.context.set_up(timestamp=ts)
-                self.initialize(ts)
-            elif bar == BARS.ALGO_END:
-                ts = pd.Timestamp(t,unit='ns',
-                                  tz=self.context.trading_calendar.tz)
-                self.context.broker.algo_end(ts)
-                self.context.set_timestamp(ts)
-                self.analyze(t)
+            self.context.set_timestamp(ts)
+            
+            if bar == BARS.TRADING_BAR:    
+                self.context.BAR_update(ts)
+            
+            if bar == BARS.AFTER_TRADING_HOURS:
+                self.context.BAR_update(ts)
+                self.context.EOD_update(ts)
+                
+            self._USER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
+            
+    
+    def live_run(self):
+        '''
+            The entry point for a live run.
+        '''
+        if self.mode != MODE.LIVE:
+            raise StateMachineError(msg="mode must be live")
+        if not isinstance(self.context.clock, RealtimeClock):
+            # create a realtime clock from context calendar
+            self.context.clock = RealtimeClock(
+                    self.context.trading_calendar,1)
+        
+        # reset the clock at the start of the run, this also aligns
+        # ticks to the nearest rounded bar depending on the frequency
+        self._reset_clock(1)
+        
+        # initialize the coroutines
+        clock_coro = self.context.clock.tick()
+        algo_coro = self._process_tick()
+        
+        try:
+            tasks = asyncio.gather(clock_coro,algo_coro,
+                                   return_exceptions=False)
+            self._loop.run_until_complete(tasks)
+        except Exception as e:
+            # TODO: do a proper exception handling here
+            print("exception {}".format(e))
+        finally:
+            # close gracefully
+            for task in asyncio.Task.all_tasks():
+                task.cancel()
+            self._loop.run_until_complete(
+                    self._loop.shutdown_asyncgens())
+            self._loop.close()
+        
     
     @api_method
     def symbol(self,symbol_str:str):
+        '''
+            API function to resolve a symbol string to an asset.
+        '''
         check_input(self.symbol, locals())
         return self.context.asset_finder.lookup_symbol(symbol_str)
     
     @api_method
     def symbols(self, symbol_list):
+        '''
+            API function to resolve a list of symbols to a list of 
+            asset.
+        '''
         return self.context.asset_finder.lookup_symbols(symbol_list)
     
     @api_method

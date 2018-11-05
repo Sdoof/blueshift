@@ -10,7 +10,6 @@ import math
 import time
 
 import blueshift.algorithm.api
-from blueshift.utils.exceptions import APIRateLimitCoolOff
 
 
 def api_method(f):
@@ -47,7 +46,6 @@ def api_rate_limit(f):
         if self._api.rate_limit_count == 0:
             self._api.cool_off(mult=1.5)
             self._api.reset_rate_limits()
-            #raise APIRateLimitCoolOff(msg="Exceeded API rate limit")
         
         self._api.rate_limit_count = self._api.rate_limit_count - 1
         return f(self, *args, **kwargs)

@@ -12,12 +12,12 @@ from blueshift.utils.brokers.zerodha import (KiteAuth,
                                              KiteRestData,
                                              KiteBroker)
 
-kite_auth = KiteAuth(config='kite_config.json',tz='Asia/Calcutta',
-                     timeout=(8,45))
+kite_auth = KiteAuth(config='kite_config.json', tz='Asia/Calcutta',
+                     timeout=(8, 45))
 kite_auth.login(request_token='75IxWkMn5pHQq2c8zRhZOFuc4R7L1EeU')
 kite_asset_finder = KiteAssetFinder(auth=kite_auth)
 kite_data = KiteRestData(auth=kite_auth)
-kite_broker = KiteBroker(auth = kite_auth, 
+kite_broker = KiteBroker(auth = kite_auth,
                          asset_finder=kite_asset_finder)
 
 # test asset creation
@@ -27,13 +27,13 @@ assets = []
 
 t1 = pd.Timestamp.now()
 for i in range(1000):
-    sym = tickers.iloc[random.randint(0,n)]
+    sym = tickers.iloc[random.randint(0, n)]
     asset = kite_asset_finder.symbol_to_asset(sym)
     if asset is None:
         print(f"failed to create asset for {sym}")
         continue
     assets.append(asset)
-    
+
 t2 = pd.Timestamp.now()
 time_elapsed = (t2-t1).total_seconds()*1000
 print(f"time elapsed {time_elapsed}")
@@ -59,11 +59,11 @@ print(f"time elapsed {time_elapsed}")
 for asset in assets:
     try:
         print(len(df.loc[asset]))
-    except:
+    except KeyError:
         print(f'not found {asset.symbol}')
         
         
 # test order and position fetching
 positions = kite_broker.positions
 orders = kite_broker.orders
-positions = kite_broker.open_positions        
+positions = kite_broker.open_orders        

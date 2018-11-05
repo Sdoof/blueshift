@@ -85,6 +85,13 @@ class AlgoContext(object):
     def broker(self):
         return self.__broker_api
     
+    @broker.setter
+    def broker(self, broker_object):
+        if isinstance(broker_object, (SimulationClock,RealtimeClock)):
+            self.__broker_api = broker_object
+            return
+        raise ValidationError(msg="argument must be a valid broker type")
+    
     @property
     def account(self):
         return self.__account
@@ -132,6 +139,13 @@ class AlgoContext(object):
     @property
     def clock(self):
         return self.__clock
+    
+    @clock.setter
+    def clock(self, clock_object):
+        if isinstance(clock_object, (SimulationClock,RealtimeClock)):
+            self.__clock = clock_object
+            return
+        raise ValidationError(msg="argument must be a valid clock type")
     
     def past_performance(self, lookback):
         idx, values = self.__performance.get_past_perfs(lookback)

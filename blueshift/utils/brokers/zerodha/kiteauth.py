@@ -5,13 +5,9 @@ Created on Mon Oct 29 16:27:37 2018
 @author: prodipta
 """
 
-'''
-    Create the default calendar for kiteconnect. The market is NSE.
-'''
-
 import json
-import pandas as pd
 import time
+import pandas as pd
 
 from kiteconnect import KiteConnect
 from kiteconnect.exceptions import KiteException
@@ -22,8 +18,10 @@ from blueshift.utils.exceptions import (AuthenticationError,
                                         ExceptionHandling)
 from blueshift.utils.decorators import singleton
 
+# pylint: disable=invalid-name, missing-docstring
 kite_calendar = TradingCalendar('NSE',tz='Asia/Calcutta',opens=(9,15,0), 
                                 closes=(15,30,0))
+
 
 
 @singleton
@@ -32,6 +30,7 @@ class KiteConnect3(KiteConnect):
         kiteconnect modified to force a singleton (and to print pretty).
     '''
     def __init__(self, *args, **kwargs):
+        # pylint: disable=bad-super-call
         super(self.__class__, self).__init__(*args, **kwargs)
         
         # store login_url bound method
@@ -126,6 +125,7 @@ class KiteAuth(TokenAuth):
         the underlying API object which shall be passed around for any
         subsequent interaction.
     '''
+    # pylint: disable=too-many-instance-attributes
     def __init__(self, *args, **kwargs):
         config = None
         config_file = kwargs.pop('config',None)
@@ -133,7 +133,7 @@ class KiteAuth(TokenAuth):
             try:
                 with open(config_file) as fp:
                     config = json.load(fp)
-            except:
+            except FileNotFoundError:
                 pass
         
         if config:
@@ -141,6 +141,8 @@ class KiteAuth(TokenAuth):
         
         if not kwargs.get('name',None):
             kwargs['name'] = 'kite'
+        
+        # pylint: disable=bad-super-call
         super(self.__class__, self).__init__(*args, **kwargs)
         self._api_key = kwargs.get('api_key',None)
         self._api_secret = kwargs.get('api_secret',None)

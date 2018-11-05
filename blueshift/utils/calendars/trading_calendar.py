@@ -24,15 +24,25 @@ OPEN_TIME = (10,0,0)
 CLOSE_TIME = (16,0,0)
 
 def np_search(array, value):
+    '''
+        return index position if a match if found, else -1
+    '''
     idx = np.where(array==value)[0]
     if idx:
         return idx[0]
     return -1
 
 def valid_timezone(tz):
+    '''
+        check if a timezone string is valid
+    '''
     return (str(tz) in pytz.all_timezones)
 
 def make_consistent_tz(dt, tz):
+    '''
+        Given a datetime and a timezone, ensure the datetime in the 
+        same timezone.
+    '''
     if dt.tz is None:
         dt = pd.Timestamp(dt, tz=tz)
     else:
@@ -67,10 +77,18 @@ def days_to_nano(dts, tz, weekends):
     return np.asarray(dtsn)
 
 def date_to_nano(dt, tz):
+    '''
+        Convert the datetime to the given timezone and returns the
+        nanosecond since the epoch
+    '''
     dt = make_consistent_tz(dt, tz)
     return dt.value
 
 def date_to_nano_midnight(dt, tz):
+    '''
+        Convert the datetime to the given timezone =, normalize and 
+        returns the nanosecond since the epoch
+    '''
     dt = make_consistent_tz(dt, tz)
     dt = dt.normalize()
     return dt.value
@@ -163,15 +181,24 @@ class TradingCalendar(object):
         return self.__str__()
     
     def is_holiday(self, dt):
+        '''
+            check for holiday
+        '''
         return not self.is_session(dt)
     
     def is_session(self, dt):
+        '''
+            check if it is a valid session
+        '''
         dtm = date_to_nano_midnight(dt,self._tz)
         if np_search(self._bizdays,dtm) > 0:
             return True
         return False
         
     def is_open(self, dt):
+        '''
+            check for a open session
+        '''
         dtn = date_to_nano(dt,self._tz)
         dtnm = date_to_nano_midnight(dt, self._tz)
         if self.is_session(dt):
@@ -181,6 +208,9 @@ class TradingCalendar(object):
         return False
         
     def next_open(self, dt):
+        '''
+            returns next open session time
+        '''
         dtn = date_to_nano_midnight(dt,self._tz)
         idx = np.searchsorted(self._bizdays,dtn)
         if self._bizdays[idx] == dtn:
@@ -192,6 +222,9 @@ class TradingCalendar(object):
             raise SessionOutofRange
         
     def previous_open(self, dt):
+        '''
+            returns previous open session time
+        '''
         dtn = date_to_nano_midnight(dt,self._tz)
         idx = np.searchsorted(self._bizdays,dtn) - 1
         if idx >= 0:
@@ -201,6 +234,9 @@ class TradingCalendar(object):
             raise SessionOutofRange
         
     def next_close(self, dt):
+        '''
+            returns next close session time
+        '''
         dtn = date_to_nano_midnight(dt,self._tz)
         idx = np.searchsorted(self._bizdays,dtn)
         if self._bizdays[idx] == dtn:
@@ -212,6 +248,9 @@ class TradingCalendar(object):
             raise SessionOutofRange(dt=dt)
         
     def previous_close(self, dt):
+        '''
+            returns previous close session time
+        '''
         dtn = date_to_nano_midnight(dt,self._tz)
         idx = np.searchsorted(self._bizdays,dtn) - 1
         if idx >= 0:
@@ -221,6 +260,9 @@ class TradingCalendar(object):
             raise SessionOutofRange(dt=dt)
         
     def sessions(self, start_dt, end_dt):
+        '''
+            list all valid sessions between dates, inclusive
+        '''
         dt1 = date_to_nano_midnight(start_dt,self._tz)
         dt2 = date_to_nano_midnight(end_dt,self._tz)
         idx1 = np.searchsorted(self._bizdays,dt1)
@@ -233,14 +275,23 @@ class TradingCalendar(object):
                 tz_localize('Etc/UTC').tz_convert(self._tz)
                 
     def minutes(self, start_dt, end_dt):
+        '''
+            list all valid minutes between dates, inclusive
+        '''
         raise NotImplementedError()
         
     def add_bizdays(self, dts):
+        '''
+            manually add business days
+        '''
         dtsn = days_to_nano(dts, self._tz, [])
         self._bizdays = np.unique(np.append(self._bizdays, dtsn))
         self._bizdays = np.sort(self._bizdays)
     
     def add_holidays(self, dts):
+        '''
+            manually add holiddays
+        '''
         dtsn = days_to_nano(dts, self._tz, [])
         sort_idx = self._bizdays.argsort()
         idx = sort_idx[np.searchsorted(self._bizdays,dtsn,sorter = sort_idx)]

@@ -4,12 +4,12 @@ Created on Thu Oct 25 14:20:31 2018
 
 @author: prodipta
 """
-import pandas as pd
 from abc import ABC, abstractmethod
-import time
 
 class RESTData(ABC):
-    
+    '''
+        Abstract interface for RESTful data service.
+    '''
     def __init__(self, *args, **kwargs):
         self._name = kwargs.get("name","")
         self._trading_calendar = kwargs.get("trading_calendar",None)

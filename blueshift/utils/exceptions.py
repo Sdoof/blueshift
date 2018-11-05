@@ -52,7 +52,7 @@ class APIValidationError(BlueShiftException):
     msg = "{msg}"
     
 class StateMachineError(BlueShiftException):
-    msg = "Error in Algo attempted state change: {msg}"
+    msg = "Error in attempted state change: {msg}"
     handling = ExceptionHandling.RECOVER
     
 class ValidationError(BlueShiftException):

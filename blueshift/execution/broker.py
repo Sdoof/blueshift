@@ -9,6 +9,9 @@ from abc import ABC, abstractmethod, abstractproperty
 from enum import Enum
 
 class BrokerType(Enum):
+    '''
+        Types of brokers. TWS broker is specific to IB only.
+    '''
     BACKTESTER = 0
     PAPERTRADER = 1
     RESTBROKER = 2
@@ -16,6 +19,9 @@ class BrokerType(Enum):
 
 
 class AbstractBrokerAPI(ABC):
+    '''
+        Broker abstract interface.
+    '''
     
     def __init__(self, name, broker_type, calendar, **kwargs):
         self._name = name

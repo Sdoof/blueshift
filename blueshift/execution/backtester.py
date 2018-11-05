@@ -30,10 +30,16 @@ import random
 LOGNAME = "backtest_server"
 
 class ResponseType(Enum):
+    '''
+        Enum for response from a broker (usually a rest broker)
+    '''
     SUCCESS = "success"
     ERROR = "error"
     
 class APICommand(Enum):
+    '''
+        List of acceptable command strings.
+    '''
     PLACE_ORDER = 0
     MODIFTY_ORDER = 1
     CANCEL_ORDER = 3
@@ -410,6 +416,9 @@ class BackTester(object):
         
         
 class BackTesterAPI(AbstractBrokerAPI):
+    '''
+        An implementation of the broker interface for backtest.
+    '''
     
     def __init__(self, 
                  name:str,

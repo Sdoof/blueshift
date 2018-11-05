@@ -258,7 +258,7 @@ class BrokerAssetFinder(ABC):
         return self._asset_finder
     
     @abstractmethod
-    def symbol_to_asset(self, tradingsymbol):
+    def symbol_to_asset(self, tradingsymbol, as_of_date=None):
         raise NotImplementedError
         
     @abstractmethod
@@ -266,7 +266,7 @@ class BrokerAssetFinder(ABC):
         raise NotImplementedError
         
     @abstractmethod
-    def asset_to_symbol(self, tradingsymbol):
+    def asset_to_symbol(self, asset):
         raise NotImplementedError
         
     

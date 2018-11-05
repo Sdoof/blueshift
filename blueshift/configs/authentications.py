@@ -96,7 +96,7 @@ class AbstractAuth(ABC):
         raise NotImplementedError
         
     @abstractmethod
-    def login(self):
+    def login(self, *args, **kwargs):
         raise NotImplementedError
         
     def is_logged(self):
@@ -132,13 +132,13 @@ class TokenAuth(AbstractAuth):
         '''
         self._auth_token = None
         
-    def login(self, auth_token, *args, **kwargs):
+    def login(self, *args, **kwargs):
         '''
             This simply calls the set_token method. Login may or
             may not be manual. In case of automated login, add the
             logic before setting the token.
         '''
-        self.set_token(auth_token)
+        self.set_token(kwargs.get("auth_token",None))
         
     def set_token(self, auth_token, *args, **kwargs):
         '''

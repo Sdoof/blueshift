@@ -12,17 +12,18 @@ from functools import lru_cache
 from kiteconnect.exceptions import KiteException
 
 
-from blueshift.utils.exceptions import (AuthenticationError, 
+from blueshift.utils.exceptions import (AuthenticationError,
                                         ExceptionHandling,
                                         APIException,
                                         SymbolNotFound)
 
 from blueshift.utils.decorators import singleton, api_retry
-from blueshift.assets.assets import BrokerAssetFinder, NoAssetFinder
+from blueshift.assets.assets import BrokerAssetFinder
+from blueshift.utils.brokers.zerodha.kiteauth import kite_calendar
+
+# pylint: disable=no-name-in-module
 from blueshift.assets._assets import (Equity, EquityFutures, Forex,
                                       EquityOption, OptionType)
-
-from blueshift.utils.brokers.zerodha.kiteauth import kite_calendar
 
 LRU_CACHE_SIZE = 512
 
@@ -36,6 +37,7 @@ class KiteAssetFinder(BrokerAssetFinder):
         in our database for user to be able to query or trade that with
         a broker.
     '''
+    # pylint: disable=too-many-instance-attributes
     EXCHANGES = ['NSE','NFO','CDS']
     AssetConstructorDispatch = {'EQNSE':Equity, 'FUTNFO': EquityFutures,
             'CENFO':EquityOption, 'PENFO':EquityOption, 'FUTCDS': Forex}
@@ -46,6 +48,7 @@ class KiteAssetFinder(BrokerAssetFinder):
             asset database, and an auth object that provides us with the
             underlying API object
         '''
+        # pylint: disable=bad-super-call, protected-access
         super(self.__class__, self).__init__(*args, **kwargs)
         self._api = kwargs.get("api",None)
         self._auth = kwargs.get("auth",None)
@@ -76,6 +79,7 @@ class KiteAssetFinder(BrokerAssetFinder):
     
     @property
     def name(self):
+        # pylint: disable=protected-access
         return self._auth._name
     
     def __str__(self):
@@ -108,7 +112,6 @@ class KiteAssetFinder(BrokerAssetFinder):
             t = pd.Timestamp.now(tz=self.tz) + pd.Timedelta(days=1)
             self._instruments_list_valid_till = t.normalize()
         except Exception as e:
-            raise e
             msg = str(e)
             handling = ExceptionHandling.TERMINATE
             raise APIException(msg=msg, handling=handling)
@@ -213,16 +216,18 @@ class KiteAssetFinder(BrokerAssetFinder):
         
         exp1_dict = dict(zip(self.expiries,['I',"II","III"]))
         exp2_dict = dict(zip(self.cds_expiries,['I',"II","III"]))
+        
         def expiry_month(e,i,s, d1, d2):
             if i != "FUT":
                 return ""
-            else:
-                if s == "NFO":
-                    return d1.get(e,"")
-                elif s == "CDS":
-                    return d2.get(e,"")
-                else:
-                    return ""
+            
+            if s == "NFO":
+                return d1.get(e,"")
+            
+            if s == "CDS":
+                return d2.get(e,"")
+            
+            return ""
         
         exp = [expiry_month(r["expiry"],
                                 r["instrument_type"],
@@ -235,6 +240,7 @@ class KiteAssetFinder(BrokerAssetFinder):
             Create an asset from a matching row from the instruments
             list.
         '''
+        # pylint: disable=no-self-use
         # TODO: replace this by create_asset_from_dict from _assets
         if row['instrument_type'] == 'EQ':
             asset = Equity(-1,symbol=row['tradingsymbol'], 
@@ -372,6 +378,7 @@ class KiteAssetFinder(BrokerAssetFinder):
             Implementation of the interface. The plural version will
             remains same as the parent class
         '''
+        # pylint: disable=unused-argument
         return self.symbol_to_asset(sym)
     
     def fetch_asset(self, sid):
