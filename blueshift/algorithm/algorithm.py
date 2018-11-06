@@ -276,10 +276,11 @@ class TradingAlgorithm(object):
             self._BROKER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
             
             if bar == BARS.TRADING_BAR:
-                self.context.BAR_update(ts)
+                #self.context.BAR_update(ts)
+                pass
             
             if bar == BARS.AFTER_TRADING_HOURS:
-                self.context.BAR_update(ts)
+                #self.context.BAR_update(ts)
                 self.context.EOD_update(ts)
                 
             self._USER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)

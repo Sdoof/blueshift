@@ -6,7 +6,6 @@ Created on Mon Oct 29 16:27:37 2018
 """
 
 import json
-import time
 import pandas as pd
 
 from kiteconnect import KiteConnect
@@ -17,6 +16,7 @@ from blueshift.configs.authentications import TokenAuth
 from blueshift.utils.exceptions import (AuthenticationError,
                                         ExceptionHandling)
 from blueshift.utils.decorators import singleton
+from blueshift.utils.mixins import APIRateLimitMixin
 
 # pylint: disable=invalid-name, missing-docstring
 kite_calendar = TradingCalendar('NSE',tz='Asia/Calcutta',opens=(9,15,0), 
@@ -25,25 +25,27 @@ kite_calendar = TradingCalendar('NSE',tz='Asia/Calcutta',opens=(9,15,0),
 
 
 @singleton
-class KiteConnect3(KiteConnect):
+class KiteConnect3(APIRateLimitMixin, KiteConnect):
     '''
         kiteconnect modified to force a singleton (and to print pretty).
     '''
     def __init__(self, *args, **kwargs):
         # pylint: disable=bad-super-call
-        super(self.__class__, self).__init__(*args, **kwargs)
+        #super(self.__class__, self).__init__(*args, **kwargs)
+        api_key = kwargs.get('api_key',None)
+        access_token = kwargs.get('access_token',None)
+        root = kwargs.get('root',None)
+        debug = kwargs.get('debug',False)
+        timeout = kwargs.get('timeout',None)
+        proxies = kwargs.get('proxies',None)
+        pool = kwargs.get('pool',None)
+        disable_ssl = kwargs.get('disable_ssl',False)
         
-        # store login_url bound method
+        KiteConnect.__init__(self, api_key, access_token, root,
+                             debug, timeout, proxies, pool,
+                             disable_ssl)
+        APIRateLimitMixin.__init__(self, *args, **kwargs)
         
-        self._trading_calendar = kwargs.get("trading_calendar",None)
-        # calls per period
-        self._rate_limit = kwargs.get("rate_limit",None)
-        # limit period in sec
-        self._rate_period = kwargs.get("rate_period",1) 
-        # running count
-        self._rate_limit_count = self._rate_limit
-        # time since last limit reset
-        self._rate_limit_since = None
         # max instruments that can be queried at one call
         self._max_instruments = kwargs.get("max_instruments",None)
         
@@ -52,6 +54,9 @@ class KiteConnect3(KiteConnect):
             self._rate_limit = 2
             self._rate_limit_count = self._rate_limit
             
+        if not self._rate_period:
+            self._rate_period = 1
+        
         if not self._max_instruments:
             # max allowed is 500 for current, and one for history
             self._max_instruments = 50
@@ -61,6 +66,15 @@ class KiteConnect3(KiteConnect):
         
         if not self._trading_calendar:
             self._trading_calendar = kite_calendar
+            
+        holidays = kwargs.get("holidays",None)
+        if holidays:
+            try:
+                dts = pd.read_csv(holidays, parse_dates=True)
+                dts = pd.to_datetime(dts.iloc[:,0].tolist())
+                self._trading_calendar.add_holidays(dts)
+            except FileNotFoundError:
+                pass
     
     def __str__(self):
         return "Kite Connect API v3.0"
@@ -68,54 +82,9 @@ class KiteConnect3(KiteConnect):
     def __repr__(self):
         return self.__str__()
     
-    @property
-    def tz(self):
-        return self._trading_calendar.tz
     
-    @property
-    def rate_limit(self):
-        return self._rate_limit
     
-    @property
-    def rate_period(self):
-        return self._rate_period
     
-    @property
-    def rate_limit_since(self):
-        return self._rate_limit_since
-    
-    @rate_limit_since.setter
-    def rate_limit_since(self, value):
-        self._rate_limit_since = value
-    
-    @property
-    def rate_limit_count(self):
-        return self._rate_limit_count
-    
-    @rate_limit_count.setter
-    def rate_limit_count(self, value):
-        self._rate_limit_count = max(0, value)
-        
-    def reset_rate_limits(self):
-        '''
-            Reset limit consumption and timing
-        '''
-        self._rate_limit_count = self._rate_limit
-        self._rate_limit_since = pd.Timestamp.now(self.tz)
-        
-    def update_rate_limits(self, rate_limit, rate_period=None):
-        '''
-            Update rate limits parameters on the fly
-        '''
-        self._rate_limit = rate_limit
-        if rate_period:
-            self._rate_period = rate_period
-            
-    def cool_off(self, mult=1):
-        '''
-            blocking sleep to cool off rate limit violation
-        '''
-        time.sleep(self._rate_period*mult)
 
 @singleton
 class KiteAuth(TokenAuth):
@@ -150,7 +119,10 @@ class KiteAuth(TokenAuth):
         self._request_token = kwargs.get('reuest_token',None)
         
         self._access_token = self.auth_token
-        self._api = KiteConnect3(self._api_key)
+        self._api = KiteConnect3(api_key=self._api_key,
+                                 holidays=kwargs.get("holidays",None),
+                                 rate_period=kwargs.get("rate_period",None),
+                                 rate_limit=kwargs.get("rate_limit",None))
         
     @property
     def api_key(self):

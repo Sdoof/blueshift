@@ -103,11 +103,12 @@ class KiteRestData(RESTData):
             return
             
         to_date = pd.Timestamp.now(tz=self.tz).normalize()
-        from_date = to_date + pd.Timedelta(days=-(n_days+10))
+        from_date = to_date + pd.Timedelta(days=-(2*n_days))
         valid_sessions = self._trading_calendar.sessions(from_date,
                                                          to_date)
+        valid_sessions = valid_sessions[-n_days:]
         to_date = valid_sessions[-1]
-        from_date = valid_sessions[-n_days-1]
+        from_date = valid_sessions[0]
         
         data = {}
         for asset in assets:
@@ -134,7 +135,7 @@ class KiteRestData(RESTData):
                                              to_date.date(), interval)
             nbar = min(nbar,len(data))
             data = self._list_to_df(data)[-nbar:]
-            return data[:, valid_fields]
+            return data.loc[:, valid_fields]
         except KiteException as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
