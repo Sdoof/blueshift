@@ -19,17 +19,16 @@ async def send_command(websocket, path):
             await asyncio.sleep(random.random() * 5)
             if cmd=="TERMINATE":
                 print("terminate, exiting...")
-                for task in asyncio.Task.all_tasks():
-                    task.cancel()
-                loop.run_until_complete(loop.shutdown_asyncgens())
-                loop.close()
+                loop.stop()
+                pending = asyncio.Task.all_tasks()
+                loop.run_until_complete(asyncio.gather(*pending))
+                
                 break
         except websockets.ConnectionClosed:
             print("client closed connection, exiting...")
-            for task in asyncio.Task.all_tasks():
-                    task.cancel()
-            loop.run_until_complete(loop.shutdown_asyncgens())
-            loop.close()
+#            for task in asyncio.Task.all_tasks():
+#                    task.cancel()
+            loop.stop()
             break
             
         
