@@ -10,14 +10,31 @@ import websockets
 import random
 
 async def send_command(websocket, path):
+    print(websocket)
+    print(path)
     while True:
         try:
             cmd = input("type a command:")
             await websocket.send(cmd)
             await asyncio.sleep(random.random() * 5)
+            if cmd=="TERMINATE":
+                print("terminate, exiting...")
+                for task in asyncio.Task.all_tasks():
+                    task.cancel()
+                loop.run_until_complete(loop.shutdown_asyncgens())
+                loop.close()
+                break
         except websockets.ConnectionClosed:
-            continue
+            print("client closed connection, exiting...")
+            for task in asyncio.Task.all_tasks():
+                    task.cancel()
+            loop.run_until_complete(loop.shutdown_asyncgens())
+            loop.close()
+            break
+            
         
 start_server = websockets.serve(send_command, '127.0.0.1', 60042)
-asyncio.get_event_loop().run_until_complete(start_server)
-asyncio.get_event_loop().run_forever()
+loop = asyncio.get_event_loop()
+loop.run_until_complete(start_server)
+loop.run_forever()
+loop.close()

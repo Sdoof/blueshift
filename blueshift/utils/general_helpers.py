@@ -58,7 +58,28 @@ class MaxSizedOrderedDict(OrderedDict):
         for i in range(self.chunk_size):
             self.popitem(last=False)
     
+class OnetoOne(object):
+    '''
+        A data structure to enable a one-to-one mapping. This
+        stores two dict objects, so not mighty useful for large
+        dicts. Use with cautions.
+    '''
     
+    def __init__(self, input_dict):
+        '''
+            Store a reverse of the dict. If there are repeated
+            keys when reverse, it will automatically be truncated.
+            Be careful.
+        '''
+        self.__dict = input_dict
+        self.__reversed_dict = dict((v,k) for k, v in \
+                                   self.__dict.items())
+        
+    def get(self,key,default=None):
+        return self.__dict.get(key,default)
+    
+    def teg(self, key, default=None):
+        return self.__reversed_dict.get(key, default)
     
     
     

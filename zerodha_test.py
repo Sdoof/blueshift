@@ -14,7 +14,7 @@ from blueshift.utils.brokers.zerodha import (KiteAuth,
 
 kite_auth = KiteAuth(config='kite_config.json', tz='Asia/Calcutta',
                      timeout=(8, 45))
-kite_auth.login(request_token='Xzqn4sra2GjZOo1F8zTn61G5kusAYLwO')
+kite_auth.login(request_token='IQI0Efq82lHHRu9Pw1Ihwtg3xgyTGiX6')
 kite_asset_finder = KiteAssetFinder(auth=kite_auth)
 kite_data = KiteRestData(auth=kite_auth)
 kite_broker = KiteBroker(auth = kite_auth,

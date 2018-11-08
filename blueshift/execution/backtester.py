@@ -519,7 +519,12 @@ class BackTesterAPI(AbstractBrokerAPI):
                                           order))
         return self.process_response(response)
     
-    def update_order(self, order_id, *args, **kwargs):
+    def update_order(self, order_param, *args, **kwargs):
+        if isinstance(order_param, Order):
+            order_id = order_param.oid
+        else:
+            order_id = order_param
+        
         kwargs["order_id"] = order_id
         response = self._api.send(self.make_api_payload(APICommand.\
                                         MODIFTY_ORDER,
@@ -527,7 +532,12 @@ class BackTesterAPI(AbstractBrokerAPI):
         
         return self.process_response(response)
     
-    def cancel_order(self, order_id):
+    def cancel_order(self, order_param):
+        if isinstance(order_param, Order):
+            order_id = Order.oid
+        else:
+            order_id = order_param
+            
         response = self._api.send(self.make_api_payload(APICommand.\
                                         CANCEL_ORDER,
                                         order_id))  

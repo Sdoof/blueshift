@@ -31,32 +31,35 @@ from blueshift.trades._order_types import (ProductType,
                                            OrderType)
 from blueshift.trades._order import Order
 from blueshift.utils.decorators import api_rate_limit, singleton
+from blueshift.utils.general_helpers import OnetoOne
 
 class ResponseType(Enum):
     SUCCESS = "success"
     ERROR = "error"
     
-product_type_map = {'NRML':ProductType.DELIVERY, 
-                    'MIS':ProductType.INTRADAY}
-order_validity_map = {'DAY':OrderValidity.DAY, 
+product_type_map = OnetoOne({'NRML':ProductType.DELIVERY, 
+                    'MIS':ProductType.INTRADAY})
+order_validity_map = OnetoOne({'DAY':OrderValidity.DAY, 
                     'IOC':OrderValidity.IOC,
-                    'GTC':OrderValidity.GTC}
-order_flag_map = {'NORMAL':OrderFlag.NORMAL, 
-                    'AMO':OrderFlag.AMO}
-order_side_map = {'BUY':OrderSide.BUY, 
-                    'SELL':OrderSide.SELL}
-order_status_map = {'COMPLETE':OrderStatus.COMPLETE, 
+                    'GTC':OrderValidity.GTC})
+order_flag_map = OnetoOne({'NORMAL':OrderFlag.NORMAL, 
+                    'AMO':OrderFlag.AMO})
+order_side_map = OnetoOne({'BUY':OrderSide.BUY, 
+                    'SELL':OrderSide.SELL})
+order_status_map = OnetoOne({'COMPLETE':OrderStatus.COMPLETE, 
                     'OPEN':OrderStatus.OPEN,
                     'REJECTED':OrderStatus.REJECTED,
-                    'CANCELLED':OrderStatus.CANCELLED}
-order_type_map = {'MARKET':OrderType.MARKET,
+                    'CANCELLED':OrderStatus.CANCELLED})
+order_type_map = OnetoOne({'MARKET':OrderType.MARKET,
                   'LIMIT':OrderType.LIMIT,
                   'STOPLOSS':OrderType.STOPLOSS,
-                  'STOPLOSS_MARKET':OrderType.STOPLOSS_MARKET}
+                  'STOPLOSS_MARKET':OrderType.STOPLOSS_MARKET})
 
 @singleton
 class KiteBroker(AbstractBrokerAPI):
-    
+    '''
+        Implements the broker interface functions.
+    '''
     def __init__(self, 
                  name:str="kite", 
                  broker_type:BrokerType=BrokerType.RESTBROKER, 
@@ -108,6 +111,10 @@ class KiteBroker(AbstractBrokerAPI):
         return self.__str__()
     
     def process_response(self, response):
+        '''
+            We probably do not need this as we use the pyconnect
+            package which does this for us already.
+        '''
         if response['status'] == ResponseType.SUCCESS.value:
             return response['data']
         else:
@@ -123,6 +130,9 @@ class KiteBroker(AbstractBrokerAPI):
     @property
     @api_rate_limit
     def profile(self):
+        '''
+            Fetch and return the user profile.
+        '''
         try:
             return self._api.profile()
         except KiteException as e:
@@ -133,9 +143,22 @@ class KiteBroker(AbstractBrokerAPI):
     @property
     @api_rate_limit
     def account(self):
+        '''
+            This will call positions and update the accounts
+            and return.
+        '''
         try:
-            margins = self._api.margins()
-            account = EquityAccount()
+            data = self._api.margins()
+            cash = data['equity']['available']['cash'] +\
+                data['equity']['available']['intraday_payin']-\
+                data['equity']['utilised']['payout'] +\
+                data['equity']['utilised']['m2m_realised']
+            margin = data['equity']['utilised']['exposure'] +\
+                data['equity']['utilised']['span'] +\
+                data['equity']['utilised']['option_premium']
+            positions = self.positions()
+            self._account.update_account(cash, margin,
+                                         positions)
         except KiteException as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
@@ -144,6 +167,9 @@ class KiteBroker(AbstractBrokerAPI):
     @property
     @api_rate_limit
     def positions(self):
+        '''
+            Fetch the positions
+        '''
         try:
             position_details = self._api.positions()
             if not position_details:
@@ -166,23 +192,39 @@ class KiteBroker(AbstractBrokerAPI):
     @property
     @api_rate_limit
     def open_orders(self):
+        '''
+            Call the order method and return the open order dict.
+        '''
         _ = self.orders
         return self._open_orders
     
     @property
     @api_rate_limit
     def orders(self, *args, **kwargs):
+        '''
+            Fetch a list of orders from the broker and update
+            internal dicts. Returns both open and closed orders.
+        '''
         try:
             orders = self._api.orders()
             if orders is None:
                 return {**self._open_orders, **self._closed_orders}
             
             for o in orders:
+                # we assume no further updates on closed orders
+                if o['order_id'] in self._closed_orders:
+                    continue
+                
                 order_id, order = self._order_from_dict(o)
                 if order.status == OrderStatus.OPEN:
                     self._open_orders[order_id] = order
                 else:
+                    # add to closed orders dict
                     self._closed_orders[order_id] = order
+                    # pop from open order if it was there
+                    if order_id in self._open_orders:
+                        self._open_orders.pop(order_id)
+            
             return {**self._open_orders, **self._closed_orders}
         except KiteException as e:
             msg = str(e)
@@ -194,20 +236,145 @@ class KiteBroker(AbstractBrokerAPI):
         return self._calendar.tz
     
     def order(self, order_id):
+        '''
+            Fetch the order by id.
+        '''
         orders = self.orders
         return orders.get(order_id, None)
     
+    @api_rate_limit
     def place_order(self, order):
-        pass
+        '''
+            Place a new order. Order asset will be converted to
+            an asset understood by the broker.
+        '''
+        quantity = order.quantity
+        variety = order.order_flag
+        
+        asset = self._aset_finder.symbol_to_asset(
+                order.asset.symbol)
+        exchange = asset.exchange_name
+        tradingsymbol = asset.symbol
+            
+        transaction_type = order.side
+        product = order.product_type
+        order_type = order.order_type
+        price = order.price
+        validity = order.order_validity
+        disclosed_quantity = order.disclosed
+        trigger_price = order.trigger_price
+        stoploss_price = order.stoploss_price
+        tag = order.tag
+        
+        variety = order_flag_map.teg(variety,"regular")
+        transaction_type = order_side_map.teg(
+                transaction_type, None)
+        order_type = order_type_map.teg(order_type,"MARKET")
+        product = product_type_map.teg(product,'NRML')
+        validity = order_validity_map.teg(validity, 'DAY')
+        
+        #TODO: assumption price cannot be negative
+        price = price if price > 0 else None
+        trigger_price = trigger_price if price > 0 else None
+        stoploss_price = stoploss_price if price > 0 else None
+        
+        try:
+            order_id = self._api.place_order(variety, exchange,
+                                  tradingsymbol,
+                                  transaction_type,
+                                  quantity, product,
+                                  order_type, price=price,
+                                  validity=validity,
+                                  disclosed_quantity=\
+                                      disclosed_quantity,
+                                  trigger_price=trigger_price,
+                                  stoploss=stoploss_price, 
+                                  tag=tag)
+            return order_id
+        except KiteException as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
     
-    def update_order(self, order_id, *args, **kwargs):
-        pass
+    @api_rate_limit
+    def update_order(self, order_param, *args, **kwargs):
+        '''
+            Update an existing order.
+        '''
+        if isinstance(order_param, Order):
+            order_id = order_param.oid
+            variety = order_param.order_flag
+            parent_order_id = order_param.parent_order_id
+        else:
+            order_id = order_param
+            order = self._open_orders.get(order_id,None)
+            if order:
+                variety = order_param.order_flag
+                parent_order_id = order_param.parent_order_id
+            else:
+                variety = OrderFlag.NORMAL
+                parent_order_id = None
+                
+        quantity = kwargs.get("quantity",None)
+        price = kwargs.get("price",None)
+        order_type = kwargs.get("order_type",None)
+        trigger_price = kwargs.get("trigger_price",None)
+        validity = kwargs.get("validity",None)
+        disclosed_quantity = kwargs.get("disclosed_quantity",None)
+        
+        try:
+            variety = order_flag_map.teg(variety,"regular")
+            order_type = order_type_map.teg(order_type,"MARKET")
+            validity = order_validity_map.teg(validity, 'DAY')
+            order_id = self._api.modify_order(variety,order_id,
+                                   parent_order_id,
+                                   quantity,
+                                   price,
+                                   order_type,
+                                   trigger_price,
+                                   validity,
+                                   disclosed_quantity)
+            return order_id
+        except KiteException as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
     
-    def cancel_order(self, order_id):
-        pass
+    @api_rate_limit
+    def cancel_order(self, order_param):
+        '''
+            Cancel an existing order
+        '''
+        if isinstance(order_param, Order):
+            order_id = order_param.oid
+            variety = order_param.order_flag
+            parent_order_id = order_param.parent_order_id
+        else:
+            order_id = order_param
+            order = self._open_orders.get(order_id,None)
+            if order:
+                variety = order_param.order_flag
+                parent_order_id = order_param.parent_order_id
+            else:
+                variety = OrderFlag.NORMAL
+                parent_order_id = None
+        try:
+            variety = order_flag_map.get(variety,"regular")
+            order_id = self._api.cancel_order(variety,order_id,
+                                   parent_order_id)
+            return order_id
+        except KiteException as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
     
     def fund_transfer(self, amount):
-        pass
+        '''
+            We do not implement fund transfer for Zerodha.
+        '''
+        msg = "Please go to Zerodha website for fund transfer"
+        handling = ExceptionHandling.WARN
+        raise BrokerAPIError(msg=msg, handling=handling)
     
     
     def _position_from_dict(self, p):
@@ -258,6 +425,7 @@ class KiteBroker(AbstractBrokerAPI):
         order_dict['price'] = o['price']
         order_dict['average_price'] = o['average_price']
         order_dict['trigger_price'] = o['trigger_price']
+        order_dict['stoploss_price'] = o['stoploss_price']
         order_dict['side'] = order_side_map.get(o['transaction_type'])
         order_dict['status'] = order_status_map.get(o['status'])
         order_dict['status_message'] = o['status_message']

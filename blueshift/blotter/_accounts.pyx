@@ -83,6 +83,40 @@ cdef class Account:
     def from_dict(cls, data):
         return cls(**data)
     
+    cpdef update_account(self, float cash, float margin, 
+                         dict positions):
+        # run all updates in series
+        self.cash = cash
+        self.margin = margin
+        self.liquid_value = self.cash + self.margin
+        
+        self.update_from_positions(positions)
+    
+    cpdef update_from_positions(self, dict positions):
+        float pnl = 0
+        float net_exposure = 0
+        float gross_exposure = 0
+        float mtm = 0
+        for pos in positions:
+            pnl = pos.pnl + pnl
+            if pos.if_closed():
+                continue
+            net_exposure = net_exposure + (pos.buy_quantity - \
+                            pos.sell_quantity)*pos.last_price
+            gross_exposure = pos.quantity*pos.last_price +\
+                                gross_exposure
+            mtm = pos.unrealized_pnl + mtm
+        
+        if self.liquid_value > 0:
+            self.gross_leverage = gross_exposure/self.liquid_value
+            self.net_leverage = net_exposure/self.liquid_value
+        
+        self.gross_exposure = gross_exposure
+        self.net_exposure = net_exposure
+        self.pnl = pnl
+        self.mtm = mtm
+        self.net = self.mtm + self.liquid_value
+    
 cdef class BacktestAccount(Account):
     
     cpdef fund_transfer(self, float amount):
@@ -123,16 +157,6 @@ cdef class BacktestAccount(Account):
         self.cash = self.cash - amount
         self.margin = self.margin + amount
         
-    cpdef update_accounts(self, float mtm, float gross, float net):
-        
-        # run all updates in series
-        self.mtm = self.mtm + mtm
-        self.net = self.net + mtm
-        
-        self.gross_exposure = self.gross_exposure + gross
-        self.net_exposure = self.net_exposure + net
-        self.gross_leverage = round(self.gross_exposure/self.liquid_value,2)
-        self.net_leverage = round(self.net_exposure/self.liquid_value,2)
         
 cdef class EquityAccount(Account):
     

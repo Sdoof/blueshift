@@ -51,6 +51,7 @@ cdef class Order:
     cdef readonly float price
     cdef readonly float average_price
     cdef readonly float trigger_price
+    cdef readonly float stoploss_price
     cdef readonly int side
     cdef readonly int status
     cdef readonly object status_message
@@ -69,6 +70,7 @@ cdef class Order:
                  int disclosed=0,
                  float price=0,             # for limit prices
                  float trigger_price=0,     # for stoplosses
+                 float stoploss_price=0,     # for stoplosses
                  object user='algo',
                  object placed_by='algo',   # algo ID
                  object tag='blueshift',
@@ -114,6 +116,7 @@ cdef class Order:
         self.price=price
         self.average_price=average_price
         self.trigger_price=trigger_price
+        self.stoploss_price = stoploss_price
     
         self.status=status
         self.status_message=status_message
@@ -161,6 +164,7 @@ cdef class Order:
                 'price':self.price,
                 'average_price':self.average_price,
                 'trigger_price':self.trigger_price,
+                'stoploss_price':self.stoploss_price
                 'side':self.side,
                 'status':self.status,
                 'status_message':self.status_message,
@@ -188,6 +192,7 @@ cdef class Order:
                                 self.price,
                                 self.average_price,
                                 self.trigger_price,
+                                self.stoploss_price,
                                 self.side,
                                 self.status,
                                 self.status_message,
@@ -270,6 +275,8 @@ cdef class Order:
         
         if 'trigger_price' in kwargs:
             self.trigger_price = kwargs['trigger_price']
+        if 'stoploss_price' in kwargs:
+            self.stoploss_price = kwargs['stoploss_price']
         if 'order_type' in kwargs:
             self.order_type = kwargs['order_type']
         if 'order_validity' in kwargs:
