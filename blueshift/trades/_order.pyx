@@ -164,7 +164,7 @@ cdef class Order:
                 'price':self.price,
                 'average_price':self.average_price,
                 'trigger_price':self.trigger_price,
-                'stoploss_price':self.stoploss_price
+                'stoploss_price':self.stoploss_price,
                 'side':self.side,
                 'status':self.status,
                 'status_message':self.status_message,

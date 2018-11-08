@@ -92,20 +92,19 @@ cdef class Account:
         
         self.update_from_positions(positions)
     
-    cpdef update_from_positions(self, dict positions):
-        float pnl = 0
-        float net_exposure = 0
-        float gross_exposure = 0
-        float mtm = 0
+    cdef update_from_positions(self, dict positions):
+        net_exposure = 0
+        gross_exposure = 0
+        mtm = 0
         for pos in positions:
-            pnl = pos.pnl + pnl
-            if pos.if_closed():
+            position = positions[pos]
+            if position.if_closed():
                 continue
-            net_exposure = net_exposure + (pos.buy_quantity - \
-                            pos.sell_quantity)*pos.last_price
-            gross_exposure = pos.quantity*pos.last_price +\
+            net_exposure = net_exposure + (position.buy_quantity - \
+                            position.sell_quantity)*position.last_price
+            gross_exposure = position.quantity*position.last_price +\
                                 gross_exposure
-            mtm = pos.unrealized_pnl + mtm
+            mtm = position.unrealized_pnl + mtm
         
         if self.liquid_value > 0:
             self.gross_leverage = gross_exposure/self.liquid_value
@@ -113,7 +112,6 @@ cdef class Account:
         
         self.gross_exposure = gross_exposure
         self.net_exposure = net_exposure
-        self.pnl = pnl
         self.mtm = mtm
         self.net = self.mtm + self.liquid_value
     

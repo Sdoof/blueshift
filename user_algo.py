@@ -26,3 +26,18 @@ def analyze(context):
     t2 = pd.Timestamp.now()
     elapsed_time = (t2-context.t1).total_seconds()*1000
     print("run complete in {} milliseconds".format(elapsed_time))
+    
+    pnl = 0
+    realized = 0
+    unrealized = 0
+    portfolio = context.portfolio
+    for p in portfolio:
+        pnl = pnl + portfolio[p].pnl
+        realized = realized + portfolio[p].realized_pnl
+        unrealized = unrealized + portfolio[p].unrealized_pnl
+        print(portfolio[p])
+        
+    print(f"realized: {realized}, unrealized: {unrealized}, total {pnl}")
+        
+        
+        

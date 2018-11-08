@@ -159,6 +159,7 @@ class KiteBroker(AbstractBrokerAPI):
             positions = self.positions()
             self._account.update_account(cash, margin,
                                          positions)
+            return self._account.to_dict()
         except KiteException as e:
             msg = str(e)
             handling = ExceptionHandling.WARN

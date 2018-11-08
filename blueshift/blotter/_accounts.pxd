@@ -25,13 +25,16 @@ cdef class Account:
     
     cpdef to_dict(self)
     cpdef __reduce__(self)
+    cpdef update_account(self, float cash, float margin, 
+                         dict positions)
+    cdef update_from_positions(self, dict positions)
     
 cdef class BacktestAccount(Account):
     cpdef settle_trade(self, Trade t)
     cpdef fund_transfer(self, float amount)
     cpdef block_margin(self, float amount)
     cpdef release_margin(self, float amount)
-    cpdef update_accounts(self,float mtm, float gross, float net)
+    
     
 cdef class EquityAccount(Account):
     cpdef reconcile(self, object trades, object positions)

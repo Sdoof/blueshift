@@ -316,16 +316,19 @@ class BackTester(object):
             # ignore if traded is 0. Note traded is without sign
             # the order remains open for next exec opportunity
             if traded == 0:
-                return
+                continue
             
+            # check if quantity traded is valid
             if order.quantity - order.filled <  traded:
                 traded = order.quantity - order.filled
             
+            # compute the cash and margins required
             margin, cash_flow = self.compute_margin_cashflow(
                     order.asset,price, traded, order.side)
             commission = self.compute_commission(price, traded)
             cash_flow = cash_flow - commission
             
+            # create the trade object
             self.tid = self.tid+1
             t = Trade(self.tid, traded, order.side, order_id, 
                       order_id, order_id, -1,  # dummy instrument ID
@@ -333,6 +336,7 @@ class BackTester(object):
                       cash_flow, margin,commission,timestamp, 
                       timestamp)
             
+            # try settling the trade with account
             try:
                 self._account.settle_trade(t)
             except InsufficientFund:
@@ -342,6 +346,7 @@ class BackTester(object):
                                                 pop(order_id)
                 continue
             
+            # update the order in the order book and see if done
             self._open_orders[order_id].update(OrderUpdateType.\
                              EXECUTION,t)
             
@@ -351,16 +356,22 @@ class BackTester(object):
                 self._closed_orders[order_id] = self._open_orders.\
                                                 pop(order_id)
             
+            # update the position book
             if t.asset in self._open_positions:
                 self._open_positions[t.asset].update(t, margin)
                 #TODO: optimize the pop?
                 if self._open_positions[t.asset].if_closed():
                     self._closed_positions.append(self._open_positions.\
                                                   pop(t.asset))
-            
             else:
                 p = Position.from_trade(t, margin)
                 self._open_positions[t.asset] = p
+                
+            # finally update the account metrics
+            cash = self._account.cash + cash_flow
+            margin = self._account.margin + margin
+            self._account.update_account(cash, margin,
+                                         self._open_positions)
     
     def compute_margin_cashflow(self, asset, price, traded, side):
         instrument_type = asset.instrument_type
