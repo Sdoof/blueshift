@@ -19,7 +19,6 @@ from blueshift.utils.exceptions import (AuthenticationError,
 
 from blueshift.utils.decorators import singleton, api_retry
 from blueshift.assets.assets import BrokerAssetFinder
-from blueshift.utils.brokers.zerodha.kiteauth import kite_calendar
 
 # pylint: disable=no-name-in-module
 from blueshift.assets._assets import (Equity, EquityFutures, Forex,
@@ -63,7 +62,7 @@ class KiteAssetFinder(BrokerAssetFinder):
             self._api = self._auth._api
             
         if not self._trading_calendar:
-            self._trading_calendar = kite_calendar
+            self._trading_calendar = self._auth._trading_calendar
             
         self._instruments_list = None
         self._instruments_list_valid_till = None

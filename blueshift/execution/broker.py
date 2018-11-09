@@ -26,7 +26,7 @@ class AbstractBrokerAPI(ABC):
     def __init__(self, name, broker_type, calendar, **kwargs):
         self._name = name
         self._type = broker_type
-        self._calendar = calendar
+        self._trading_calendar = calendar
         self._auth_token = None
         self._connected = False
         
@@ -42,6 +42,10 @@ class AbstractBrokerAPI(ABC):
     
     @abstractmethod
     def logout(self, *args, **kwargs):
+        pass
+    
+    @abstractproperty
+    def calendar(self):
         pass
     
     @abstractproperty

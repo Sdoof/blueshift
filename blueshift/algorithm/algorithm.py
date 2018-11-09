@@ -10,9 +10,8 @@ import pandas as pd
 from functools import partial
 import asyncio
 
-from tqdm import tqdm 
+#from tqdm import tqdm 
 
-import blueshift.algorithm.api
 from blueshift.algorithm.context import AlgoContext
 from blueshift.utils.cutils import check_input 
 from blueshift.execution.broker import AbstractBrokerAPI
@@ -21,10 +20,11 @@ from blueshift.execution._clock import (SimulationClock,
 from blueshift.execution.clock import RealtimeClock, ClockQueue
 from blueshift.assets.assets import AssetFinder
 from blueshift.data.dataportal import DataPortal
-from blueshift.execution.broker import BrokerType
+from blueshift.execution.authentications import AbstractAuth
 from blueshift.trades._order import Order
 from blueshift.trades._order_types import OrderSide
-from blueshift.utils.decorators import api_method
+from blueshift.algorithm.api_decorator import api_method
+from blueshift.algorithm.api import get_broker
 
 from blueshift.utils.exceptions import (
         StateMachineError,
@@ -96,8 +96,8 @@ class TradingAlgorithm(object):
         
         # two ways to kickstart, specify the components...
         param_test = 0
-        broker = kwargs.get("broker",None)
-        if isinstance(broker, AbstractBrokerAPI):
+        broker_api = kwargs.get("api",None)
+        if isinstance(broker_api, AbstractBrokerAPI):
             param_test = 1
         clock = kwargs.get("clock", None)
         if isinstance(clock, (SimulationClock,RealtimeClock)):
@@ -108,22 +108,26 @@ class TradingAlgorithm(object):
         data_portal = kwargs.get("data_portal", None)
         if isinstance(data_portal, DataPortal):
             param_test = param_test|8
+        auth = kwargs.get("auth", None)
+        if isinstance(auth, AbstractAuth):
+            param_test = param_test|16
         
         # or specify the context. Both not acceptable
         self.context = kwargs.get("context", None)
         if self.context:
-            if param_test == 15:
+            if param_test >= 15:
                 raise InitializationError(msg="too many parameters"
                                     " passed in algo {} init".format(
                                                   self.name))
             # else selectively add the components to context
             else:
-                self.context.update(*args, **kwargs)
-        elif param_test == 15:
-            self.context = AlgoContext(*args, **kwargs)
+                self.context.reset(*args, **kwargs)
+        
         else:
             self.context = AlgoContext(*args, **kwargs)
         # we should have a proper algo context by this time
+        # but this may not be initialized and ready to run.
+        # we must check initialization before running the algo.
         
         # extract the user algo
         def noop(*args, **kwargs):
@@ -260,6 +264,11 @@ class TradingAlgorithm(object):
         '''
         if self.mode != MODE.BACKTEST:
             raise StateMachineError(msg="mode must be back-test")
+        
+        if not self.context.is_initialized():
+            raise InitializationError(msg="context is not "
+                                      "properly initialized")
+        
         if not isinstance(self.context.clock, SimulationClock):
             raise ValidationError(msg="clock must be simulation clock")
             
@@ -335,14 +344,17 @@ class TradingAlgorithm(object):
         '''
         if self.mode != MODE.LIVE:
             raise StateMachineError(msg="mode must be live")
+        
+        if not self.context.is_initialized():
+            raise InitializationError(msg="context is not "
+                                      "properly initialized")
+        
         if not isinstance(self.context.clock, RealtimeClock):
-            # create a realtime clock from context calendar
-            self.context.clock = RealtimeClock(
-                    self.context.trading_calendar,1)
+            raise ValidationError(msg="clock must be real-time clock")
         
         # reset the clock at the start of the run, this also aligns
         # ticks to the nearest rounded bar depending on the frequency
-        self._reset_clock(1)
+        self._reset_clock(self.context.clock.emit_frequency)
         
         # initialize the coroutines
         clock_coro = self.context.clock.tick()
@@ -382,6 +394,9 @@ class TradingAlgorithm(object):
     
     @api_method
     def order(self, asset, quantity):
+        '''
+            Place new order.
+        '''
         if quantity == 0:
             return
         side = OrderSide.BUY if quantity > 0 else OrderSide.SELL
@@ -394,6 +409,9 @@ class TradingAlgorithm(object):
         
     @api_method
     def cancel_order(self, order_id):
+        '''
+            Cancel existing order if not already executed.
+        '''
         if order_id is None:
             return
         try:
@@ -401,3 +419,30 @@ class TradingAlgorithm(object):
             return order_id
         except BrokerAPIError:
             pass
+
+    @api_method
+    def set_broker(self, name, *args, **kwargs):
+        '''
+            Change the broker in run time. This is useful to modify
+            the broker api (including execution logic if any) or the
+            capital. This will NOT change the clock, and we do not want
+            that either.
+        '''
+        if self.state not in [STATE.STARTUP, STATE.DORMANT,\
+                              BARS.HEAR_BEAT]:
+            msg = "cannot set broker in current state"
+            raise APIValidationError(msg=msg)
+        
+        broker = get_broker(name, *args, **kwargs)
+        
+        # we cannot switch from backtest to live or reverse
+        if type(self.context.clock) != type(broker.clock):
+            msg = "cannot switch from backtest to live or reverse"
+            raise APIValidationError(msg=msg)
+        
+        # we should not attempt to change the clock!
+        self.context.reset(api=broker.broker, auth=broker.auth,
+                           asset_finder=broker.asset_finder,
+                           data_portal=broker.data_portal)
+            
+        

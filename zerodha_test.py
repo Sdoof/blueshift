@@ -14,7 +14,7 @@ from blueshift.utils.brokers.zerodha import (KiteAuth,
 
 kite_auth = KiteAuth(config='kite_config.json', tz='Asia/Calcutta',
                      timeout=(8, 45))
-kite_auth.login(request_token='IQI0Efq82lHHRu9Pw1Ihwtg3xgyTGiX6')
+kite_auth.login(request_token='tIhp5isUd2dyewM7WqXe20QEskwbbc0p')
 kite_asset_finder = KiteAssetFinder(auth=kite_auth)
 kite_data = KiteRestData(auth=kite_auth)
 kite_broker = KiteBroker(auth = kite_auth,
@@ -68,3 +68,4 @@ for asset in assets:
 positions = kite_broker.positions
 orders = kite_broker.orders
 open_orders = kite_broker.open_orders
+account = kite_broker.account

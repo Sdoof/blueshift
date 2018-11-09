@@ -19,7 +19,6 @@ from blueshift.trades._order_types import (
         OrderUpdateType)
 from _trade cimport Trade
 from blueshift.assets._assets cimport Asset
-from blueshift.assets.assets import AssetFinder
 import uuid
 
 status_dict = {0:'complete',1:'open',2:'rejected',3:'cancelled'}

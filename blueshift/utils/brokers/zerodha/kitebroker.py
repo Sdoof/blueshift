@@ -13,9 +13,7 @@ from kiteconnect.exceptions import KiteException
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.execution.broker import AbstractBrokerAPI, BrokerType
 from blueshift.utils.brokers.zerodha.kiteauth import (KiteAuth,
-                                                      KiteConnect3,
-                                                      kite_calendar)
-from blueshift.utils.brokers.zerodha.kiteassets import KiteAssetFinder
+                                                      KiteConnect3)
 from blueshift.utils.cutils import check_input
 from blueshift.utils.exceptions import (AuthenticationError,
                                         ExceptionHandling,
@@ -63,7 +61,7 @@ class KiteBroker(AbstractBrokerAPI):
     def __init__(self, 
                  name:str="kite", 
                  broker_type:BrokerType=BrokerType.RESTBROKER, 
-                 calendar:TradingCalendar=kite_calendar,
+                 calendar:TradingCalendar=None,
                  **kwargs):
         
         check_input(KiteBroker.__init__, locals())
@@ -82,6 +80,9 @@ class KiteBroker(AbstractBrokerAPI):
             msg = "authentication and API missing"
             handling = ExceptionHandling.TERMINATE
             raise AuthenticationError(msg=msg, handling=handling)
+            
+        if not self._trading_calendar:
+            self._trading_calendar = self._auth._trading_calendar
         
         if self._auth.__class__ != KiteAuth.cls:
             msg = "invalid authentication object"
@@ -126,7 +127,11 @@ class KiteBroker(AbstractBrokerAPI):
         
     def logout(self, *args, **kwargs):
         self._auth.logout()
-        
+    
+    @property
+    def calendar(self):
+        return self._trading_calendar
+    
     @property
     @api_rate_limit
     def profile(self):
@@ -156,9 +161,9 @@ class KiteBroker(AbstractBrokerAPI):
             margin = data['equity']['utilised']['exposure'] +\
                 data['equity']['utilised']['span'] +\
                 data['equity']['utilised']['option_premium']
-            positions = self.positions()
+            _positions = self.positions
             self._account.update_account(cash, margin,
-                                         positions)
+                                         _positions)
             return self._account.to_dict()
         except KiteException as e:
             msg = str(e)
@@ -234,7 +239,7 @@ class KiteBroker(AbstractBrokerAPI):
     
     @property
     def tz(self, *args, **kwargs):
-        return self._calendar.tz
+        return self._trading_calendar.tz
     
     def order(self, order_id):
         '''

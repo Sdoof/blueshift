@@ -91,5 +91,12 @@ class ZeroCashBalance(BlueShiftException):
     msg = "cash balance or liquidation value is zero"
     handling = ExceptionHandling.TERMINATE
     
-
+class NotValidBroker(BlueShiftException):
+    msg = "name supplied is not a valid registered broker"
+    handling = ExceptionHandling.TERMINATE
+    
+class NotValidCalendar(BlueShiftException):
+    msg = "name supplied is not a valid registered calendar"
+    handling = ExceptionHandling.TERMINATE
+    
 

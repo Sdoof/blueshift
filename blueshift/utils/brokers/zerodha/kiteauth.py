@@ -12,7 +12,7 @@ from kiteconnect import KiteConnect
 from kiteconnect.exceptions import KiteException
 
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
-from blueshift.configs.authentications import TokenAuth
+from blueshift.execution.authentications import TokenAuth
 from blueshift.utils.exceptions import (AuthenticationError,
                                         ExceptionHandling)
 from blueshift.utils.decorators import singleton
@@ -123,6 +123,7 @@ class KiteAuth(TokenAuth):
                                  holidays=kwargs.get("holidays",None),
                                  rate_period=kwargs.get("rate_period",None),
                                  rate_limit=kwargs.get("rate_limit",None))
+        self._trading_calendar = self._api._trading_calendar
         
     @property
     def api_key(self):

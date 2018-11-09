@@ -4,11 +4,18 @@ Created on Thu Oct 18 11:22:26 2018
 
 @author: prodipta
 """
-from blueshift.algorithm.api import symbol, order
+from blueshift.algorithm.api import symbol, order, set_broker
 import pandas as pd
 import random
 
 def initialize(context):
+    start_date = pd.Timestamp('2017-01-04')
+    end_date = pd.Timestamp('2018-01-04')
+    tz = 'Asia/Calcutta'
+
+    set_broker("backtest",start_date=start_date,
+                        end_date=end_date, tz=tz,initial_capital=45000)
+    
     context.t1 = pd.Timestamp.now()
     print("initialize {}".format(context.timestamp))
     context.asset = symbol("NIFTY-I")

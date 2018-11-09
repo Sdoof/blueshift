@@ -451,7 +451,7 @@ class BackTesterAPI(AbstractBrokerAPI):
         else:
             self._api = BackTester(name, calendar, initial_capital)
         
-        self._calendar = calendar
+        self._trading_calendar = calendar
         self.initial_capital = initial_capital
         self._name = name
         # backtester is always connected
@@ -485,44 +485,54 @@ class BackTesterAPI(AbstractBrokerAPI):
                                           kwargs))
         return self.process_response(response)
     
-    def profile(self, *args, **kwargs):
+    @property
+    def calendar(self):
+        return self._trading_calendar
+    
+    @property
+    def profile(self):
         response = self._api.send(self.make_api_payload(APICommand.\
                                                           GET_PROFILE,
-                                          kwargs))
+                                          {}))
         return self.process_response(response)
     
-    def account(self, *args, **kwargs):
+    @property
+    def account(self):
         response = self._api.send(self.make_api_payload(APICommand.\
                                                           GET_ACCOUNT,
-                                          kwargs))
+                                          {}))
         return self.process_response(response)
     
-    def positions(self, *args, **kwargs):
+    @property
+    def positions(self):
         response = self._api.send(self.make_api_payload(APICommand.\
                                         GET_POSITIONS,
-                                        kwargs))
+                                        {}))
         return self.process_response(response)
     
-    def open_orders(self, *args, **kwargs):
+    @property
+    def open_orders(self):
         response = self._api.send(self.make_api_payload(APICommand.\
                                         GET_OPEN_ORDERS,
-                                        kwargs))
+                                        {}))
         return self.process_response(response)
+    
+    @property
+    def orders(self):
+        response = self._api.send(self.make_api_payload(APICommand.\
+                                        GET_ORDERS,
+                                        {}))
+        return self.process_response(response)
+    
+    @property
+    def tz(self, *args, **kwargs):
+        return self._trading_calendar.tz
     
     def order(self, order_id):
         response = self._api.send(self.make_api_payload(APICommand.\
                                                           GET_ORDER,
                                           order_id))
-        return BackTesterAPI.process_response(response)
-    
-    def orders(self, *args, **kwargs):
-        response = self._api.send(self.make_api_payload(APICommand.\
-                                        GET_ORDERS,
-                                        kwargs))
         return self.process_response(response)
-    
-    def tz(self, *args, **kwargs):
-        return self._calendar.tz
     
     def place_order(self, order):
         response = self._api.send(self.make_api_payload(APICommand.\

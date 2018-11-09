@@ -11,7 +11,7 @@ from math import ceil
 
 from kiteconnect.exceptions import KiteException
 
-from blueshift.data.rest_data import RESTData
+from blueshift.data.rest_data import RESTDataPortal
 from blueshift.data.dataportal import OHLCV_FIELDS
 from blueshift.utils.exceptions import (AuthenticationError, 
                                         ExceptionHandling,
@@ -21,13 +21,12 @@ from blueshift.utils.exceptions import (AuthenticationError,
 from blueshift.utils.decorators import api_rate_limit, singleton
 
 from blueshift.utils.brokers.zerodha.kiteassets import KiteAssetFinder
-from blueshift.utils.brokers.zerodha.kiteauth import kite_calendar
 
 LRU_CACHE_SIZE = 512
 
 
 @singleton
-class KiteRestData(RESTData):
+class KiteRestData(RESTDataPortal):
     '''
         Encalsulates the RESTful historical and current market data API
         for Zerodha kite. It contains a kite authentication object and
@@ -56,14 +55,14 @@ class KiteRestData(RESTData):
             self._api = self._auth._api
             
         if not self._trading_calendar:
-            self._trading_calendar = kite_calendar
+            self._trading_calendar = self._auth._trading_calendar
             
         self._asset_finder = kwargs.get("asset_finder", None)
         if self._asset_finder is None:
             self._asset_finder = KiteAssetFinder(auth=self._auth)
             
-        self._minute_per_day = int((kite_calendar._close_nano - 
-                                    kite_calendar._open_nano)/(60*1E9))
+        self._minute_per_day = int((self._trading_calendar._close_nano - 
+                                    self._trading_calendar._open_nano)/(60*1E9))
         
     @api_rate_limit
     def current(self, assets, fields):

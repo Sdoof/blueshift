@@ -163,8 +163,28 @@ class AssetDBQueryEngineCSV(AssetDBQueryInterface):
         else:
             raise ValueError("Unknown filter type")
     
-            
 class AssetFinder(object):
+    '''
+        Base class for all asset finders - from database or directly
+        from broker or mixed types.
+    '''
+    @abstractmethod
+    def fetch_asset(self, sid):
+        raise NotImplementedError
+        
+    @abstractmethod
+    def fetch_assets(self, sids):
+        raise NotImplementedError
+        
+    @abstractmethod
+    def lookup_symbol(self, sym):
+        raise NotImplementedError
+        
+    @abstractmethod
+    def lookup_symbols(self, syms):
+        raise NotImplementedError
+        
+class DBAssetFinder(AssetFinder):
     '''
         The asset finder that interfaces with user API to fetch and
         look up assets.
@@ -215,7 +235,7 @@ class AssetFinder(object):
             
         return assets
     
-class NoAssetFinder(AssetFinder):
+class NoAssetFinder(DBAssetFinder):
     '''
         The asset finder that has no underlying database. Implements the
         class methods all returning null. This enables user to use live
@@ -240,7 +260,7 @@ class NoAssetFinder(AssetFinder):
         
         
             
-class BrokerAssetFinder(ABC):
+class BrokerAssetFinder(AssetFinder):
     '''
         Class to match our assets to vendor identifiers. This are usually
         based on either a instrument number or trading symbol, or in some
@@ -270,11 +290,7 @@ class BrokerAssetFinder(ABC):
         raise NotImplementedError
         
     
-        
-        
-        
-        
-        
+
         
         
         

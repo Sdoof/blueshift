@@ -4,9 +4,9 @@ Created on Thu Oct 25 14:20:31 2018
 
 @author: prodipta
 """
-from abc import ABC, abstractmethod
+from blueshift.data.dataportal import DataPortal
 
-class RESTData(ABC):
+class RESTDataPortal(DataPortal):
     '''
         Abstract interface for RESTful data service.
     '''
@@ -39,11 +39,9 @@ class RESTData(ABC):
     def asset_finder(self):
         return self._asset_finder
     
-    @abstractmethod
     def current(assets, fields):
         raise NotImplementedError
         
-    @abstractmethod
     def history(assets, fields):
         raise NotImplementedError
         

@@ -42,7 +42,7 @@ cdef class TradingClock(object):
         self.after_trading_hours_nano = self.close_nano \
                                             + 3600*NANO_SECOND
         self.generate_intraday_nanos()
-        
+    
     def __iter__(self):
         raise StopIteration
         
@@ -86,7 +86,12 @@ cdef class SimulationClock(TradingClock):
         yield t, ALGO_END
         
         
-
+    def __str__(self):
+        tz = self.trading_calendar.tz
+        return f"Simulation Clock, tick:{self.emit_frequency},tz:{tz}"
+                    
+    def __repr__(self):
+        return self.__str__()
         
         
         

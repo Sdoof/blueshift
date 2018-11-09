@@ -8,8 +8,8 @@ import pandas as pd
 
 from blueshift.assets.assets import (AssetDBConfiguration,
                                      AssetDBQueryEngineCSV,
-                                     AssetFinder)
-from blueshift.data.dataportal import DataPortal
+                                     DBAssetFinder)
+from blueshift.data.dataportal import DBDataPortal
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.execution._clock import SimulationClock
 from blueshift.execution.broker import BrokerType
@@ -25,12 +25,12 @@ end_dt = pd.Timestamp('2018-01-04',tz=tz)
 def default_asset_finder():
     asset_db_config = AssetDBConfiguration()
     asset_db_query_engine = AssetDBQueryEngineCSV(asset_db_config)
-    asset_finder = AssetFinder(asset_db_query_engine)
+    asset_finder = DBAssetFinder(asset_db_query_engine)
     return asset_finder
 
 # default data portal
 def default_data_portal():
-    return DataPortal()
+    return DBDataPortal()
 
 # default calendar
 def default_calendar():

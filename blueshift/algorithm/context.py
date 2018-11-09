@@ -17,12 +17,9 @@ from blueshift.utils.exceptions import (InitializationError,
 from blueshift.assets.assets import AssetFinder
 from blueshift.execution.broker import AbstractBrokerAPI
 from blueshift.data.dataportal import DataPortal
-from blueshift.execution._clock import SimulationClock
-from blueshift.execution.clock import RealtimeClock
-from blueshift.configs.defaults import (default_asset_finder,
-                                        default_data_portal,
-                                        default_broker,
-                                        default_clock)
+from blueshift.execution._clock import TradingClock
+from blueshift.execution.authentications import AbstractAuth
+from blueshift.utils.brokers import Broker
 
 
 class AlgoContext(object):
@@ -30,45 +27,42 @@ class AlgoContext(object):
     def __init__(self, *args, **kwargs):
         # name of the context. Good practice is to match the algo name
         # this will be used to tag orders where supported
-        self._name = kwargs.get("name","")
+        self._name = kwargs.get("name","blueshift")
         self.__timestamp = None
         
-        # get the objects if supplied, else create the defaults
-        self.__algo = kwargs.get("algo", "")
+        # get the algo object and mark initialized
+        self._algo_initialized = False
+        self.__algo = kwargs.get("algo", None)
+        if self.__algo:
+            self._algo_initialized = True
+        
+        # get the broker object and mark initialize
+        self.__broker_initialized = False
+        self.__clock = None
+        self.__asset_finder = None
+        self.__broker_api = None
+        self.__data_portal = None
+        self.__auth = None
+        self.__broker_tuple = None
+        self._reset_broker_tuple(*args, **kwargs) # set initialize True
+        
+        # object to track performance
+        self.__tracker_initialized = False
+        self.__calendar = None
+        self.__account = None
+        self.__portfolio = None
+        
+        # if broker is initialized we can update these
+        self._reset_trackers()
+            
+        # initialize the performance tracker
         self.__performance = kwargs.get("perf",None)
         
-        self.__clock = kwargs.get("clock", default_clock())
-        if not isinstance(self.__clock, (SimulationClock,RealtimeClock)):
-            raise ValidationError(msg="data portal supplied is of "
-                                  "illegal type")
-            
-        self.__asset_finder = kwargs.get("asset_finder", 
-                                         default_asset_finder())
-        if not isinstance(self.__asset_finder, AssetFinder):
-            raise ValidationError(msg="asset finder supplied is of "
-                                  "illegal type")
+        # in case the algo is part of a Algostack add parent
+        self.parent = None
+        self._reset_parent(*args, **kwargs)
         
-        capital = kwargs.get("capital", None)
-        self.__broker_api = kwargs.get("broker",
-                                       default_broker(capital))        
-        if not isinstance(self.__broker_api, AbstractBrokerAPI):
-            raise
-        self.__calendar = self.__broker_api._calendar
-        self.__account = self.__broker_api.account()
-        self.__portfolio = self.__broker_api.positions()
-            
-        self.__data_portal = kwargs.get("data_portal",
-                                        default_data_portal())
-        if not isinstance(self.__data_portal, DataPortal):
-            raise ValidationError(msg="data portal supplied is of "
-                                  "illegal type")
-        
-        # in case the algo is part of a Algostack
-        self.parent = kwargs.get("parent",None)
-        if self.parent:
-            if not isinstance(self.parent, AlgoContext):
-                raise InitializationError(msg="context parent is of "
-                                          "invalid type")
+        self._perf_initialized = False
         
     def __str__(self):
         return "Context: name:%s, broker:%s" % (self.name,
@@ -84,13 +78,6 @@ class AlgoContext(object):
     @property
     def broker(self):
         return self.__broker_api
-    
-    @broker.setter
-    def broker(self, broker_object):
-        if isinstance(broker_object, (SimulationClock,RealtimeClock)):
-            self.__broker_api = broker_object
-            return
-        raise ValidationError(msg="argument must be a valid broker type")
     
     @property
     def account(self):
@@ -140,12 +127,6 @@ class AlgoContext(object):
     def clock(self):
         return self.__clock
     
-    @clock.setter
-    def clock(self, clock_object):
-        if isinstance(clock_object, (SimulationClock,RealtimeClock)):
-            self.__clock = clock_object
-            return
-        raise ValidationError(msg="argument must be a valid clock type")
     
     def past_performance(self, lookback):
         idx, values = self.__performance.get_past_perfs(lookback)
@@ -176,45 +157,103 @@ class AlgoContext(object):
         # TODO: finalize reading from serialized version
         pass
     
-    def update(self, *args, **kwargs):
-        new_clock = kwargs.get("clock", None)
-        if not isinstance(new_clock, (SimulationClock,RealtimeClock)):
-            raise ValidationError(msg="clock supplied is of "
-                                  "illegal type", 
-                                  handling=ExceptionHandling.IGNORE)
-        self.__clock = new_clock
+    def _reset_broker_tuple(self, *args, **kwargs):
+        '''
+            extract broker data
+        '''
+        broker_tuple = kwargs.get("broker", None)
         
-        new_asset_finder = kwargs.get("asset_finder", None)
-        if not isinstance(new_asset_finder, AssetFinder):
-            raise ValidationError(msg="asset finder supplied is of "
-                                  "illegal type", 
-                                  handling=ExceptionHandling.IGNORE)
-        self.__asset_finder = new_asset_finder
-        
-        new_broker_api = kwargs.get("broker", None)
-        if not isinstance(new_broker_api, AbstractBrokerAPI):
-            raise ValidationError(msg="broker api supplied is of "
-                                  "illegal type", 
-                                  handling=ExceptionHandling.IGNORE)
-        self.__broker_api = new_broker_api
-        self.__calendar = self.__broker_api.calendar
-        self.__account = self.__broker_api.account()
-        self.__portfolio = self.__broker_api.positions()
+        if broker_tuple:
+            self.__clock = broker_tuple.clock
+            self.__asset_finder = broker_tuple.asset_finder
+            self.__broker_api = broker_tuple.broker
+            self.__data_portal = broker_tuple.data_portal
+            self.__auth = broker_tuple.auth
             
-        new_data_portal = kwargs.get("data_portal", None)
-        if not isinstance(new_data_portal, DataPortal):
-            raise ValidationError(msg="data portal supplied is of "
-                                  "illegal type", 
-                                  handling=ExceptionHandling.IGNORE)
-        self.__data_portal = new_data_portal
+        else:
+            self.__clock = kwargs.get("clock", self.__clock)
+            self.__asset_finder = kwargs.get("asset_finder", 
+                                             self.__asset_finder)
+            self.__broker_api = kwargs.get("api", self.__broker_api)
+            self.__data_portal = kwargs.get("data_portal", 
+                                            self.__data_portal)
+            self.__auth = kwargs.get("auth", self.__auth)
+                
+        # check for valid object types
+        if self.__clock:
+            if not isinstance(self.__clock, TradingClock):
+                raise ValidationError(msg="data portal supplied is of "
+                                      "illegal type")            
+        if self.__asset_finder:
+            if not isinstance(self.__asset_finder, AssetFinder):
+                    raise ValidationError(msg="asset finder supplied is of "
+                                          "illegal type")
+        if self.__data_portal:
+            if not isinstance(self.__data_portal, DataPortal):
+                    raise ValidationError(msg="data portal supplied is of "
+                                          "illegal type")
+        if self.__broker_api:
+            if not isinstance(self.__broker_api, AbstractBrokerAPI):
+                    raise
+        if self.__auth:
+            if not isinstance(self.__auth, AbstractAuth):
+                raise ValidationError(msg="authentication supplied is of "
+                                      "illegal type")
         
+        self.__broker_tuple = Broker(self.__auth, self.__asset_finder,
+                                     self.__data_portal,
+                                     self.__broker_api,
+                                     self.__clock)
+        
+        # authentication object can be null for backtester
+        if self.__asset_finder and self.__data_portal and\
+            self.__broker_api and self.__clock:
+            self.__broker_initialized = True
+            
+    def _reset_trackers(self):
+        if not self.__broker_initialized:
+            return
+        
+        self.__calendar = self.__broker_api.calendar
+        self.__account = self.__broker_api.account
+        self.__portfolio = self.__broker_api.positions
+        self.__tracker_initialized = True
+        
+    def _reset_parent(self, *args, **kwargs):
         new_parent = kwargs.get("parent",None)
+        
         if new_parent:
             if not isinstance(self.parent, AlgoContext):
                 raise ValidationError(msg="context parent is of "
                                           "invalid type",
                                     handling=ExceptionHandling.IGNORE)
         self.parent = new_parent
+        
+    def _reset_performance(self, *args, **kwargs):
+        self.__performance = kwargs.get("perf",None)
+        
+        if not self.__performance:
+            timestamp = kwargs.get("timestamp",None)
+            if not timestamp:
+                raise InitializationError(msg="timestamp required"
+                                      " to initialize"
+                                      " context")
+            if not isinstance(timestamp, pd.Timestamp):
+                raise ValidationError(msg="timestamp must be of type"
+                                      " Timestamp")
+            if not self.__tracker_initialized:
+                raise InitializationError(msg="accounts still not "
+                                          "initialized")
+            
+            self.__performance = Performance(self.__account,
+                                             self.__timestamp.value)
+            
+        self._perf_initialized = True
+    
+    def reset(self, *args, **kwargs):
+        self._reset_broker_tuple(*args, **kwargs)
+        self._reset_trackers()
+        self._reset_parent(*args, **kwargs)
     
     def set_up(self, *args, **kwargs):
         '''
@@ -231,27 +270,25 @@ class AlgoContext(object):
                                   " Timestamp")
         self.__timestamp = timestamp
 
-        if not self.__performance:
-            self.__performance = Performance(self.__account, 
-                                             self.__timestamp.value)
-        if not isinstance(self.__performance, Performance):
-            raise ValidationError(msg="performance must be of type"
-                                  " Performance")
+        self._reset_performance(*args, **kwargs)
+            
+    def is_initialized(self):
+       return self.__broker_initialized and self.__tracker_initialized
             
     def EOD_update(self, timestamp):
         '''
             Called end of day at after trading hours BAR. No validation
         '''
-        self.__account = self.__broker_api.account()
-        self.__portfolio = self.__broker_api.positions()
+        self.__account = self.__broker_api.account
+        self.__portfolio = self.__broker_api.positions
         self.__performance.update_perfs(self.__account,timestamp.value)
         
     def BAR_update(self, timestamp):
         '''
             Called end of every trading BAR. No validation here
         '''
-        self.__account = self.__broker_api.account()
-        self.__portfolio = self.__broker_api.positions()
+        self.__account = self.__broker_api.account
+        self.__portfolio = self.__broker_api.positions
         self.__performance.update_pnls(self.__account,timestamp.value)
         
     def SOB_update(self, timestamp):
