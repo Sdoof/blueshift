@@ -14,8 +14,9 @@ from kiteconnect.exceptions import KiteException
 
 from blueshift.utils.exceptions import (AuthenticationError,
                                         ExceptionHandling,
-                                        APIException,
-                                        SymbolNotFound)
+                                        APIValidationError,
+                                        SymbolNotFound,
+                                        ValidationError)
 
 from blueshift.utils.decorators import singleton, api_retry
 from blueshift.assets.assets import BrokerAssetFinder
@@ -88,15 +89,26 @@ class KiteAssetFinder(BrokerAssetFinder):
         return self.__str__()
     
     @api_retry(exception=KiteException)
-    def update_instruments_list(self, instruments_list=None):
+    def update_instruments_list(self, instruments_list=None,
+                                valid_till = None):
         '''
             Download the instruments list for the day, if not already
             downloaded before. If we fail, we cannot continue and so
             raise a TERMINATE level exception.
         '''
         if instruments_list is not None:
+            if not isinstance(instruments_list, pd.DataFrame):
+                msg="Invalid instruments list for {self.name}"
+                handling = ExceptionHandling.TERMINATE
+                raise ValidationError(msg=msg, handling=handling)
             self._instruments_list = instruments_list
-            return
+            # check or set the expiry
+            if valid_till is not None:
+                # TODO: check for consistent timezone
+                self._instruments_list_valid_till = valid_till
+            else:
+                t = pd.Timestamp.now(tz=self.tz) + pd.Timedelta(days=1)
+                self._instruments_list_valid_till = t.normalize()
         
         if self._instruments_list is not None:
             t = pd.Timestamp.now(tz=self.tz)
@@ -113,7 +125,7 @@ class KiteAssetFinder(BrokerAssetFinder):
         except Exception as e:
             msg = str(e)
             handling = ExceptionHandling.TERMINATE
-            raise APIException(msg=msg, handling=handling)
+            raise APIValidationError(msg=msg, handling=handling)
         
         
         
@@ -326,6 +338,7 @@ class KiteAssetFinder(BrokerAssetFinder):
         
         if row.empty:
             # no match found. Refuse to trade the symbol
+            # default handling is to log
             raise SymbolNotFound(msg=tradingsymbol)
         
         row = row.iloc[0].to_dict()

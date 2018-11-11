@@ -14,7 +14,8 @@ from kiteconnect.exceptions import KiteException
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.execution.authentications import TokenAuth
 from blueshift.utils.exceptions import (AuthenticationError,
-                                        ExceptionHandling)
+                                        ExceptionHandling,
+                                        ValidationError)
 from blueshift.utils.decorators import singleton
 from blueshift.utils.mixins import APIRateLimitMixin
 
@@ -74,7 +75,9 @@ class KiteConnect3(APIRateLimitMixin, KiteConnect):
                 dts = pd.to_datetime(dts.iloc[:,0].tolist())
                 self._trading_calendar.add_holidays(dts)
             except FileNotFoundError:
-                pass
+                msg = f"file {holidays} not found"
+                handling = ExceptionHandling.WARN
+                raise ValidationError(msg=msg, handling=handling)
     
     def __str__(self):
         return "Kite Connect API v3.0"
@@ -176,6 +179,7 @@ class KiteAuth(TokenAuth):
         try:
             self._api.invalidate_access_token()
             self._access_token = self._auth_token = None
+            self._request_token = None
             self._last_login = self._valid_till = None
         except KiteException as e:
             msg = str(e)

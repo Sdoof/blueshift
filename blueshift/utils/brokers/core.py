@@ -7,10 +7,12 @@ Created on Fri Nov  9 14:15:18 2018
 from collections import namedtuple
 
 from blueshift.utils.exceptions import NotValidBroker
+from blueshift.utils.decorators import singleton
 
 Broker = namedtuple("Broker",('auth', 'asset_finder', 'data_portal', 
                               'broker', 'clock'))
 
+@singleton
 class BrokerDispatch(object):
     '''
         The global broker registry and dispatch. Instantiate a broker

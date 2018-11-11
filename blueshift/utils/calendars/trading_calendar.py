@@ -282,7 +282,7 @@ class TradingCalendar(object):
         
     def add_bizdays(self, dts):
         '''
-            manually add business days
+            manually add business days. Expect Timestamp list.
         '''
         dtsn = days_to_nano(dts, self._tz, [])
         self._bizdays = np.unique(np.append(self._bizdays, dtsn))
@@ -290,7 +290,7 @@ class TradingCalendar(object):
     
     def add_holidays(self, dts):
         '''
-            manually add holiddays
+            manually add holiddays. Should be Timestamp list.
         '''
         dtsn = days_to_nano(dts, self._tz, [])
         sort_idx = self._bizdays.argsort()

@@ -9,23 +9,20 @@ import pandas as pd
 import random
 
 def initialize(context):
-    start_date = pd.Timestamp('2017-01-04')
-    end_date = pd.Timestamp('2018-01-04')
-    tz = 'Asia/Calcutta'
-
-    set_broker("backtest",start_date=start_date,
-                        end_date=end_date, tz=tz,initial_capital=45000)
-    
     context.t1 = pd.Timestamp.now()
     print("initialize {}".format(context.timestamp))
     context.asset = symbol("NIFTY-I")
+    print(context.asset)
     
 def before_trading_start(context, data):
     return
     
 def handle_data(context, data):
-    #order(context.asset, random.randint(10,50))
+    order(context.asset, random.randint(10,50))
     pass
+
+def heartbeat(context):
+    print(f"heartbeat {context.timestamp}")
     
 def analyze(context):
     print("analyze {}".format(context.timestamp))
@@ -45,6 +42,6 @@ def analyze(context):
         print(portfolio[p])
         
     print(f"realized: {realized}, unrealized: {unrealized}, total {pnl}")
-        
+    print(f"total orders {len(context.orders)}")
         
         

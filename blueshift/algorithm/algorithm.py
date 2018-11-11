@@ -252,13 +252,14 @@ class TradingAlgorithm(object):
         if self.state not in [STATE.BEFORE_TRADING_START, \
                               STATE.AFTER_TRADING_HOURS, \
                               STATE.TRADING_BAR,\
+                              STATE.STARTUP,\
                               STATE.HEARTBEAT]:
             raise StateMachineError(msg="Heartbeat called from wrong"
                                     " state")
         self._heartbeat(self.context)
         self.state = STATE.HEARTBEAT
     
-    def back_test_run(self):
+    def _back_test_run(self):
         '''
             The entry point for backtest run.
         '''
@@ -338,7 +339,7 @@ class TradingAlgorithm(object):
             self._USER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
             
     
-    def live_run(self):
+    def _live_run(self):
         '''
             The entry point for a live run.
         '''
@@ -364,17 +365,21 @@ class TradingAlgorithm(object):
             tasks = asyncio.gather(clock_coro,algo_coro,
                                    return_exceptions=False)
             self._loop.run_until_complete(tasks)
-        except Exception as e:
+        except BaseException as e:
             # TODO: do a proper exception handling here
             print("exception {}".format(e))
+            tasks.cancel()
+            raise e
         finally:
-            # close gracefully
-            for task in asyncio.Task.all_tasks():
-                task.cancel()
-            self._loop.run_until_complete(
-                    self._loop.shutdown_asyncgens())
             self._loop.close()
         
+    def run(self):
+        if self.mode == MODE.LIVE:
+            self._live_run()
+        elif self.mode == MODE.BACKTEST:
+            self._back_test_run()
+        else:
+            raise StateMachineError(msg="undefined mode")
     
     @api_method
     def symbol(self,symbol_str:str):

@@ -84,6 +84,14 @@ class AlgoContext(object):
         return self.__account
     
     @property
+    def orders(self):
+        return self.__broker_api.orders
+    
+    @property
+    def open_orders(self):
+        return self.__broker_api.open_orders
+    
+    @property
     def portfolio(self):
         return self.__portfolio
     
@@ -282,6 +290,7 @@ class AlgoContext(object):
         self.__account = self.__broker_api.account
         self.__portfolio = self.__broker_api.positions
         self.__performance.update_perfs(self.__account,timestamp.value)
+        self.__performance.update_pnls(self.__account,timestamp.value)
         
     def BAR_update(self, timestamp):
         '''

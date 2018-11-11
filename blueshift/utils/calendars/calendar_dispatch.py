@@ -6,7 +6,9 @@ Created on Fri Nov  9 15:24:20 2018
 """
 
 from blueshift.utils.exceptions import NotValidCalendar
+from blueshift.utils.decorators import singleton
 
+@singleton
 class CalendarDispatch(object):
     '''
         The global calendar registry and dispatch. Instantiate a calendar

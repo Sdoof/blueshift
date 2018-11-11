@@ -138,6 +138,9 @@ class RealtimeClock(TradingClock):
             The state transiotion login. This determines the BAR
             that is sent to the algorithm.
         '''
+        if not self.trading_calendar.is_session(pd.Timestamp.now(
+                tz=self.trading_calendar.tz).normalize()):
+            self.clock_state = ClockState.IN_RECESS
         
         if elapsed_time < self.before_trading_start_nano:
             self.clock_state = ClockState.IN_RECESS

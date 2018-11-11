@@ -6,6 +6,7 @@ Created on Mon Oct 22 08:56:26 2018
 """
 import asyncio
 import pandas as pd
+from blueshift.utils.exceptions import BlueShiftException, ExceptionHandling
 
 import random
 
@@ -52,8 +53,10 @@ class Consumer(object):
             print("{}: got {}".format(t, tick))
             await asyncio.sleep(0)
             self.i = self.i + 1
-            if self.i == 5:
-                raise ValueError("some message")
+            if self.i == 2:
+                msg = "blueshift exception"
+                handling = ExceptionHandling.LOG
+                raise BlueShiftException(msg=msg, handling=handling)
             
     def reset_clock(self, delay=1):
         self.get_event_loop()
@@ -66,17 +69,21 @@ class Consumer(object):
         ticker_coro = self.clock.tick()
         consumer_coro = self.get_tick()
         
-        try:
-            tasks = asyncio.gather(ticker_coro,consumer_coro,
+        tasks = asyncio.gather(ticker_coro,consumer_coro,
                                    return_exceptions=False)
+        try:
             self.loop.run_until_complete(tasks)
-        except Exception as e:
-            print("exception {}".format(e))
+        except BaseException as e:
+            print("we have some exception")
+            print(str(e))
+            print(type(e))
+            if type(e) == BlueShiftException:
+                print(f"message is {str(e)}")
+                print(f"handling is {e.handling}")
+            tasks.cancel()
         finally:
+            print("cancel loop complete")
             print("closing gracefully")
-            for task in asyncio.Task.all_tasks():
-                task.cancel()
-            self.loop.run_until_complete(self.loop.shutdown_asyncgens())
             self.loop.close()
         
     def get_event_loop(self):
@@ -90,12 +97,7 @@ class Consumer(object):
 
 cons = Consumer()
 print("1st run")
-try:
-    cons.run()
-except:
-    print("interrupted")
-#print("second run")
-#cons.run()
+cons.run()
             
 
 

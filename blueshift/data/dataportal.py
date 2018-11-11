@@ -60,21 +60,21 @@ class DBDataPortal(DataPortal):
     
     @property
     def tz(self):
-        pass
+        raise NotImplementedError
     
     @property
     def asset_finder(self):
-        pass
+        raise NotImplementedError
     
     @property
     def auth(self):
         return None
     
     def current(assets, fields):
-        pass
+        raise NotImplementedError
         
     def history(assets, fields):
-        pass
+        raise NotImplementedError
     
     def __str__(self):
         return "DB Data:%s" % self.name

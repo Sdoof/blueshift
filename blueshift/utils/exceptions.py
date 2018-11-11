@@ -14,7 +14,7 @@ class ExceptionHandling(Enum):
     TERMINATE = 4   # immedeate notification, stop execution
 
 class BlueShiftException(Exception):
-    msg = None
+    msg = "{msg}"
 
     def __init__(self, *args, **kwargs):
         self.handling = kwargs.pop("handling",ExceptionHandling.IGNORE)
@@ -50,6 +50,7 @@ class InitializationError(BlueShiftException):
     
 class APIValidationError(BlueShiftException):
     msg = "{msg}"
+    handling = ExceptionHandling.RECOVER
     
 class StateMachineError(BlueShiftException):
     msg = "Error in attempted state change: {msg}"
