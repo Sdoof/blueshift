@@ -62,7 +62,7 @@ def rebalance(context,data):
         order_target_percent(security, context.target_position[security])
     
 def generate_target_position(context, data):
-    num_secs = len(context.securities)
+    num_secs = len(context.universe)
     weight = round(1.0/num_secs,2)*context.params['leverage']
     
     for security in context.universe:
@@ -82,7 +82,7 @@ def generate_signals(context, data):
                               context.params['indicator_freq'])
 
     for security in context.universe:
-        px = price_data.minor_xs(security)
+        px = price_data.loc[security]
         context.signals[security] = signal_function(px, context.params,
             context.signals[security])
     

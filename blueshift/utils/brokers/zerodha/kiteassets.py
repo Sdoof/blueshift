@@ -7,14 +7,15 @@ Created on Mon Oct 29 16:27:26 2018
 
 import pandas as pd
 from functools import lru_cache
-
+from requests.exceptions import RequestException
 
 from kiteconnect.exceptions import KiteException
 
 
+
 from blueshift.utils.exceptions import (AuthenticationError,
                                         ExceptionHandling,
-                                        APIValidationError,
+                                        APIException,
                                         SymbolNotFound,
                                         ValidationError)
 
@@ -122,10 +123,14 @@ class KiteAssetFinder(BrokerAssetFinder):
             self._extract_expiries_underlyings()
             t = pd.Timestamp.now(tz=self.tz) + pd.Timedelta(days=1)
             self._instruments_list_valid_till = t.normalize()
-        except Exception as e:
+        except KiteException as e:
             msg = str(e)
             handling = ExceptionHandling.TERMINATE
-            raise APIValidationError(msg=msg, handling=handling)
+            raise APIException(msg=msg, handling=handling)
+        except RequestException as e:
+            msg = str(e)
+            handling = ExceptionHandling.TERMINATE
+            raise APIException(msg=msg, handling=handling)
         
         
         

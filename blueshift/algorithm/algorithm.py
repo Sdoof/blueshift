@@ -28,7 +28,6 @@ from blueshift.algorithm.api import get_broker
 
 from blueshift.utils.exceptions import (
         StateMachineError,
-        APIValidationError,
         InitializationError,
         ValidationError,
         BrokerAPIError)
@@ -436,14 +435,14 @@ class TradingAlgorithm(object):
         if self.state not in [STATE.STARTUP, STATE.DORMANT,\
                               BARS.HEAR_BEAT]:
             msg = "cannot set broker in current state"
-            raise APIValidationError(msg=msg)
+            raise StateMachineError(msg=msg)
         
         broker = get_broker(name, *args, **kwargs)
         
         # we cannot switch from backtest to live or reverse
         if type(self.context.clock) != type(broker.clock):
             msg = "cannot switch from backtest to live or reverse"
-            raise APIValidationError(msg=msg)
+            raise StateMachineError(msg=msg)
         
         # we should not attempt to change the clock!
         self.context.reset(api=broker.broker, auth=broker.auth,

@@ -17,8 +17,7 @@ from blueshift.utils.brokers.zerodha.kiteauth import (KiteAuth,
 from blueshift.utils.cutils import check_input
 from blueshift.utils.exceptions import (AuthenticationError,
                                         ExceptionHandling,
-                                        BrokerAPIError,
-                                        ZeroCashBalance)
+                                        BrokerAPIError)
 from blueshift.blotter._accounts import EquityAccount
 from blueshift.trades._position import Position
 from blueshift.trades._order_types import (ProductType,
@@ -102,8 +101,6 @@ class KiteBroker(AbstractBrokerAPI):
         self._closed_positions = []
         
         self._account = EquityAccount(self._name,0.01)
-        if self._account.cash == 0 or self._account.liquid_value == 0:
-            raise ZeroCashBalance()
             
     def __str__(self):
         return 'Broker:name:%s, type:%s'%(self._name, self._type)

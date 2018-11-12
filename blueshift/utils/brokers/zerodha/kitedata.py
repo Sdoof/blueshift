@@ -8,6 +8,7 @@ import json
 import pandas as pd
 import numpy as np
 from math import ceil
+from requests.exceptions import RequestException
 
 from kiteconnect.exceptions import KiteException
 
@@ -15,7 +16,7 @@ from blueshift.data.rest_data import RESTDataPortal
 from blueshift.data.dataportal import OHLCV_FIELDS
 from blueshift.utils.exceptions import (AuthenticationError, 
                                         ExceptionHandling,
-                                        APIException,
+                                        MissingDataError,
                                         SymbolNotFound,
                                         UnsupportedFrequency)
 from blueshift.utils.decorators import api_rate_limit, singleton
@@ -79,7 +80,11 @@ class KiteRestData(RESTDataPortal):
         except KiteException as e:
             msg = str(e)
             handling = ExceptionHandling.WARNING
-            raise APIException(msg=msg, handling=handling)
+            raise MissingDataError(msg=msg, handling=handling)
+        except RequestException as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARNING
+            raise MissingDataError(msg=msg, handling=handling)
         
     def history(self, assets, fields, nbar, frequency):
         # prune the list if we exceed max instruments
@@ -121,7 +126,11 @@ class KiteRestData(RESTDataPortal):
             except KiteException as e:
                 msg = str(e)
                 handling = ExceptionHandling.WARNING
-                raise APIException(msg=msg, handling=handling)
+                raise MissingDataError(msg=msg, handling=handling)
+            except RequestException as e:
+                msg = str(e)
+                handling = ExceptionHandling.WARNING
+                raise MissingDataError(msg=msg, handling=handling)
             
         return pd.concat(data)
         
@@ -138,7 +147,11 @@ class KiteRestData(RESTDataPortal):
         except KiteException as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
-            raise APIException(msg=msg, handling=handling)
+            raise MissingDataError(msg=msg, handling=handling)
+        except RequestException as e:
+                msg = str(e)
+                handling = ExceptionHandling.WARNING
+                raise MissingDataError(msg=msg, handling=handling)
             
     def _list_to_df(self, data):
         t, o, h, l, c, v = [], [], [], [], [], []

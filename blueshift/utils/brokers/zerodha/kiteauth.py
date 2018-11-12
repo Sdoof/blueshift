@@ -7,6 +7,7 @@ Created on Mon Oct 29 16:27:37 2018
 
 import json
 import pandas as pd
+from requests.exceptions import RequestException
 
 from kiteconnect import KiteConnect
 from kiteconnect.exceptions import KiteException
@@ -170,6 +171,10 @@ class KiteAuth(TokenAuth):
             msg = str(e)
             handling = ExceptionHandling.TERMINATE
             raise AuthenticationError(msg=msg, handling=handling)
+        except RequestException as e:
+            msg = str(e)
+            handling = ExceptionHandling.TERMINATE
+            raise AuthenticationError(msg=msg, handling=handling)
         
     def logout(self):
         '''
@@ -182,6 +187,10 @@ class KiteAuth(TokenAuth):
             self._request_token = None
             self._last_login = self._valid_till = None
         except KiteException as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise AuthenticationError(msg=msg, handling=handling)
+        except RequestException as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise AuthenticationError(msg=msg, handling=handling)

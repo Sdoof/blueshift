@@ -7,17 +7,20 @@ Created on Mon Sep 24 17:14:42 2018
 from enum import Enum
 
 class ExceptionHandling(Enum):
-    IGNORE = 0  # print error and continue execution
-    LOG = 1     # log error to notify user later, continue
-    WARN = 2    # immedeate notification, continue
-    RECOVER = 3 # immedeate notification, try to recover
-    TERMINATE = 4   # immedeate notification, stop execution
+    IGNORE = 0      # continue execution silently
+    LOG = 1         # continue execution, log message
+    WARN = 2        # continue execution, log warning
+    RECOVER = 3     # log error, save context, re-start with context
+    TERMINATE = 4   # log error, save context, re-start fresh
 
 class BlueShiftException(Exception):
     msg = "{msg}"
+    handling = ExceptionHandling.TERMINATE
 
     def __init__(self, *args, **kwargs):
-        self.handling = kwargs.pop("handling",ExceptionHandling.IGNORE)
+        handling = kwargs.pop("handling", None)
+        if handling:
+            self.handling = handling
         self.kwargs = kwargs
         
 
@@ -30,74 +33,141 @@ class BlueShiftException(Exception):
 
     __repr__ = __str__
     
-class SessionOutofRange(BlueShiftException):
-    msg = "{dt} outside valid sessions range"
-    
-class IllegalOrderNoSymNoSID(BlueShiftException):
-    msg = "could not create order: no symbol or SID specified"
-    
-class InsufficientFund(BlueShiftException):
-    msg = "could not complete transaction: insufficient fund"
+class DataError(BlueShiftException):
+    msg = "User error: {msg}"
     handling = ExceptionHandling.WARN
+
+class UserError(BlueShiftException):
+    msg = "User error: {msg}"
+    handling = ExceptionHandling.TERMINATE
+    
+class APIError(BlueShiftException):
+    msg = "API error: {msg}"
+    handling = ExceptionHandling.TERMINATE
+    
+class InternalError(BlueShiftException):
+    msg = "Internal error: {msg}"
+    handling = ExceptionHandling.TERMINATE
+    
+class GeneralException(BlueShiftException):
+    msg = "Unknown error: {msg}"
+    handling = ExceptionHandling.TERMINATE
+    
+# Data Errors    
+class MissingDataError(DataError):
+    '''
+        Raised if missing or stale data.
+    '''
+    msg = "Missing data error: {msg}"
+    handling = ExceptionHandling.TERMINATE
+
+# API Errors
+class AuthenticationError(APIError):
+    '''
+        Raised during exception in login or log-out flows.
+    '''
+    msg = "API authentication Error: {msg}"
+    handling = ExceptionHandling.TERMINATE
+
+class APIRateLimitCoolOff(APIError):
+    '''
+        Raised when API rate limit is breached.
+    '''
+    msg = "API rate limit exceeded: {msg}"
+    handling = ExceptionHandling.WARN
+
+class APIException(APIError):
+    '''
+        Raised when we have an API exception, either from the broker
+        back-end or some HTTP error. Such errors are not recoverable.
+    '''
+    msg = "Unrecoverable API Error: {msg}"
+    handling = ExceptionHandling.TERMINATE
     
 class BrokerAPIError(BlueShiftException):
-    msg = "Error received from Backtester: {msg}"
-    handling = ExceptionHandling.LOG
+    '''
+        Raised when we have an API exception, either from the broker
+        back-end or some HTTP error. Such errors may be recoverable.
+    '''
+    msg = "Error received from API: {msg}"
+    handling = ExceptionHandling.WARN
     
-class InitializationError(BlueShiftException):
+
+# User Errors
+class SessionOutofRange(UserError):
+    '''
+        User date input is out of range of the calendar.
+    '''
+    msg = "Session out of range: {dt} outside valid sessions range"
+    handling = ExceptionHandling.WARN
+    
+class InsufficientFund(UserError):
+    '''
+        Not enough fund in user trading account.
+    '''
+    msg = "Insufficient fund: could not complete transaction"
+    handling = ExceptionHandling.WARN
+    
+class InitializationError(UserError):
+    '''
+        Initialization of objects failed.
+    '''
     msg = "Error during initialization: {msg}"
-    handling = ExceptionHandling.RECOVER 
+    handling = ExceptionHandling.TERMINATE
     
-class APIValidationError(BlueShiftException):
-    msg = "{msg}"
-    handling = ExceptionHandling.RECOVER
-    
-class StateMachineError(BlueShiftException):
-    msg = "Error in attempted state change: {msg}"
-    handling = ExceptionHandling.RECOVER
-    
-class ValidationError(BlueShiftException):
+class ValidationError(UserError):
     msg = "Validation failed:{msg}"
     handling = ExceptionHandling.WARN
     
-class BacktestUnexpectedExit(BlueShiftException):
-    msg = "The backtest generator of {msg} exited unexpectedly"
-    handling = ExceptionHandling.TERMINATE
-    
-class ClockError(BlueShiftException):
-    msg = "Unexpected Error in Clock:{msg}"
-    handling = ExceptionHandling.TERMINATE
-    
-class AuthenticationError(BlueShiftException):
-    msg = "Authentication Error: {msg}"
-    handling = ExceptionHandling.TERMINATE
-    
-class APIRateLimitCoolOff(BlueShiftException):
-    msg = "Authentication Error: {msg}"
-    handling = ExceptionHandling.WARN
-    
-class APIException(BlueShiftException):
-    msg = "API Error: {msg}"
-    handling = ExceptionHandling.WARN
-    
-class SymbolNotFound(BlueShiftException):
+class SymbolNotFound(UserError):
+    '''
+        Illegal symbols
+    '''
     msg = "Symbol not found {msg}"
     handling = ExceptionHandling.LOG
     
-class UnsupportedFrequency(BlueShiftException):
+class UnsupportedFrequency(UserError):
+    '''
+        Wrong or unsupported frequency is requested in data fetch.
+    '''
     msg = "Frequency not supported {msg}"
     handling = ExceptionHandling.LOG
     
-class ZeroCashBalance(BlueShiftException):
-    msg = "cash balance or liquidation value is zero"
-    handling = ExceptionHandling.TERMINATE
-    
-class NotValidBroker(BlueShiftException):
+class NotValidBroker(UserError):
+    '''
+        Not a valid broker, broker dispatch failed.
+    '''
     msg = "name supplied is not a valid registered broker"
     handling = ExceptionHandling.TERMINATE
     
-class NotValidCalendar(BlueShiftException):
+class NotValidCalendar(UserError):
+    '''
+        Not a valid broker, broker dispatch failed.
+    '''
     msg = "name supplied is not a valid registered calendar"
     handling = ExceptionHandling.TERMINATE
+    
+# Internal Errors
+class StateMachineError(InternalError):
+    '''
+        Illegal state transition attempted in a state machine.
+    '''
+    msg = "Error in attempted state change: {msg}"
+    handling = ExceptionHandling.TERMINATE
+    
+class BacktestUnexpectedExit(InternalError):
+    '''
+        Unexpected generator exit from the backtest.
+    '''
+    msg = "The backtest generator of {msg} exited unexpectedly"
+    handling = ExceptionHandling.TERMINATE
+    
+class ClockError(InternalError):
+    '''
+        Unexpected termination of clock.
+    '''
+    msg = "Unexpected Error in Clock:{msg}"
+    handling = ExceptionHandling.TERMINATE
+
     
 
