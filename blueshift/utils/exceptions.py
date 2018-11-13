@@ -116,8 +116,8 @@ class InitializationError(UserError):
     handling = ExceptionHandling.TERMINATE
     
 class ValidationError(UserError):
-    msg = "Validation failed:{msg}"
-    handling = ExceptionHandling.WARN
+    msg = "Validation failed:{msg}" 
+    handling = ExceptionHandling.TERMINATE
     
 class SymbolNotFound(UserError):
     '''
@@ -131,7 +131,7 @@ class UnsupportedFrequency(UserError):
         Wrong or unsupported frequency is requested in data fetch.
     '''
     msg = "Frequency not supported {msg}"
-    handling = ExceptionHandling.LOG
+    handling = ExceptionHandling.TERMINATE
     
 class NotValidBroker(UserError):
     '''
