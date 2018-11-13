@@ -79,11 +79,11 @@ class KiteRestData(RESTDataPortal):
                                     fields)
         except KiteException as e:
             msg = str(e)
-            handling = ExceptionHandling.WARNING
+            handling = ExceptionHandling.WARN
             raise MissingDataError(msg=msg, handling=handling)
         except RequestException as e:
             msg = str(e)
-            handling = ExceptionHandling.WARNING
+            handling = ExceptionHandling.WARN
             raise MissingDataError(msg=msg, handling=handling)
         
     def history(self, assets, fields, nbar, frequency):
@@ -125,11 +125,11 @@ class KiteRestData(RESTDataPortal):
                 pass
             except KiteException as e:
                 msg = str(e)
-                handling = ExceptionHandling.WARNING
+                handling = ExceptionHandling.WARN
                 raise MissingDataError(msg=msg, handling=handling)
             except RequestException as e:
                 msg = str(e)
-                handling = ExceptionHandling.WARNING
+                handling = ExceptionHandling.WARN
                 raise MissingDataError(msg=msg, handling=handling)
             
         return pd.concat(data)
@@ -150,7 +150,7 @@ class KiteRestData(RESTDataPortal):
             raise MissingDataError(msg=msg, handling=handling)
         except RequestException as e:
                 msg = str(e)
-                handling = ExceptionHandling.WARNING
+                handling = ExceptionHandling.WARN
                 raise MissingDataError(msg=msg, handling=handling)
             
     def _list_to_df(self, data):

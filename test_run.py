@@ -22,7 +22,7 @@ from blueshift.algorithm.api import get_broker
 
 brkr = get_broker("zerodha", config='kite_config.json',
                   tz='Asia/Calcutta', timeout=(8, 45),
-                  request_token='R3kbmu8RgxmTVlXNYSTFcUGYttky6wH5',
+                  request_token='XtWGM7HD11wJjRwOusA8ubJVDsVBs6fF',
                   frequency=1)
 
 algo = TradingAlgorithm(broker=brkr, algo="kite_strategy.py",

@@ -168,6 +168,13 @@ class ClockError(InternalError):
     '''
     msg = "Unexpected Error in Clock:{msg}"
     handling = ExceptionHandling.TERMINATE
+    
+class AlertManagerError(InternalError):
+    '''
+        Unexpected error about alert manager.
+    '''
+    msg = "Unexpected Error in alert manager:{msg}"
+    handling = ExceptionHandling.TERMINATE
 
     
 

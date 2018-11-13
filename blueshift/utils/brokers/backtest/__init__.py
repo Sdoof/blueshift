@@ -5,7 +5,6 @@ Created on Fri Nov  9 13:50:36 2018
 @author: prodipta
 """
 
-from types import MappingProxyType as readonlydict
 import pandas as pd
 
 from blueshift.assets.assets import (AssetDBConfiguration,
@@ -14,38 +13,29 @@ from blueshift.assets.assets import (AssetDBConfiguration,
 from blueshift.data.dataportal import DBDataPortal
 from blueshift.execution.broker import BrokerType
 from blueshift.execution.backtester import BackTesterAPI
-from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.execution._clock import SimulationClock
 from blueshift.utils.exceptions import InitializationError
 from blueshift.utils.brokers.core import Broker
 
 def make_broker_pack(name, *args, **kwargs):
     auth = None
-    
+    trading_calendar = kwargs.get("trading_calendar",None)
     initial_capital = kwargs.get("initial_capital",None)
     frequency = kwargs.get("frequency",1)
     start_date = kwargs.get("start_date", None)
     end_date = kwargs.get("end_date", None)
-    tz = kwargs.get("tz", None)
-    holidays = kwargs.get("holidays", None)
-    opens = kwargs.get("opens", (9,15,0))
-    closes = kwargs.get("closes", (15,30,0))
     
-    if start_date and end_date and tz:
-        cal = TradingCalendar('IST',tz=tz,opens=opens, 
-                          closes=closes)
-    else:
+    if not trading_calendar:
         raise InitializationError(msg="no calendar supplied")
         
-    if holidays:
-        try:
-            dts = pd.read_csv(holidays, parse_dates=True)
-            dts = pd.to_datetime(dts.iloc[:,0].tolist())
-            cal.add_holidays(dts)
-        except FileNotFoundError:
-            pass
+    if not start_date and not end_date:
+        raise InitializationError(msg="start or end dates not supplied")
+        
+    start_date = pd.Timestamp(start_date)
+    end_date = pd.Timestamp(end_date)
     
-    clock = SimulationClock(cal,frequency,start_date,end_date)
+    clock = SimulationClock(trading_calendar,frequency,start_date,
+                            end_date)
     
     asset_db_config = AssetDBConfiguration()
     asset_db_query_engine = AssetDBQueryEngineCSV(asset_db_config)
@@ -54,7 +44,7 @@ def make_broker_pack(name, *args, **kwargs):
     data_portal = DBDataPortal(*args, **kwargs)
     
     broker = BackTesterAPI('blueshift',BrokerType.BACKTESTER, 
-                           cal, initial_capital)  
+                           trading_calendar, initial_capital)  
     
     return auth, asset_finder, data_portal, broker, clock
 

@@ -8,7 +8,9 @@ Created on Mon Oct 29 16:27:45 2018
 import pandas as pd
 from enum import Enum
 
-from kiteconnect.exceptions import KiteException
+from requests.exceptions import RequestException
+
+from kiteconnect.exceptions import KiteException, NetworkException
 
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.execution.broker import AbstractBrokerAPI, BrokerType
@@ -149,6 +151,7 @@ class KiteBroker(AbstractBrokerAPI):
             This will call positions and update the accounts
             and return.
         '''
+        last_version = self._account
         try:
             data = self._api.margins()
             cash = data['equity']['available']['cash'] +\
@@ -163,6 +166,14 @@ class KiteBroker(AbstractBrokerAPI):
                                          _positions)
             return self._account.to_dict()
         except KiteException as e:
+            if isinstance(e, NetworkException):
+                self._account =  last_version
+                return self._account.to_dict()
+            else:
+                msg = str(e)
+                handling = ExceptionHandling.WARN
+                raise BrokerAPIError(msg=msg, handling=handling)
+        except RequestException as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
@@ -188,6 +199,10 @@ class KiteBroker(AbstractBrokerAPI):
             
             return self._open_positions
         except KiteException as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
+        except RequestException as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
@@ -230,6 +245,10 @@ class KiteBroker(AbstractBrokerAPI):
             
             return {**self._open_orders, **self._closed_orders}
         except KiteException as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
+        except RequestException as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
@@ -298,6 +317,10 @@ class KiteBroker(AbstractBrokerAPI):
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
+        except RequestException as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
     
     @api_rate_limit
     def update_order(self, order_param, *args, **kwargs):
@@ -342,6 +365,10 @@ class KiteBroker(AbstractBrokerAPI):
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
+        except RequestException as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
     
     @api_rate_limit
     def cancel_order(self, order_param):
@@ -367,6 +394,10 @@ class KiteBroker(AbstractBrokerAPI):
                                    parent_order_id)
             return order_id
         except KiteException as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
+        except RequestException as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)

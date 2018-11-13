@@ -30,10 +30,14 @@ global_cal_dispatch = CalendarDispatch({},
 
 get_calendar = global_cal_dispatch.get_calendar
 register_calendar = global_cal_dispatch.register_calendar
-unregister_calendar = global_cal_dispatch.unregister_calendar
+deregister_calendar = global_cal_dispatch.deregister_calendar
+register_calendar_alias = global_cal_dispatch.register_alias
+deregister_calendar_alias = global_cal_dispatch.deregister_alias
                             
 
 __all__ = [get_calendar,
            register_calendar,
-           unregister_calendar]
+           deregister_calendar,
+           register_calendar_alias,
+           deregister_calendar_alias]
 

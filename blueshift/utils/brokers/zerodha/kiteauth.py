@@ -50,6 +50,7 @@ class KiteConnect3(APIRateLimitMixin, KiteConnect):
         
         # max instruments that can be queried at one call
         self._max_instruments = kwargs.get("max_instruments",None)
+        self._trading_calendar = kwargs.get("trading_calendar",None)
         
         if not self._rate_limit:
             # Kite has 3 per sec, we are conservative
@@ -119,7 +120,7 @@ class KiteAuth(TokenAuth):
         super(self.__class__, self).__init__(*args, **kwargs)
         self._api_key = kwargs.get('api_key',None)
         self._api_secret = kwargs.get('api_secret',None)
-        self._user_id = kwargs.get('id',None)
+        self._user_id = kwargs.get('user_id',None)
         self._request_token = kwargs.get('reuest_token',None)
         
         self._access_token = self.auth_token

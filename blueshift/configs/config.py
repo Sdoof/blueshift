@@ -7,7 +7,9 @@ Created on Mon Nov 12 10:17:03 2018
 
 import json
 from blueshift.configs import _default_config
+from blueshift.utils.decorators import singleton
 
+@singleton
 class BlueShiftConfig(object):
     
     def __init__(self, configfile=None, *args, **kwargs):
@@ -29,14 +31,14 @@ class BlueShiftConfig(object):
         self.owner = config['owner']
         self.platform = config['platform']
         self.contact = config['contact']
-        self.user_space = config['user_space']
+        self.user_space = config['user_workspace']
         self.alerts = config['alerts']
         self.backtester = config['backtester']
         self.live_broker = config['live_broker']
         self.calendar = config['calendar']
         self.command_channel = config['command_channel']
         self.risk_management = config['risk_management']
-        self.recovery = config['recovery']
+        self.recovery = config['error_handling']
         
         for key in self.__dict__:
             self.arg_parse(key, *args, **kwargs)

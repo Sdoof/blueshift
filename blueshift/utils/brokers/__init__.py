@@ -17,7 +17,8 @@ _default_broker_factories = {
 _default_broker_aliases = {
         'kite': 'zerodha',
         'bt': 'backtest',
-        'back-test': 'backtest'
+        'back-test': 'backtest',
+        'blueshift': 'backtest'
         }
 
 global_broker_dispatch = BrokerDispatch({},
@@ -27,10 +28,14 @@ global_broker_dispatch = BrokerDispatch({},
 
 get_broker = global_broker_dispatch.get_broker
 register_broker = global_broker_dispatch.register_broker
-unregister_broker = global_broker_dispatch.unregister_broker
+deregister_broker = global_broker_dispatch.deregister_broker
+register_broker_alias = global_broker_dispatch.register_alias
+deregister_broker_alias = global_broker_dispatch.deregister_alias
                             
 
 __all__ = [get_broker,
            register_broker,
-           unregister_broker,
+           deregister_broker,
+           register_broker_alias,
+           deregister_broker_alias,
            Broker]

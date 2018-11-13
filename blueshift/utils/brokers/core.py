@@ -34,47 +34,52 @@ class BrokerDispatch(object):
         if name in self._aliases:
             return self._aliases[name]
         
-        raise NotValidBroker(msg="failed to resolve alias")
+        return name
         
-    def get_broker(self, name, *args, **kwargs):
+    def get_broker(self, name):
         '''
-            Get an instance if already there, else get the factory
-            constructor and arguments to create one.
+            Get an instance of a registered broker.
         '''
         name = self.resolve_alias(name)
-        has_arg = (args is not None) or (kwargs is not None)
         
         try:
-            if not has_arg:
-                return self._brokers[name]
+            return self._brokers[name]
         except KeyError:
-            pass
-        
-        if not has_arg:
-            raise NotValidBroker(msg="missing data to create broker")
-        
-        try:
-            factory = self._factories[name]
-        except KeyError:
-            raise NotValidBroker(msg="failed to fetch broker factory")
-        
-        broker = self._brokers[name] = factory(*args, **kwargs)
-        return broker
+            raise NotValidBroker(msg="not a registered broker")
     
-    def register_broker(self, name, factory_method, forced = False):
+    def register_broker(self, name, *args, **kwargs):
         '''
             Register a constructor factory, overwrite if "forced".
         '''
-        if name in self._factories and not forced:
-            return
+        name = self.resolve_alias(name)
+        if name not in self._factories:
+            raise NotValidBroker(msg="failed to fetch broker factory")
         
-        self._factories[name] = factory_method
+        factory = self._factories[name]
+        self._brokers[name] = factory(*args, **kwargs)
         
-    def unregister_broker(self, name):
+    def deregister_broker(self, name):
         '''
             Remove a constructor from the factory.
         '''
-        if name in self._factories:
-            self._factories.pop(name)
+        if name in self._brokers:
+            self._brokers.pop(name)
+            
+    def register_alias(self, broker_name, alias):
+        '''
+            Register a name alias.
+        '''
+        if alias in self._aliases:
+            return
         
+        if broker_name not in self._brokers:
+            raise NotValidBroker(msg="not a registered broker")
         
+        self._aliases[alias] = broker_name
+        
+    def deregister_alias(self, alias):
+        '''
+            Register a name alias.
+        '''
+        if alias in self._aliases:
+            self._aliases.pop(alias)

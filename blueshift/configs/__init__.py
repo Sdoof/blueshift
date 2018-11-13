@@ -11,7 +11,7 @@ _default_config =\
 {
  # general section
   "algo": "myalgo",
-  "owner": "user",
+  "owner": "prodipta",
   "platform": "blueshift",
   # contact details for alerts and other message dispatch
   "contact":{
@@ -19,44 +19,47 @@ _default_config =\
     "mobile":"+447500000000"
   },
   # user workspace details - for persistance and record keeping
-  "user_space": {
-    "root": "",
+  "user_workspace": {
+    "root": "C:/Users/academy.academy-72/Documents/blueshift",
     "performance": "performance",
     "orders": "orders",
     "objects": "objects",
     "logs": "logs",
-    "code":"source"
+    "code":"source",
+    "data":"data"
   },
   # alerting configuration
   "alerts": {
-    "errors": ["email","msg"],      # 'log', 'console', 'email', 'msg', 'websocket'
-    "warnings": "log",
-    "logs": "log",
-    "platform_msg": "email",
-    "third_party_msg": "email",
+    "error": ["email","msg","console"], # 'log', 'console', 'email', 'msg', 'websocket'
+    "warning": ["log","console"],
+    "log": ["log"],
+    "platform_msg": ["email"],
+    "third_party_msg": ["email"],
     "tag": "blueshift"
   },
   # backtest API description for the algo
   "backtester":{
-    "name":"blueshift",
+    "backtester_name":"blueshift",
     "start": "2010-01-04",
     "end": "2018-01-04",
-    "frequency": 1,
+    "backtest_frequency": 1,
     "initial_capital": 10000
   },
   # live broker configuration for the algo
   "live_broker":{
-    "name": "kite", 
-    "api_key": "xxxxxxxxxxxxxxxx", 
-    "api_secret": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy", 
-    "id": "ZZZZZZZ",
+    "broker_name": "zerodha", 
+    "api_key": "e0wjr2fcyx3gx1h9", 
+    "api_secret": "lspsromziex0lyqn0k66lijupnxqwl5d", 
+    "broker_id": "DP2026",
     "rate_limit": 2,
     "rate_period": 1,
-    "login_reset_time": [8,45]
+    "login_reset_time": [8,45],
+    "live_frequency": 1
   },
   # calendar configuration for the algo
   "calendar": {
     "tz": "Asia/Calcutta",
+    "cal_name": "NSE_EQ",
     "holidays": "nse_holidays.csv",
     "opens": [9,15,0],
     "closes": [9,15,0],
@@ -65,15 +68,15 @@ _default_config =\
   },
   # command control channel specification
   "command_channel":{
-    "type": "redis",
-    "addr": "127.0.0.1:9000"
+    "cmd_type": "redis",
+    "cmd_addr": "127.0.0.1:9000"
   },
   # exceptions and restart policy
   "error_handling":{
     "data_error": "warn",
     "api_error": "warn",
-    "uesr_error": "stop",
-    "internalError": "re_start",
+    "user_error": "stop",
+    "internal_error": "re_start",
     "error": "stop",
   },        
   # risk management policy
