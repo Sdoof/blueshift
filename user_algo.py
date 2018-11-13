@@ -8,6 +8,7 @@ from blueshift.algorithm.api import symbol, order, set_broker
 import pandas as pd
 import random
 
+
 def initialize(context):
     context.t1 = pd.Timestamp.now()
     print("initialize {}".format(context.timestamp))
