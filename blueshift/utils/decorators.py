@@ -67,7 +67,7 @@ class singleton(object):
             done, this temp reference gets deleted automatically.
         '''
         tmp_ref = None
-        if self.__instance == None:
+        if not self.__instance or self.__instance() == None:
             tmp_ref = self.cls(*args,**kwargs)
             self.__instance = weakref_ref(tmp_ref)
         return self.__instance()
