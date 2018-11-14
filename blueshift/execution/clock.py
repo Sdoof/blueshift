@@ -13,9 +13,11 @@ from enum import Enum
 from blueshift.execution._clock import TradingClock, BARS
 from blueshift.utils.exceptions import ClockError
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
-from blueshift.utils.cutils import check_input 
+from blueshift.utils.cutils import check_input
+from blueshift.utils.decorators import blueprint
 
 NANO = 1000000000
+
 
 class ClockState(Enum):
     '''
@@ -35,6 +37,7 @@ STATE_BARS_DICT = {ClockState.START_ALGO: BARS.ALGO_START,
                    ClockState.IN_RECESS: BARS.HEAR_BEAT,
                    ClockState.ALGO_END: BARS.ALGO_END}
 
+@blueprint
 class ClockQueue(asyncio.Queue):
     '''
         Extend the asyncio Queue to add a method to pop the last
@@ -49,6 +52,7 @@ class ClockQueue(asyncio.Queue):
             elem = self.get_nowait()
         return elem
 
+@blueprint
 class RealtimeClock(TradingClock):
     '''
         Realtime clock to generate clock events to control the algo

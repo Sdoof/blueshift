@@ -7,9 +7,10 @@ Created on Mon Nov 12 10:17:03 2018
 
 import json
 from blueshift.configs import _default_config
-from blueshift.utils.decorators import singleton
+from blueshift.utils.decorators import singleton, blueprint
 
 @singleton
+@blueprint
 class BlueShiftConfig(object):
     
     def __init__(self, configfile=None, *args, **kwargs):

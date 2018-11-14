@@ -5,7 +5,7 @@ Created on Mon Oct  8 11:49:54 2018
 @author: prodipta
 """
 from enum import Enum
-import os
+from os import path as os_path
 import pandas as pd
 from functools import partial
 import asyncio
@@ -32,6 +32,8 @@ from blueshift.utils.exceptions import (
         ValidationError,
         BrokerAPIError)
 
+from blueshift.utils.decorators import blueprint
+
 class MODE(Enum):
     '''
         Track the current running mode - live or backtest.
@@ -51,7 +53,7 @@ class STATE(Enum):
     HEARTBEAT = 5
     DORMANT = 6
     
-
+@blueprint
 class TradingAlgorithm(object):
     
     def _make_bars_dispatch(self):
@@ -137,8 +139,8 @@ class TradingAlgorithm(object):
         if self.algo is None:
             self.algo = self.context.algo
             algo_file = "<context>"
-        elif os.path.isfile(self.algo):
-            algo_file = os.path.basename(self.algo)
+        elif os_path.isfile(self.algo):
+            algo_file = os_path.basename(self.algo)
             with open(self.algo) as algofile:
                 self.algo = algofile.read()
         elif isinstance(self.algo, str):

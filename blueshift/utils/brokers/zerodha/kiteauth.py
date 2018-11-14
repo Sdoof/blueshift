@@ -17,7 +17,7 @@ from blueshift.execution.authentications import TokenAuth
 from blueshift.utils.exceptions import (AuthenticationError,
                                         ExceptionHandling,
                                         ValidationError)
-from blueshift.utils.decorators import singleton
+from blueshift.utils.decorators import singleton, blueprint
 from blueshift.utils.mixins import APIRateLimitMixin
 
 # pylint: disable=invalid-name, missing-docstring
@@ -27,6 +27,7 @@ kite_calendar = TradingCalendar('NSE',tz='Asia/Calcutta',opens=(9,15,0),
 
 
 @singleton
+@blueprint
 class KiteConnect3(APIRateLimitMixin, KiteConnect):
     '''
         kiteconnect modified to force a singleton (and to print pretty).
@@ -92,6 +93,7 @@ class KiteConnect3(APIRateLimitMixin, KiteConnect):
     
 
 @singleton
+@blueprint
 class KiteAuth(TokenAuth):
     '''
         The authentication class handles the user login/ logout and 

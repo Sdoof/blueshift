@@ -5,7 +5,7 @@ Created on Tue Nov 13 13:27:49 2018
 @author: prodipta
 """
 from os import close, getpid, execl
-import sys
+from sys import argv as sys_argv
 from sys import exit as sys_exit
 from sys import executable as sys_executable
 from psutil import Process
@@ -15,9 +15,10 @@ from blueshift.utils.exceptions import (ExceptionHandling,
                                         DataError,UserError,
                                         APIError,InternalError,
                                         GeneralException)
-from blueshift.utils.decorators import singleton
+from blueshift.utils.decorators import singleton, blueprint
 
 @singleton
+@blueprint
 class BlueShiftAlertManager(object):
     '''
         Class to handle all blueshift alert handling. The alert 
@@ -132,5 +133,5 @@ class BlueShiftAlertManager(object):
             self.graceful_exit(*args, **kwargs)
 
         python = sys_executable
-        execl(python, python, *sys.argv)
+        execl(python, python, *sys_argv)
         sys_exit(1)

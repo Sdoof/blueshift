@@ -7,6 +7,8 @@ Created on Fri Oct 19 01:28:32 2018
 from abc import ABC, abstractmethod, abstractproperty
 from enum import Enum
 
+from blueshift.utils.decorators import blueprint
+
 OHLCV_FIELDS = ['open', 'high', 'low', 'close', 'volume']
 
 class DataPortalFlag(Enum):
@@ -44,6 +46,7 @@ class DataPortal(ABC):
     def history(assets, fields):
         raise NotImplementedError
         
+@blueprint
 class DBDataPortal(DataPortal):
     '''
         Abstract class for handling all the data needs for an algo. This

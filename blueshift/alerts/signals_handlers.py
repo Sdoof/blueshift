@@ -7,7 +7,9 @@ from https://stackoverflow.com/questions/1112343/how-do-i-capture-sigint-in-pyth
 """
 
 import signal
+from blueshift.utils.decorators import blueprint
 
+@blueprint
 class BlueshiftInterruptHandler(object):
 
     def __init__(self, algo):

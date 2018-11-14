@@ -6,7 +6,9 @@ Created on Thu Oct  4 17:59:56 2018
 """
 
 from blueshift.utils.exceptions import AlertManagerError
+from blueshift.utils.decorators import blueprint
 
+@blueprint
 class AlertManagerWrapper(object):
     
     def __init__(self, alert_manager=None):

@@ -26,7 +26,7 @@ TradingEnvironment = namedtuple("TradingEnvironment",
                                  'broker_tuple','algo_file'))
 
 
-def start_up(*args, **kwargs):
+def create_environment(*args, **kwargs):
     '''
         Function to create a trading environment with all objects
         necessary to run the algo.
@@ -62,6 +62,9 @@ def start_up(*args, **kwargs):
     
     return trading_environment
         
+def delete_environment(*args, **kwargs):
+    alert_manager = get_alert_manager()
+    print(alert_manager)
     
 def get_algo_file(algo_file, config):
     '''
@@ -191,5 +194,5 @@ def create_broker(config, mode, trading_calendar, *args, **kwargs):
     return get_broker(name)
 
 
-    
+
     

@@ -24,6 +24,7 @@ from blueshift.utils.exceptions import (InsufficientFund,
                                         BacktestUnexpectedExit)
 from blueshift.utils.validation import positive_num
 from blueshift.utils.cutils import check_input
+from blueshift.utils.decorators import blueprint
 
 import random
 
@@ -75,6 +76,7 @@ ch.setFormatter(formatter)
 logger.addHandler(fh)
 logger.addHandler(ch)
 
+@blueprint
 class BackTester(object):
     '''
         The backtesting engine following the standard API. The return
@@ -426,6 +428,7 @@ class BackTester(object):
         return self.api.close()
         
         
+@blueprint
 class BackTesterAPI(AbstractBrokerAPI):
     '''
         An implementation of the broker interface for backtest.

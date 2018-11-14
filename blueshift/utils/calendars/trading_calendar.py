@@ -12,6 +12,7 @@ import json
 
 from blueshift.utils.exceptions import SessionOutofRange
 from blueshift.utils.cutils import check_input
+from blueshift.utils.decorators import blueprint
 
 # constat values
 NANO = 1000000000
@@ -93,6 +94,7 @@ def date_to_nano_midnight(dt, tz):
     dt = dt.normalize()
     return dt.value
 
+@blueprint
 class TradingCalendar(object):
     '''
         Base trading calendar. Takes in a list of bizdays and standard

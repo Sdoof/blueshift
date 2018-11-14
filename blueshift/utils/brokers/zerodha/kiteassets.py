@@ -19,7 +19,7 @@ from blueshift.utils.exceptions import (AuthenticationError,
                                         SymbolNotFound,
                                         ValidationError)
 
-from blueshift.utils.decorators import singleton, api_retry
+from blueshift.utils.decorators import singleton, api_retry, blueprint
 from blueshift.assets.assets import BrokerAssetFinder
 
 # pylint: disable=no-name-in-module
@@ -29,6 +29,7 @@ from blueshift.assets._assets import (Equity, EquityFutures, Forex,
 LRU_CACHE_SIZE = 512
 
 @singleton
+@blueprint
 class KiteAssetFinder(BrokerAssetFinder):
     '''
         Implements the interface for Zerodha. We download the day's list 

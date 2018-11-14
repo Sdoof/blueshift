@@ -7,9 +7,10 @@ Created on Fri Nov  9 15:24:20 2018
 
 from blueshift.utils.exceptions import NotValidCalendar
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
-from blueshift.utils.decorators import singleton
+from blueshift.utils.decorators import singleton, blueprint
 
 @singleton
+@blueprint
 class CalendarDispatch(object):
     '''
         The global calendar registry and dispatch. Instantiate a calendar

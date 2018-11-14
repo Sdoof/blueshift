@@ -5,7 +5,9 @@ Created on Thu Oct 25 14:20:31 2018
 @author: prodipta
 """
 from blueshift.data.dataportal import DataPortal
+from blueshift.utils.decorators import blueprint
 
+@blueprint
 class RESTDataPortal(DataPortal):
     '''
         Abstract interface for RESTful data service.

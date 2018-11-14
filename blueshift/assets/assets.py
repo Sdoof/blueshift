@@ -4,7 +4,7 @@ Created on Wed Oct  3 10:00:58 2018
 
 @author: academy
 """
-import os
+from os import path as os_path
 from abc import ABC, abstractmethod
 import pandas as pd
 import json
@@ -15,10 +15,12 @@ from functools import lru_cache
 from blueshift.assets._assets import create_asset_from_dict
 from blueshift.utils.cutils import check_input
 from blueshift.utils.exceptions import SymbolNotFound
+from blueshift.utils.decorators import blueprint
 
 # TODO: add instrument id in hash, also add search by instrument id
 
 LRU_CACHE_SIZE = 4096
+
 
 class AssetDBConfiguration(object):
     '''
@@ -99,19 +101,20 @@ class AssetDBQueryInterface(ABC):
                             filter_value):
         raise NotImplementedError
         
+@blueprint
 class AssetDBQueryEngineCSV(AssetDBQueryInterface):
     '''
         A simple CSV implementation of the asset db interface.
     '''
     def __init__(self, asset_db_config):
         super(AssetDBQueryEngineCSV,self).__init__(asset_db_config)
-        str_path = os.path.join(self.asset_db_config.conn_string,
+        str_path = os_path.join(self.asset_db_config.conn_string,
                                 self.asset_db_config.db_name)
         with open(str_path) as asset_db_file:
             self.asset_db = pd.read_csv(asset_db_file)
         
         if self.asset_db_config.sym_map:
-            str_path = os.path.join(self.asset_db_config.conn_string,
+            str_path = os_path.join(self.asset_db_config.conn_string,
                                 self.asset_db_config.sym_map)
             with open(str_path) as sym_map_file:
                 self.sym_map = pd.read_csv(sym_map_file)
@@ -163,6 +166,7 @@ class AssetDBQueryEngineCSV(AssetDBQueryInterface):
         else:
             raise ValueError("Unknown filter type")
     
+
 class AssetFinder(object):
     '''
         Base class for all asset finders - from database or directly
@@ -184,6 +188,7 @@ class AssetFinder(object):
     def lookup_symbols(self, syms):
         raise NotImplementedError
         
+@blueprint
 class DBAssetFinder(AssetFinder):
     '''
         The asset finder that interfaces with user API to fetch and
@@ -235,6 +240,7 @@ class DBAssetFinder(AssetFinder):
             
         return assets
     
+@blueprint
 class NoAssetFinder(DBAssetFinder):
     '''
         The asset finder that has no underlying database. Implements the
@@ -260,6 +266,7 @@ class NoAssetFinder(DBAssetFinder):
         
         
             
+@blueprint
 class BrokerAssetFinder(AssetFinder):
     '''
         Class to match our assets to vendor identifiers. This are usually

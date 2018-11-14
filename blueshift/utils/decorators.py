@@ -6,6 +6,7 @@ Created on Thu Oct 25 15:24:19 2018
 """
 import pandas as pd
 from functools import wraps
+from weakref import ref as weakref_ref
 import math
 import time
 
@@ -36,6 +37,17 @@ def api_rate_limit(f):
         return f(self, *args, **kwargs)
     return decorated
 
+def blueprint(cls):
+    '''
+        A decorator to mark an instance of a type is blueshift
+        native. This allows special treatments. The rule is to 
+        decorate only the classes that can have an instance. Do
+        not decorate ABCs or base classes that will never be 
+        instantiated.
+    '''
+    cls._blueshift = True
+    return cls
+
 class singleton(object):
     '''
         Standard singleton class decorator. The side-effect is for
@@ -46,11 +58,19 @@ class singleton(object):
     '''
     def __init__(self,cls, *args, **kwargs):
         self.cls = cls
-        self.instance = None
+        self.__instance = None
+    
     def __call__(self,*args,**kwargs):
-        if self.instance == None:
-            self.instance = self.cls(*args,**kwargs)
-        return self.instance
+        '''
+            The temp reference holds the reference alive long enough
+            for us to return the weak ref to the caller. Once it is
+            done, this temp reference gets deleted automatically.
+        '''
+        tmp_ref = None
+        if self.__instance == None:
+            tmp_ref = self.cls(*args,**kwargs)
+            self.__instance = weakref_ref(tmp_ref)
+        return self.__instance()
 
 def api_retry(delays=[0,5,30,90,180,300], exception=Exception):
     '''

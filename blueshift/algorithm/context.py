@@ -20,8 +20,9 @@ from blueshift.data.dataportal import DataPortal
 from blueshift.execution._clock import TradingClock
 from blueshift.execution.authentications import AbstractAuth
 from blueshift.utils.brokers import Broker
+from blueshift.utils.decorators import blueprint
 
-
+@blueprint
 class AlgoContext(object):
     
     def __init__(self, *args, **kwargs):

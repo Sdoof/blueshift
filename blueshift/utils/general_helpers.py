@@ -5,12 +5,12 @@ Created on Wed Oct  3 17:28:53 2018
 @author: academy
 """
 
-import sys
+from sys import getsizeof as sys_getsizeof
 from collections import OrderedDict
 
 def get_size(obj, seen=None):
     """Recursively finds size of objects"""
-    size = sys.getsizeof(obj)
+    size = sys_getsizeof(obj)
     if seen is None:
         seen = set()
     obj_id = id(obj)

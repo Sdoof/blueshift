@@ -19,7 +19,7 @@ from blueshift.utils.exceptions import (AuthenticationError,
                                         MissingDataError,
                                         SymbolNotFound,
                                         UnsupportedFrequency)
-from blueshift.utils.decorators import api_rate_limit, singleton
+from blueshift.utils.decorators import api_rate_limit, singleton, blueprint
 
 from blueshift.utils.brokers.zerodha.kiteassets import KiteAssetFinder
 
@@ -27,6 +27,7 @@ LRU_CACHE_SIZE = 512
 
 
 @singleton
+@blueprint
 class KiteRestData(RESTDataPortal):
     '''
         Encalsulates the RESTful historical and current market data API

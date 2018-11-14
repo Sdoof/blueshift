@@ -29,7 +29,7 @@ from blueshift.trades._order_types import (ProductType,
                                            OrderStatus,
                                            OrderType)
 from blueshift.trades._order import Order
-from blueshift.utils.decorators import api_rate_limit, singleton
+from blueshift.utils.decorators import api_rate_limit, singleton, blueprint
 from blueshift.utils.general_helpers import OnetoOne
 
 class ResponseType(Enum):
@@ -55,6 +55,7 @@ order_type_map = OnetoOne({'MARKET':OrderType.MARKET,
                   'STOPLOSS_MARKET':OrderType.STOPLOSS_MARKET})
 
 @singleton
+@blueprint
 class KiteBroker(AbstractBrokerAPI):
     '''
         Implements the broker interface functions.

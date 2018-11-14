@@ -6,12 +6,13 @@ Created on Mon Nov 12 14:12:07 2018
 """
 
 import logging
-import sys
-import os
+from sys import stderr as sys_stderr
+from os import path as os_path
 import pandas as pd
 
-from blueshift.utils.decorators import singleton
+from blueshift.utils.decorators import singleton, blueprint
 
+@blueprint
 class BlueShiftLogHandlers(object):
     
     LOG_DEST = ['log', 'console', 'email', 'msg', 'websocket']
@@ -24,11 +25,11 @@ class BlueShiftLogHandlers(object):
         timestamp = pd.Timestamp.now().normalize()
         logfile = (name+"_"+str(timestamp)+".log").strip().\
                         replace(' ','_').replace(':','-')
-        self.log_file = os.path.join(self.log_root, self.log_dir,
+        self.log_file = os_path.join(self.log_root, self.log_dir,
                                      logfile)
         
         self.handlers = {}
-        self.handlers['console'] = logging.StreamHandler(sys.stderr)
+        self.handlers['console'] = logging.StreamHandler(sys_stderr)
         self.handlers['log'] = logging.FileHandler(self.log_file)
         self.handlers['email'] = None
         self.handlers['msg'] = None
@@ -66,6 +67,7 @@ class BlueShiftLogHandlers(object):
         return self.__str__()
         
 @singleton
+@blueprint
 class BlueShiftLogger(object):
     
     def __init__(self, config, *args, **kwargs):

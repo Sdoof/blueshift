@@ -10,6 +10,8 @@ import pandas as pd
 from abc import ABC, abstractmethod
 from enum import Enum
 
+from blueshift.utils.decorators import blueprint
+
 class AuthType(Enum):
     '''
         Auth types. It can be either token based (where the token is
@@ -103,6 +105,7 @@ class AbstractAuth(ABC):
     def is_logged(self):
         raise NotImplementedError
     
+@blueprint
 class TokenAuth(AbstractAuth):
     '''
         Absract base class for authentication. Implements basic
