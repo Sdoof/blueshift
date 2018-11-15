@@ -13,6 +13,7 @@ _default_config =\
   "algo": "myalgo",
   "owner": "prodipta",
   "platform": "blueshift",
+  "api_key": None,
   # contact details for alerts and other message dispatch
   "contact":{
     "email":"user@email.com", # MUST BE A VALID EMAIL ID
@@ -85,7 +86,7 @@ _default_config =\
   
 def generate_default_config(filename=None):
     if not filename:
-        filename = "blueshift_config.json"
+        return json.dumps(_default_config)
         
     with open(filename,"w") as fp:
         json.dump(_default_config,fp)

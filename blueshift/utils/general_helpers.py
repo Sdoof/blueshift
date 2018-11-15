@@ -7,6 +7,8 @@ Created on Wed Oct  3 17:28:53 2018
 
 from sys import getsizeof as sys_getsizeof
 from collections import OrderedDict
+from os import path as os_path
+from blueshift.utils.ctx_mgr import AddPythonPath
 
 def get_size(obj, seen=None):
     """Recursively finds size of objects"""
@@ -80,10 +82,31 @@ class OnetoOne(object):
     
     def teg(self, key, default=None):
         return self.__reversed_dict.get(key, default)
+
+
+
+def import_user_module(source_file, module_name, path):
+    '''
+        function to load multi-file user code in to Blueshift. This
+        execs the source_file, which may contain full (NOT relative)
+        import of other resources from the module `module_name`. The
+        path is usually the local source dir under the Blueshift 
+        root which contains the `module_name`, which in turn contains
+        the `source_file`.
+    '''
+    # add the module path to sys path
+    module_path = os_path.expanduser(path)
     
+    with AddPythonPath(module_path):
+        namespace = {}
+        path = os_path.join(module_path, module_name,source_file)
+        with open(path) as fp:
+            algo_text = fp.read()
+        
+        code = compile(algo_text,source_file,'exec')
+        exec(code, namespace)
     
-    
-    
+    return namespace
     
     
     
