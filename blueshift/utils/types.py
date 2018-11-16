@@ -6,9 +6,10 @@ Created on Thu Nov 15 09:25:15 2018
 """
 
 import re
-import pytz
+from pytz import all_timezones as pytz_all_timezones
 import click
 import pandas as pd
+from datetime import datetime
 
 class HashKeyType(click.ParamType):
     name = 'SHA or MD5 string type'
@@ -24,18 +25,25 @@ class HashKeyType(click.ParamType):
         return value
     
 class TimezoneType(click.ParamType):
-    name = 'api-key'
+    name = 'Standard time zone names'
     def convert(self, value, param, ctx):
-        valid = str(value) in pytz.all_timezones
+        valid = str(value) in pytz_all_timezones
         if not valid:
             self.fail(f'{value} is not a valid time zone', param, ctx)
         return value
     
-class DateType(click.DateTime):
-    
+class DateType(click.ParamType):
+    name = 'Date input'
     def __init__(self):
         strformats = ['%Y-%m-%d', '%d-%b-%Y', '%Y-%b-%d']
-        super(DateType, self).__init__(strformats)
+        self.formats = strformats
+        super(DateType, self).__init__()
+        
+    def _try_to_convert_date(self, value, format):
+        try:
+            return datetime.strptime(value, format)
+        except ValueError:
+            return None
         
     def convert(self, value, param, ctx):
         for format in self.formats:

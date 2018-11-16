@@ -94,7 +94,6 @@ def import_user_module(source_file, module_name, path):
         root which contains the `module_name`, which in turn contains
         the `source_file`.
     '''
-    # add the module path to sys path
     module_path = os_path.expanduser(path)
     
     with AddPythonPath(module_path):
@@ -109,5 +108,31 @@ def import_user_module(source_file, module_name, path):
     return namespace
     
     
+def list_to_args_kwargs(opt_list):
+    '''
+        Utility to convert extra arguments passed from command 
+        processors (click) in to args and kwargs
+    '''
+    args = []
+    kwargs = {}
+    processed = False
     
+    extract_param = lambda s:s.strip('-').replace('-','_')
+    
+    for idx, opt in enumerate(opt_list):
+        if processed:
+            processed = False
+            continue
+        if not opt.startswith('-'):
+            args.append(extract_param(opt))
+        elif idx+1 < len(opt_list) and opt_list[idx+1].startswith('-'):
+            args.append(extract_param(opt))
+        elif idx+1 < len(opt_list):
+            kwargs[extract_param(opt)] = extract_param(
+                    opt_list[idx+1])
+            processed = True
+        else:
+            args.append(extract_param(opt))
+            
+    return args, kwargs
     

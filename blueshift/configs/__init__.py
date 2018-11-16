@@ -81,7 +81,13 @@ _default_config =\
     "error": "stop",
   },        
   # risk management policy
-  "risk_management": None
+  "risk_management": None,
+  # blueshift environmental variables
+  "environment":{
+    "BLUESHIFT_BROKER_TOKEN": None,
+    "BLUESHIFT_API_KEY": None,
+    "BLUESHIFT_CONFIG_FILE": None
+  }
 }
   
 def generate_default_config(filename=None):

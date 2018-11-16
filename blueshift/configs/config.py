@@ -13,15 +13,15 @@ from blueshift.utils.decorators import singleton, blueprint
 @blueprint
 class BlueShiftConfig(object):
     
-    def __init__(self, configfile=None, *args, **kwargs):
+    def __init__(self, config_file=None, *args, **kwargs):
         '''
             Read the supplied config file, or generate a default config,
             In case more named arguments are supplied as keywords, use
             them to replace the config params.
         '''
-        if configfile:
+        if config_file:
             try:
-                with open(configfile) as fp:
+                with open(config_file) as fp:
                     config = json.load(fp)
             except FileNotFoundError:
                 config = _default_config
@@ -40,6 +40,7 @@ class BlueShiftConfig(object):
         self.command_channel = config['command_channel']
         self.risk_management = config['risk_management']
         self.recovery = config['error_handling']
+        self.env_vars = config['environment']
         
         for key in self.__dict__:
             self.arg_parse(key, *args, **kwargs)

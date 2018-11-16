@@ -19,22 +19,31 @@ from blueshift.configs import generate_default_config
 from blueshift.utils.types import (HashKeyType, 
                                    TimezoneType,
                                    DateType)
-from blueshift.utils.start_up import create_environment
+from blueshift.utils.start_up import BlueShiftEnvironment
+from blueshift.utils.general_helpers import list_to_args_kwargs
+
+CONTEXT_SETTINGS = dict(ignore_unknown_options=True,
+                        #allow_extra_args=True,
+                        token_normalize_func=lambda x: x.lower())
+
+
 
 @click.group()
 @click.option(
     '--api-key', 
     '-a',
+    envvar="BLUESHIFT_API_KEY",
     default=None,
-    type=HashKeyType(),
+    type=HashKeyType(length=16),
     help='your Blueshift API key. Visit the site to generate one.'
 )
 @click.option(
     '--config-file', 
     '-c',
+    envvar="BLUESHIFT_CONFIG_FILE",
     default='~/.blueshift_config.json',
     type=click.Path(),
-    help='path to Blueshift config file. You can generate a template'
+    help='Blueshift config file. You can generate a config template'
             'using the `config` command.'
 )
 @click.pass_context
@@ -54,7 +63,7 @@ def main(ctx, api_key, config_file):
                'api_key': api_key
                }
 
-@main.command()
+@main.command(context_settings=CONTEXT_SETTINGS)
 @click.option(
     '--root',
     default='~/.blueshift',
@@ -122,34 +131,80 @@ def config(ctx, root, timezone, broker, broker_id, broker_key,
                                      config['user_workspace'][d])
             if not os_path.exists(full_path): mkdir(full_path)
     
-    print(json.dumps(config))
+    click.echo(json.dumps(config))
     
 
-@main.command()
+@main.command(context_settings=CONTEXT_SETTINGS)
 @click.option(
-    '-start',
+    '-s',
     '--start-date',
     default=None,
     type=DateType(),
-    help='start date for backtest. Will be ignored for live mode',
+    help='start date for backtest. Will be ignored for live mode.',
     )
 @click.option(
-    '-end',
+    '-e',
     '--end-date',
     default=None,
     type=DateType(),
-    help='end date for backtest. Will be ignored for live mode',
+    help='end date for backtest. Will be ignored for live mode.',
     )
 @click.option(
-    '-algo',
+    '-c',
+    '--initial-capital',
+    default=10000,
+    type=click.FLOAT,
+    help='Initial capital for backtest.'\
+            ' Will be ignored for live mode.',
+    )
+@click.option(
+    '-a',
     '--algo-file',
     default=None,
-    type=click.Path(file_okay=False, writable=True),
+    type=click.Path(file_okay=True, writable=True),
     help='Algo script file or module path.',
     )
+@click.option(
+    '-m',
+    '--run-mode',
+    default='backtest',
+    type=click.Choice(['backtest', 'live']),
+    help='Run mode [backtest or live].',
+    )
+@click.option(
+    '-p',
+    '--platform',
+    default='blueshift',
+    type=click.Choice(['blueshift', 'api', 'stand-alone']),
+    help='Run mode [backtest or live].',
+    )
+@click.argument('arglist', nargs=-1, type=click.STRING)
 @click.pass_context
-def run(ctx):
-    pass
+def run(ctx, start_date, end_date, initial_capital, 
+        algo_file, run_mode, platform, arglist):
+    '''
+        Set up the context and trigger the run.
+    '''
+#    for key in kwargs:
+#        kwargs[key.strip('-').replace('-','_')]=kwargs.pop(key)
+    
+    args, kwargs = list_to_args_kwargs(arglist)
+    
+    configfile = os_path.expanduser(ctx.obj['config'])
+    algo_file = algo_file
+    
+    trading_environment = BlueShiftEnvironment(configfile=configfile,
+                                             algo_file=algo_file,
+                                             start_date=start_date,
+                                             end_date=end_date,
+                                             initial_capital=\
+                                             initial_capital,
+                                             mode=run_mode,
+                                             *args,
+                                             **kwargs)
+    
+    print(trading_environment.broker_tuple.broker.__dict__)
+
 
 if __name__ == "__main__":
     main()
