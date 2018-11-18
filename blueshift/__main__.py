@@ -11,9 +11,10 @@ from os import mkdir
 import json
 
 import sys
-blueshift_path = 'C:/Users/academy.academy-72/Desktop/dev platform/blueshift'
-if blueshift_path not in sys.path:
-    sys.path.append(blueshift_path)
+import os
+current_dir = os.getcwd()
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
 
 from blueshift.configs import generate_default_config
 from blueshift.utils.types import (HashKeyType, 
@@ -53,10 +54,10 @@ def main(ctx, api_key, config_file):
         trading system. It supports multiple assets across multiple 
         markets - both for back-testing and live trading and research.
         
-        Usage:
-            blueshift config > ~/blushift_config.json
-            blueshift run --mode backtest [--data-frequency 5m --initial-capital 1000] --algo-file 'myalgo.py'
-            blueshift query [--api-key your-blueshift-api-key] --algo your-unique-backtest-or-livetrade-ID --command query-command
+        Usage:\n
+            blueshift config > ~/blushift_config.json\n
+            blueshift run --mode backtest [--data-frequency 5m --initial-capital 1000] --algo-file 'myalgo.py'\n
+            blueshift query [--api-key your-blueshift-api-key] --algo your-unique-backtest-or-livetrade-ID --command query-command\n
             blueshift --help
     '''
     ctx.obj = {'config':config_file,

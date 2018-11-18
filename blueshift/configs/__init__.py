@@ -49,9 +49,9 @@ _default_config =\
   # live broker configuration for the algo
   "live_broker":{
     "broker_name": "zerodha", 
-    "api_key": "e0wjr2fcyx3gx1h9", 
-    "api_secret": "lspsromziex0lyqn0k66lijupnxqwl5d", 
-    "broker_id": "DP2026",
+    "api_key": "xxx", 
+    "api_secret": "yyy", 
+    "broker_id": "zzz",
     "rate_limit": 2,
     "rate_period": 1,
     "login_reset_time": [8,45],
