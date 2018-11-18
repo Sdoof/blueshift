@@ -22,8 +22,14 @@ register_broker("backtest",trading_calendar=trading_calendar,
                 initial_capital=10000)
 brkr = get_broker("backtest")
 algo = TradingAlgorithm(broker=brkr, algo="user_algo.py")
-algo.run()
+runner = algo._back_test_run()
 
+import click
+length = len(brkr.clock.session_nanos)
+print(brkr)
+with click.progressbar(runner, length=length) as bar:
+    for session in bar:
+        pass
 
 #register_broker("zerodha", config='kite_config.json',
 #                  tz='Asia/Calcutta', timeout=(8, 45),

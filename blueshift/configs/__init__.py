@@ -63,7 +63,7 @@ _default_config =\
     "cal_name": "NSE_EQ",
     "holidays": "nse_holidays.csv",
     "opens": [9,15,0],
-    "closes": [9,15,0],
+    "closes": [3,30,0],
     "business_days": None,
     "weekends": [5,6]
   },

@@ -30,7 +30,8 @@ from blueshift.utils.exceptions import (
         StateMachineError,
         InitializationError,
         ValidationError,
-        BrokerAPIError)
+        BrokerAPIError,
+        BlueShiftException)
 
 from blueshift.utils.decorators import blueprint
 
@@ -260,7 +261,7 @@ class TradingAlgorithm(object):
         self._heartbeat(self.context)
         self.state = STATE.HEARTBEAT
     
-    def _back_test_run(self):
+    def _back_test_run(self, alert_manager=None):
         '''
             The entry point for backtest run.
         '''
@@ -277,24 +278,36 @@ class TradingAlgorithm(object):
         self._make_broker_dispatch() # only useful for backtest
         
         for t, bar in self.context.clock:
-            ts = pd.Timestamp(t,unit='ns',
-                              tz=self.context.trading_calendar.tz)
-            
-            if bar == BARS.ALGO_START:
-                self.context.set_up(timestamp=ts)
+            try:
+                ts = pd.Timestamp(t,unit='ns',
+                                  tz=self.context.trading_calendar.tz)
                 
-            self.context.set_timestamp(ts)
-            self._BROKER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
-            
-            if bar == BARS.TRADING_BAR:
-                #self.context.BAR_update(ts)
-                pass
-            
-            if bar == BARS.AFTER_TRADING_HOURS:
-                #self.context.BAR_update(ts)
-                self.context.EOD_update(ts)
+                if bar == BARS.ALGO_START:
+                    self.context.set_up(timestamp=ts)
+                    
+                self.context.set_timestamp(ts)
+                self._BROKER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
                 
-            self._USER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
+                if bar == BARS.TRADING_BAR:
+                    #self.context.BAR_update(ts)
+                    pass
+                
+                if bar == BARS.AFTER_TRADING_HOURS:
+                    #self.context.BAR_update(ts)
+                    self.context.EOD_update(ts)
+                    yield self.context.performance
+                    
+                self._USER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
+        
+            except BlueShiftException as e:
+                if not alert_manager:
+                    raise e
+                else:
+                    timestamp = self.context.timestamp
+                    alert_manager.handle_error(e,'algorithm',
+                                               mode=self.mode,
+                                               timestamp=timestamp)
+                    continue
     
     def _get_event_loop(self):
         '''
@@ -314,7 +327,7 @@ class TradingAlgorithm(object):
         self._queue = ClockQueue(loop=self._loop)
         self.context.clock.reset(self._queue, delay)
         
-    async def _process_tick(self):
+    async def _process_tick(self, alert_manager):
         '''
             Process ticks from real clock asynchronously.
         '''
@@ -322,25 +335,32 @@ class TradingAlgorithm(object):
             # start from the beginning, process all ticks except
             # TRADING_BAR or HEAR_BEAT. For these we skip to the last
             # TODO: implement this logic in ClockQueue
-            t, bar = await self._queue.get_last()
-            ts = pd.Timestamp.now(tz=self.context.trading_calendar.tz)
-            print("{}: got {}".format(ts, bar))
-            
-            if bar == BARS.ALGO_START:
-                self.context.set_up(timestamp=ts)
-            self.context.set_timestamp(ts)
-            
-            if bar == BARS.TRADING_BAR:    
-                self.context.BAR_update(ts)
-            
-            if bar == BARS.AFTER_TRADING_HOURS:
-                self.context.BAR_update(ts)
-                self.context.EOD_update(ts)
+            try:
+                t, bar = await self._queue.get_last()
+                ts = pd.Timestamp.now(tz=self.context.trading_calendar.tz)
+                print("{}: got {}".format(ts, bar))
                 
-            self._USER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
+                if bar == BARS.ALGO_START:
+                    self.context.set_up(timestamp=ts)
+                self.context.set_timestamp(ts)
+                
+                if bar == BARS.TRADING_BAR:    
+                    self.context.BAR_update(ts)
+                
+                if bar == BARS.AFTER_TRADING_HOURS:
+                    self.context.BAR_update(ts)
+                    self.context.EOD_update(ts)
+                    
+                self._USER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
+            except BlueShiftException as e:
+                if not alert_manager:
+                    raise e
+                else:
+                    alert_manager.handle_error(e,'algorithm')
+                    continue
             
     
-    def _live_run(self):
+    def _live_run(self, alert_manager=None):
         '''
             The entry point for a live run.
         '''

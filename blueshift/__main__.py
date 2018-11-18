@@ -20,7 +20,7 @@ from blueshift.configs import generate_default_config
 from blueshift.utils.types import (HashKeyType, 
                                    TimezoneType,
                                    DateType)
-from blueshift.utils.start_up import BlueShiftEnvironment
+from blueshift.utils.start_up import BlueShiftEnvironment, run_algo
 from blueshift.utils.general_helpers import list_to_args_kwargs
 
 CONTEXT_SETTINGS = dict(ignore_unknown_options=True,
@@ -42,7 +42,7 @@ CONTEXT_SETTINGS = dict(ignore_unknown_options=True,
     '--config-file', 
     '-c',
     envvar="BLUESHIFT_CONFIG_FILE",
-    default='~/.blueshift_config.json',
+    default='~/.blueshift/.blueshift_config.json',
     type=click.Path(),
     help='Blueshift config file. You can generate a config template'
             'using the `config` command.'
@@ -72,7 +72,6 @@ def main(ctx, api_key, config_file):
     help='your local Blueshift root directory.',
     )
 @click.option(
-    '-tz',
     '--timezone',
     default='Etc/UTC',
     type=TimezoneType(),
@@ -177,7 +176,7 @@ def config(ctx, root, timezone, broker, broker_id, broker_key,
     '--platform',
     default='blueshift',
     type=click.Choice(['blueshift', 'api', 'stand-alone']),
-    help='Run mode [backtest or live].',
+    help='Platform type.',
     )
 @click.argument('arglist', nargs=-1, type=click.STRING)
 @click.pass_context
@@ -193,8 +192,8 @@ def run(ctx, start_date, end_date, initial_capital,
     
     configfile = os_path.expanduser(ctx.obj['config'])
     algo_file = algo_file
-    
-    trading_environment = BlueShiftEnvironment(configfile=configfile,
+    trading_environment = BlueShiftEnvironment()
+    trading_environment.create_environment(config_file=configfile,
                                              algo_file=algo_file,
                                              start_date=start_date,
                                              end_date=end_date,
@@ -204,7 +203,8 @@ def run(ctx, start_date, end_date, initial_capital,
                                              *args,
                                              **kwargs)
     
-    print(trading_environment.broker_tuple.broker.__dict__)
+    run_algo(trading_environment=trading_environment, 
+             *args, **kwargs)
 
 
 if __name__ == "__main__":

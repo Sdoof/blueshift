@@ -4,15 +4,17 @@ Created on Tue Nov 13 09:00:35 2018
 
 @author: prodipta
 """
-from os.path import isabs, join, isfile, expanduser
+from os.path import isabs, join, isfile, expanduser, basename
 from os import environ as os_environ
+from sys import exit as sys_exit
 import pandas as pd
 from collections import namedtuple
+import click
 
 
 from blueshift.configs.config import BlueShiftConfig
 from blueshift.alerts.alert import BlueShiftAlertManager
-from blueshift.algorithm.algorithm import MODE
+from blueshift.algorithm.algorithm import MODE, TradingAlgorithm
 from blueshift.algorithm.api import (get_broker, get_calendar,
                                      register_calendar,
                                      register_broker)
@@ -22,6 +24,7 @@ from blueshift.utils.exceptions import InitializationError
 from blueshift.alerts import (register_alert_manager,
                               get_alert_manager)
 from blueshift.utils.decorators import singleton, blueprint
+from blueshift.utils.general_helpers import OnetoOne
 
 TradingEnvironment = namedtuple("TradingEnvironment",
                                 ('mode', 'config', 'alert_manager', 
@@ -34,9 +37,8 @@ BROKER_TOKEN_EVNVAR = 'BLUESHIFT_BROKER_TOKEN'
 @singleton
 @blueprint
 class BlueShiftEnvironment(object):
-    RUN_MODE_MAP = {'backtest':MODE.BACKTEST,
-               'bt':MODE.BACKTEST,
-               'live': MODE.LIVE}
+    RUN_MODE_MAP = OnetoOne({'backtest':MODE.BACKTEST,
+                             'live': MODE.LIVE})
     
     def __init__(self):
         self.config = None
@@ -47,6 +49,13 @@ class BlueShiftEnvironment(object):
         self.mode = None
         self.env_vars = {}
         self._initialized = False
+        
+    def __str__(self):
+        mode = self.RUN_MODE_MAP.teg(self.mode)
+        return f"Blueshift Environment: {mode}"
+    
+    def __repr__(self):
+        return self.__str__()
     
     def create_environment(self, *args, **kwargs):
         '''
@@ -58,7 +67,7 @@ class BlueShiftEnvironment(object):
         self.create_alert_manager(*args, **kwargs)
         
         algo_file = kwargs.get("algo_file", None)
-        self.get_algo_file(algo_file, self.config)
+        self.get_algo_file(algo_file)
         
         self.create_calendar()
         
@@ -81,9 +90,11 @@ class BlueShiftEnvironment(object):
         '''
         config_file = kwargs.pop("config_file", None)
         if not config_file:
-            config_file = os_environ.get(config_file, None)
+            config_file = os_environ.get("BLUESHIFT_CONFIG_FILE", None)
         if not config_file:
-            config_file = expanduser('~/.blueshift_config.json')
+            config_file = join(expanduser('~'), '.blueshift',
+                               '.blueshift_config.json')
+        
         self.config = BlueShiftConfig(config_file=config_file, 
                                       *args, **kwargs)
     
@@ -93,14 +104,16 @@ class BlueShiftEnvironment(object):
             list in config. Then over-write if any supplied in the
             kwwargs.
         '''
-        for var in self.config.environment:
+        for var in self.config.env_vars:
             self.env_vars[var] = os_environ.get(var, None)
         for var in self.env_vars:
             self.env_vars[var] = kwargs.pop(var, self.env_vars[var])
             
     def save_env_vars(self):
         for var in self.env_vars:
-            os_environ[var] = self.env_vars[var]
+            value = self.env_vars[var]
+            if value:
+                os_environ[var] = value
     
     def create_alert_manager(self, *args, **kwargs):
         '''
@@ -115,6 +128,8 @@ class BlueShiftEnvironment(object):
             Search the current directory, else go the user config
             directory (code) and search.
         '''
+        if not algo_file:
+            raise InitializationError(msg="missing algo file.")
         if not isabs(algo_file) and not isfile(algo_file):
             user_root = self.config.user_space['root']
             user_code_dir = self.config.user_space['code']
@@ -239,9 +254,38 @@ class BlueShiftEnvironment(object):
         else:
             raise InitializationError(msg="Illegal mode supplied.")
             
-        self.broker = get_broker(name)
-
+        self.broker_tuple = get_broker(name)
 
 
 def run_algo(*args, **kwargs):
-    pass
+    trading_environment = kwargs.pop("trading_environment", None)
+    
+    if not trading_environment:
+        trading_environment = BlueShiftEnvironment()
+        trading_environment.create_environment(*args, **kwargs)
+    
+    if not trading_environment:
+        click.echo("failed to create a trading environment")
+        sys_exit(1)
+        
+    alert_manager = trading_environment.alert_manager
+    broker = trading_environment.broker_tuple
+    mode = trading_environment.mode
+    algo_file = trading_environment.algo_file
+    algo = TradingAlgorithm(broker=broker, algo=algo_file, mode=mode)
+    
+    if mode == MODE.BACKTEST:
+        runner = algo._back_test_run(alert_manager)
+        length = len(broker.clock.session_nanos)
+        
+        click.echo(f"starting backtest, total sessions {length}")
+        with click.progressbar(runner, 
+                               label=basename(algo_file),
+                               length=length) as performance:
+            for packet in performance:
+                #print(packet)
+                pass
+        click.echo(f"backtest run complete")
+        
+        
+        

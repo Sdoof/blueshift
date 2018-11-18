@@ -84,7 +84,7 @@ class APIException(APIError):
     msg = "Unrecoverable API Error: {msg}"
     handling = ExceptionHandling.TERMINATE
     
-class BrokerAPIError(BlueShiftException):
+class BrokerAPIError(APIError):
     '''
         Raised when we have an API exception, either from the broker
         back-end or some HTTP error. Such errors may be recoverable.

@@ -11,6 +11,7 @@ from os import path as os_path
 import pandas as pd
 
 from blueshift.utils.decorators import singleton, blueprint
+from blueshift.algorithm.algorithm import MODE
 
 @blueprint
 class BlueShiftLogHandlers(object):
@@ -35,7 +36,7 @@ class BlueShiftLogHandlers(object):
         self.handlers['msg'] = None
         self.handlers['websocket'] = None
         
-        formatstr = 'BlueShift Alert[%(asctime)s] '\
+        formatstr = 'BlueShift Alert[%(myasctime)s] '\
                         '%(levelname)s %(message)s'
         formatstr = logging.Formatter(formatstr)
         
@@ -59,6 +60,8 @@ class BlueShiftLogHandlers(object):
         for dest in info_set:
             if self.handlers[dest]:
                 self.handlers[dest].setLevel(logging.INFO)
+                
+        self.tz = config.calendar['tz']
                 
     def __str__(self):
         return "Blueshift Log Handler"
@@ -88,17 +91,42 @@ class BlueShiftLogger(object):
     def __repr__(self):
         return self.__str__()
     
-    def info(self, msg, module):
+    def info(self, msg, module, *args, **kwargs):
         msg="in "+module+":"+msg
-        self.logger.info(msg)
         
-    def warning(self, msg, module):
-        msg="in "+module+":"+msg
-        self.logger.warning(msg)
+        mode = kwargs.pop('mode', None)
+        if mode == MODE.BACKTEST:
+            asctime = str(kwargs.pop('timestamp'))
+        else:
+            asctime = str(pd.Timestamp.now(tz=self.tz))
+            
+        self.logger.info(msg, extra={'myasctime':asctime})
         
-    def error(self, msg, module):
+    def warning(self, msg, module, *args, **kwargs):
         msg="in "+module+":"+msg
-        self.logger.error(msg)
+        
+        mode = kwargs.pop('mode', None)
+        if mode == MODE.BACKTEST:
+            asctime = kwargs.pop('timestamp')
+        else:
+            asctime = str(pd.Timestamp.now(tz=self.tz))
+            
+        self.logger.warn(msg, extra={'myasctime':asctime})
+        
+    def error(self, msg, module, *args, **kwargs):
+        msg="in "+module+":"+msg
+        
+        mode = kwargs.pop('mode', None)
+        if mode == MODE.BACKTEST:
+            asctime = kwargs.pop('timestamp')
+        else:
+            asctime = str(pd.Timestamp.now(tz=self.tz))
+            
+        self.logger.error(msg, extra={'myasctime':asctime})
         
     def daily_log(self):
         pass
+    
+
+        
+    

@@ -53,6 +53,8 @@ class BlueShiftAlertManager(object):
         self.error_rules = {}
         self.callbacks = []
         
+        self.set_error_handling()
+        
     def __str__(self):
         return "Blueshift Alert Manager"
     
@@ -97,14 +99,14 @@ class BlueShiftAlertManager(object):
         if handling == ExceptionHandling.IGNORE:
             pass
         elif handling == ExceptionHandling.LOG:
-            self.logger.info(str(e),module)
+            self.logger.info(str(e),module, *args, **kwargs)
         elif handling == ExceptionHandling.WARN:
-            self.logger.warning(str(e),module)
+            self.logger.warning(str(e),module, *args, **kwargs)
         elif handling == ExceptionHandling.TERMINATE:
-            self.logger.error(str(e),module)
+            self.logger.error(str(e),module, *args, **kwargs)
             self.graceful_exit(*args, **kwargs)
         elif handling == ExceptionHandling.RECOVER:
-            self.logger.error(str(e),module)
+            self.logger.error(str(e),module, *args, **kwargs)
             self.restart(*args, **kwargs)
         else:
             self.graceful_exit(*args, **kwargs)
