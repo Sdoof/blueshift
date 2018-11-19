@@ -69,8 +69,9 @@ _default_config =\
   },
   # command control channel specification
   "command_channel":{
-    "cmd_type": "redis",
-    "cmd_addr": "127.0.0.1:9000"
+    "cmd_type": "zmq",
+    "cmd_addr": "127.0.0.1:9000",
+    "timeout": 10
   },
   # exceptions and restart policy
   "error_handling":{

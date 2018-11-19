@@ -13,15 +13,13 @@ import random
 def initialize(context):
     context.t1 = pd.Timestamp.now()
     context.asset = symbol("NIFTY-I")
-    print(context.asset)
+    #print(context.asset)
     
 def before_trading_start(context, data):
     return
     
 def handle_data(context, data):
-    order(context.asset, random.randint(10,50))
-    if random.randint(1,100000) == 10:
-        raise BrokerAPIError(msg="some random error")
+    #order(context.asset, random.randint(10,50))
     pass
 
 def heartbeat(context):

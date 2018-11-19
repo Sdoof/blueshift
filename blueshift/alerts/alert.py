@@ -16,6 +16,7 @@ from blueshift.utils.exceptions import (ExceptionHandling,
                                         APIError,InternalError,
                                         GeneralException)
 from blueshift.utils.decorators import singleton, blueprint
+from blueshift.alerts.message_brokers import ZeroMQPublisher
 
 @singleton
 @blueprint
@@ -52,8 +53,12 @@ class BlueShiftAlertManager(object):
         self.logger = BlueShiftLogger(config, *args, **kwargs)
         self.error_rules = {}
         self.callbacks = []
+        self.publisher = None
         
         self.set_error_handling()
+        
+        topic = kwargs.get("topic",self.config.algo)
+        self.set_up_publisher(topic)
         
     def __str__(self):
         return "Blueshift Alert Manager"
@@ -137,3 +142,10 @@ class BlueShiftAlertManager(object):
         python = sys_executable
         execl(python, python, *sys_argv)
         sys_exit(1)
+        
+    def set_up_publisher(self, topic):
+        addr, port = self.config.\
+                    command_channel['cmd_addr'].split(':')
+        self.publisher = ZeroMQPublisher(addr, port, topic)
+
+        

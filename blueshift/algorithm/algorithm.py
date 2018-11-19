@@ -25,6 +25,7 @@ from blueshift.trades._order import Order
 from blueshift.trades._order_types import OrderSide
 from blueshift.algorithm.api_decorator import api_method
 from blueshift.algorithm.api import get_broker
+from blueshift.utils.types import noop
 
 from blueshift.utils.exceptions import (
         StateMachineError,
@@ -87,9 +88,9 @@ class TradingAlgorithm(object):
 
     def __init__(self, *args, **kwargs):
         '''
-            Get the arguments and resolve them to a consistent context
-            object. Then read the user algo and extract the API 
-            functions and create the dispatcher.
+            Get the arguments and resolve them to a consistent 
+            context object. Then read the user algo and extract the 
+            API functions and create the dispatcher.
         '''
         self.name = kwargs.get("name","")
         self.mode = kwargs.get("mode",MODE.BACKTEST)
@@ -119,8 +120,7 @@ class TradingAlgorithm(object):
         if self.context:
             if param_test >= 15:
                 raise InitializationError(msg="too many parameters"
-                                    " passed in algo {} init".format(
-                                                  self.name))
+                      " passed in algo {} init".format(self.name))
             # else selectively add the components to context
             else:
                 self.context.reset(*args, **kwargs)
@@ -132,10 +132,6 @@ class TradingAlgorithm(object):
         # we must check initialization before running the algo.
         
         # extract the user algo
-        def noop(*args, **kwargs):
-            # pylint: disable=unused-argument
-            pass
-        
         self.algo = kwargs.get("algo", None)
         if self.algo is None:
             self.algo = self.context.algo
@@ -156,7 +152,8 @@ class TradingAlgorithm(object):
             if callable(self.namespace[k]):
                 is_api = getattr(self.namespace[k],"is_api",None)
                 if is_api:
-                    self.namespace[k] = partial(self.namespace[k],self)
+                    self.namespace[k] = partial(self.namespace[k],
+                                  self)
         
         self._initialize = self.namespace.get('initialize', noop) 
         self._handle_data = self.namespace.get('handle_data', noop)
@@ -295,7 +292,9 @@ class TradingAlgorithm(object):
                 if bar == BARS.AFTER_TRADING_HOURS:
                     #self.context.BAR_update(ts)
                     self.context.EOD_update(ts)
-                    yield self.context.performance
+                    perf = self.context.performance
+                    perf['timestamp'] = str(self.context.timestamp)
+                    yield perf
                     
                 self._USER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
         
@@ -337,8 +336,8 @@ class TradingAlgorithm(object):
             # TODO: implement this logic in ClockQueue
             try:
                 t, bar = await self._queue.get_last()
-                ts = pd.Timestamp.now(tz=self.context.trading_calendar.tz)
-                print("{}: got {}".format(ts, bar))
+                ts = pd.Timestamp.now(
+                        tz=self.context.trading_calendar.tz)
                 
                 if bar == BARS.ALGO_START:
                     self.context.set_up(timestamp=ts)
@@ -346,12 +345,14 @@ class TradingAlgorithm(object):
                 
                 if bar == BARS.TRADING_BAR:    
                     self.context.BAR_update(ts)
+                    #yield self.context.pnls
                 
                 if bar == BARS.AFTER_TRADING_HOURS:
                     self.context.BAR_update(ts)
                     self.context.EOD_update(ts)
                     
                 self._USER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
+            
             except BlueShiftException as e:
                 if not alert_manager:
                     raise e
@@ -451,8 +452,8 @@ class TradingAlgorithm(object):
         '''
             Change the broker in run time. This is useful to modify
             the broker api (including execution logic if any) or the
-            capital. This will NOT change the clock, and we do not want
-            that either.
+            capital. This will NOT change the clock, and we do not 
+            want that either.
         '''
         if self.state not in [STATE.STARTUP, STATE.DORMANT,\
                               BARS.HEAR_BEAT]:

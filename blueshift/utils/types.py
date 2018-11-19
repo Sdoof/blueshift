@@ -11,6 +11,10 @@ import click
 import pandas as pd
 from datetime import datetime
 
+def noop(*args, **kwargs):
+    # pylint: disable=unused-argument
+    pass
+
 class HashKeyType(click.ParamType):
     name = 'SHA or MD5 string type'
     def __init__(self, length=32):

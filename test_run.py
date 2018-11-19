@@ -31,16 +31,16 @@ with click.progressbar(runner, length=length) as bar:
     for session in bar:
         pass
 
-#register_broker("zerodha", config='kite_config.json',
-#                  tz='Asia/Calcutta', timeout=(8, 45),
-#                  request_token='mavqICdDraB1djlL8pMA0wvj5vcsRsKn',
-#                  frequency=1)
-#
-#brkr = get_broker("zerodha")
-#
-#algo = TradingAlgorithm(broker=brkr, algo="kite_strategy.py",
-#                        mode = MODE.LIVE)
-#
-#algo.run()
+register_broker("zerodha", config='kite_config.json',
+                  tz='Asia/Calcutta', timeout=(8, 45),
+                  request_token='mavqICdDraB1djlL8pMA0wvj5vcsRsKn',
+                  frequency=1)
+
+brkr = get_broker("zerodha")
+
+algo = TradingAlgorithm(broker=brkr, algo="kite_strategy.py",
+                        mode = MODE.LIVE)
+
+algo.run()
 
 

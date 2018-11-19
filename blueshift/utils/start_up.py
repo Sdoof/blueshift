@@ -10,6 +10,7 @@ from sys import exit as sys_exit
 import pandas as pd
 from collections import namedtuple
 import click
+import json
 
 
 from blueshift.configs.config import BlueShiftConfig
@@ -25,6 +26,8 @@ from blueshift.alerts import (register_alert_manager,
                               get_alert_manager)
 from blueshift.utils.decorators import singleton, blueprint
 from blueshift.utils.general_helpers import OnetoOne
+from blueshift.utils.ctx_mgr import (ShowProgressBar,
+                                     MessageBrokerCtxManager)
 
 TradingEnvironment = namedtuple("TradingEnvironment",
                                 ('mode', 'config', 'alert_manager', 
@@ -97,6 +100,9 @@ class BlueShiftEnvironment(object):
         
         self.config = BlueShiftConfig(config_file=config_file, 
                                       *args, **kwargs)
+        self.env_vars["BLUESHIFT_API_KEY"] = \
+                    self.config.env_vars["BLUESHIFT_API_KEY"]
+        self.env_vars["BLUESHIFT_CONFIG_FILE"] = config_file
     
     def extract_env_vars(self, *args, **kwargs):
         '''
@@ -254,10 +260,15 @@ class BlueShiftEnvironment(object):
         else:
             raise InitializationError(msg="Illegal mode supplied.")
             
+        
         self.broker_tuple = get_broker(name)
+        
+        if self.mode == MODE.LIVE:
+            broker_token = self.broker_tuple.auth.auth_token
+            self.env_vars["BLUESHIFT_BROKER_TOKEN"] = broker_token
 
 
-def run_algo(*args, **kwargs):
+def run_algo(show_progress=False, publish=False, *args, **kwargs):
     trading_environment = kwargs.pop("trading_environment", None)
     
     if not trading_environment:
@@ -275,17 +286,33 @@ def run_algo(*args, **kwargs):
     algo = TradingAlgorithm(broker=broker, algo=algo_file, mode=mode)
     
     if mode == MODE.BACKTEST:
+        '''
+            For backtest, run the algo backtest generator, 
+            collecting EOD packets and storing them in a list.
+            Optionally, publish the packet to a zmq channel as well.
+        '''
+        perfs = []
         runner = algo._back_test_run(alert_manager)
         length = len(broker.clock.session_nanos)
         
         click.echo(f"starting backtest, total sessions {length}")
-        with click.progressbar(runner, 
-                               label=basename(algo_file),
-                               length=length) as performance:
+        
+        with ShowProgressBar(runner, show_progress=show_progress,
+                             label=basename(algo_file),
+                             length=length) as performance,\
+            MessageBrokerCtxManager(alert_manager.publisher,
+                                    enabled=publish) as\
+                                publisher:
             for packet in performance:
-                #print(packet)
-                pass
+                perfs.append(packet)
+                if publish:
+                    publisher.send(json.dumps(packet))
+        
         click.echo(f"backtest run complete")
+        idx = pd.to_datetime([p['timestamp'] for p in perfs])
+        perfs = pd.DataFrame(perfs, idx)
+        return perfs
+        
         
         
         

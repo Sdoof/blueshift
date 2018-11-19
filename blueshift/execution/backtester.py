@@ -6,7 +6,6 @@ Created on Sat Oct  6 12:54:09 2018
 """
 
 from enum import Enum
-import logging
 
 from blueshift.execution.broker import AbstractBrokerAPI, BrokerType
 from blueshift.execution._clock import BARS
@@ -27,8 +26,6 @@ from blueshift.utils.cutils import check_input
 from blueshift.utils.decorators import blueprint
 
 import random
-
-LOGNAME = "backtest_server"
 
 class ResponseType(Enum):
     '''
@@ -62,19 +59,6 @@ MarginDict = {
     InstrumentType.CFD:0.05,
     InstrumentType.STRATEGY:0}
 
-    
-logger = logging.getLogger(LOGNAME)
-logger.setLevel(logging.DEBUG)
-fh = logging.FileHandler(LOGNAME+'.log')
-fh.setLevel(logging.DEBUG)
-ch = logging.StreamHandler()
-ch.setLevel(logging.ERROR)
-formatter = logging.Formatter('%(name)s-%(levelname)s-'\
-                              '%(asctime)s: %(message)s')
-fh.setFormatter(formatter)
-ch.setFormatter(formatter)
-logger.addHandler(fh)
-logger.addHandler(ch)
 
 @blueprint
 class BackTester(object):

@@ -169,19 +169,28 @@ def config(ctx, root, timezone, broker, broker_id, broker_key,
     '--run-mode',
     default='backtest',
     type=click.Choice(['backtest', 'live']),
-    help='Run mode [backtest or live].',
+    help='Run mode [backtest, live].',
     )
 @click.option(
     '-p',
     '--platform',
     default='blueshift',
     type=click.Choice(['blueshift', 'api', 'stand-alone']),
-    help='Platform type.',
+    help='Platform type. [blueshift, api, stand-alone]',
     )
+@click.option(
+    '--show-progress/--no-progress',
+    default=False,
+    help='Turn on/ off the progress bar. [show-progress/no-progress')
+@click.option(
+    '--publish/--no-publish',
+    default=False,
+    help='Turn on/ off streaming results. [publish/no-publish')
 @click.argument('arglist', nargs=-1, type=click.STRING)
 @click.pass_context
 def run(ctx, start_date, end_date, initial_capital, 
-        algo_file, run_mode, platform, arglist):
+        algo_file, run_mode, platform, show_progress, publish, 
+        arglist):
     '''
         Set up the context and trigger the run.
     '''
@@ -194,16 +203,16 @@ def run(ctx, start_date, end_date, initial_capital,
     algo_file = algo_file
     trading_environment = BlueShiftEnvironment()
     trading_environment.create_environment(config_file=configfile,
-                                             algo_file=algo_file,
-                                             start_date=start_date,
-                                             end_date=end_date,
-                                             initial_capital=\
-                                             initial_capital,
-                                             mode=run_mode,
-                                             *args,
-                                             **kwargs)
+                                           algo_file=algo_file,
+                                           start_date=start_date,
+                                           end_date=end_date,
+                                           initial_capital=\
+                                               initial_capital,
+                                           mode=run_mode,
+                                           *args,**kwargs)
     
-    run_algo(trading_environment=trading_environment, 
+    run_algo(show_progress, publish,
+             trading_environment=trading_environment, 
              *args, **kwargs)
 
 
