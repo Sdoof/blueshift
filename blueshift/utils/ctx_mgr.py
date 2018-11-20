@@ -7,7 +7,6 @@ Created on Thu Nov 15 18:34:08 2018
 
 from sys import path as sys_path
 from os import path as os_path
-import click
 from click._termui_impl import ProgressBar
 
 from blueshift.utils.types import noop
@@ -64,7 +63,7 @@ class ShowProgressBar():
         
     def __enter__(self):
         if self.show_progress:
-            pg = ProgressBar(self.iter,**(self.kwargs), empty_char='_',
+            pg = ProgressBar(self.iter,**(self.kwargs), empty_char='-',
                              bar_template='%(label)s  [%(bar)s]  %(info)s',
                              width=36)
             pg.__enter__()

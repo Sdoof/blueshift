@@ -69,10 +69,18 @@ class AlgoStateMachine():
         {'trigger':'fsm_handle_data','source':'HEARTBEAT','dest':'TRADING_BAR'},
         {'trigger':'fsm_handle_data','source':'TRADING_BAR','dest':'TRADING_BAR'},
         {'trigger':'fsm_after_trading_hours','source':'TRADING_BAR','dest':'AFTER_TRADING_HOURS'},
-        {'trigger':'fsm_hearbeat','source':'AFTER_TRADING_HOURS','dest':'HEARTBEAT'},
-        {'trigger':'fsm_hearbeat','source':'BEFORE_TRADING_START','dest':'HEARTBEAT'},
-        {'trigger':'fsm_hearbeat','source':'INITIALIZED','dest':'HEARTBEAT'},
+        {'trigger':'fsm_heartbeat','source':'AFTER_TRADING_HOURS','dest':'HEARTBEAT'},
+        {'trigger':'fsm_heartbeat','source':'BEFORE_TRADING_START','dest':'HEARTBEAT'},
+        {'trigger':'fsm_heartbeat','source':'INITIALIZED','dest':'HEARTBEAT'},
+        {'trigger':'fsm_heartbeat','source':'HEARTBEAT','dest':'HEARTBEAT'},
         {'trigger':'fsm_analyze','source':'*','dest':'STOPPED'}]
+        
+        cmd_transitions = [
+        {'trigger':'fsm_cmd_stop','source':'*','dest':'STOPPED'},
+        {'trigger':'fsm_cmd_pause','source':'*','dest':'STOPPED'},
+        {'trigger':'fsm_cmd_stop','source':'*','dest':'STOPPED'},
+        {'trigger':'fsm_cmd_stop','source':'*','dest':'STOPPED'}
+        ]
         
         transitions = clock_transitions
         

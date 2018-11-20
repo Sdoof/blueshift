@@ -5,6 +5,7 @@ Created on Tue Nov 13 14:40:36 2018
 @author: prodipta
 """
 import click
+from sys import exit as sys_exit
 from os import path as os_path
 from os import environ as os_environ
 from os import mkdir
@@ -22,6 +23,7 @@ from blueshift.utils.types import (HashKeyType,
                                    DateType)
 from blueshift.utils.start_up import BlueShiftEnvironment, run_algo
 from blueshift.utils.general_helpers import list_to_args_kwargs
+from blueshift.utils.exceptions import BlueShiftException
 
 CONTEXT_SETTINGS = dict(ignore_unknown_options=True,
                         #allow_extra_args=True,
@@ -108,30 +110,34 @@ def config(ctx, root, timezone, broker, broker_id, broker_key,
         Create a template for Blueshift configuration file with
         the given inputs.
     '''
-    # get the base template
-    config = json.loads(generate_default_config())
-    
-    # update the dict with supplied parameters.
-    root = os_path.expanduser(root)
-    config['owner'] = os_environ.get('USERNAME')
-    config['api_key'] = ctx.obj.get('api_key', None)
-    config['user_workspace']['root'] = root
-    config['live_broker']['broker_name'] = broker
-    config['live_broker']['api_key'] = broker_key
-    config['live_broker']['api_secret'] = broker_secret
-    config['live_broker']['broker_id'] = broker_id
-    config['calendar']['tz'] = timezone
-    
-    # create all directories in root if they do not exists already
-    for d in config['user_workspace']:
-        if d=='root':
-            if not os_path.exists(root): mkdir(root)
-        else:
-            full_path = os_path.join(root, 
-                                     config['user_workspace'][d])
-            if not os_path.exists(full_path): mkdir(full_path)
-    
-    click.echo(json.dumps(config))
+    try:
+        # get the base template
+        config = json.loads(generate_default_config())
+        
+        # update the dict with supplied parameters.
+        root = os_path.expanduser(root)
+        config['owner'] = os_environ.get('USERNAME')
+        config['api_key'] = ctx.obj.get('api_key', None)
+        config['user_workspace']['root'] = root
+        config['live_broker']['broker_name'] = broker
+        config['live_broker']['api_key'] = broker_key
+        config['live_broker']['api_secret'] = broker_secret
+        config['live_broker']['broker_id'] = broker_id
+        config['calendar']['tz'] = timezone
+        
+        # create all directories in root if they do not exists already
+        for d in config['user_workspace']:
+            if d=='root':
+                if not os_path.exists(root): mkdir(root)
+            else:
+                full_path = os_path.join(root, 
+                                         config['user_workspace'][d])
+                if not os_path.exists(full_path): mkdir(full_path)
+        
+        click.echo(json.dumps(config))
+    except BlueShiftException as e:
+        click.echo(str(e))
+        sys_exit(1)
     
 
 @main.command(context_settings=CONTEXT_SETTINGS)
@@ -194,26 +200,27 @@ def run(ctx, start_date, end_date, initial_capital,
     '''
         Set up the context and trigger the run.
     '''
-#    for key in kwargs:
-#        kwargs[key.strip('-').replace('-','_')]=kwargs.pop(key)
-    
-    args, kwargs = list_to_args_kwargs(arglist)
-    
-    configfile = os_path.expanduser(ctx.obj['config'])
-    algo_file = algo_file
-    trading_environment = BlueShiftEnvironment()
-    trading_environment.create_environment(config_file=configfile,
-                                           algo_file=algo_file,
-                                           start_date=start_date,
-                                           end_date=end_date,
-                                           initial_capital=\
-                                               initial_capital,
-                                           mode=run_mode,
-                                           *args,**kwargs)
-    
-    run_algo(show_progress, publish,
-             trading_environment=trading_environment, 
-             *args, **kwargs)
+    try:
+        args, kwargs = list_to_args_kwargs(arglist)
+        
+        configfile = os_path.expanduser(ctx.obj['config'])
+        algo_file = algo_file
+        trading_environment = BlueShiftEnvironment()
+        trading_environment.create_environment(config_file=configfile,
+                                               algo_file=algo_file,
+                                               start_date=start_date,
+                                               end_date=end_date,
+                                               initial_capital=\
+                                                   initial_capital,
+                                               mode=run_mode,
+                                               *args,**kwargs)
+        
+        run_algo(show_progress, publish,
+                 trading_environment=trading_environment, 
+                 *args, **kwargs)
+    except BlueShiftException as e:
+        click.echo(e)
+        sys_exit(1)
 
 
 if __name__ == "__main__":
