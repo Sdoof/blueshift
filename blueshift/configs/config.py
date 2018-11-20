@@ -39,7 +39,7 @@ class BlueShiftConfig(object):
         self.backtester = config['backtester']
         self.live_broker = config['live_broker']
         self.calendar = config['calendar']
-        self.command_channel = config['command_channel']
+        self.channels = config['channels']
         self.risk_management = config['risk_management']
         self.recovery = config['error_handling']
         self.env_vars = config['environment']

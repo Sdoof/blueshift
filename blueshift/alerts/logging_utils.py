@@ -11,7 +11,7 @@ from os import path as os_path
 import pandas as pd
 
 from blueshift.utils.decorators import singleton, blueprint
-from blueshift.algorithm.algorithm import MODE
+from blueshift.algorithm.state_machine import MODE
 
 @blueprint
 class BlueShiftLogHandlers(object):
@@ -61,8 +61,6 @@ class BlueShiftLogHandlers(object):
             if self.handlers[dest]:
                 self.handlers[dest].setLevel(logging.INFO)
                 
-        self.tz = config.calendar['tz']
-                
     def __str__(self):
         return "Blueshift Log Handler"
     
@@ -84,6 +82,8 @@ class BlueShiftLogger(object):
                 self.logger.addHandler(handler)
                 
         self.logger.setLevel(logging.INFO)
+        
+        self.tz = config.calendar.get('tz','Etc/UTC')
                 
     def __str__(self):
         return "Blueshift Logger"

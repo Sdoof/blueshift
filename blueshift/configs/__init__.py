@@ -68,9 +68,9 @@ _default_config =\
     "weekends": [5,6]
   },
   # command control channel specification
-  "command_channel":{
-    "cmd_type": "zmq",
-    "cmd_addr": "127.0.0.1:9000",
+  "channels":{
+    "cmd_addr": "127.0.0.1:9001",
+    "msg_addr": "127.0.0.1:9000",
     "timeout": 10
   },
   # exceptions and restart policy

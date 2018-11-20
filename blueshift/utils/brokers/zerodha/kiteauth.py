@@ -35,14 +35,14 @@ class KiteConnect3(APIRateLimitMixin, KiteConnect):
     def __init__(self, *args, **kwargs):
         # pylint: disable=bad-super-call
         #super(self.__class__, self).__init__(*args, **kwargs)
-        api_key = kwargs.get('api_key',None)
-        access_token = kwargs.get('access_token',None)
-        root = kwargs.get('root',None)
-        debug = kwargs.get('debug',False)
-        timeout = kwargs.get('timeout',None)
-        proxies = kwargs.get('proxies',None)
-        pool = kwargs.get('pool',None)
-        disable_ssl = kwargs.get('disable_ssl',False)
+        api_key = kwargs.pop('api_key',None)
+        access_token = kwargs.pop('access_token',None)
+        root = kwargs.pop('root',None)
+        debug = kwargs.pop('debug',False)
+        timeout = kwargs.pop('timeout',None)
+        proxies = kwargs.pop('proxies',None)
+        pool = kwargs.pop('pool',None)
+        disable_ssl = kwargs.pop('disable_ssl',False)
         
         KiteConnect.__init__(self, api_key, access_token, root,
                              debug, timeout, proxies, pool,
@@ -50,7 +50,7 @@ class KiteConnect3(APIRateLimitMixin, KiteConnect):
         APIRateLimitMixin.__init__(self, *args, **kwargs)
         
         # max instruments that can be queried at one call
-        self._max_instruments = kwargs.get("max_instruments",None)
+        self._max_instruments = kwargs.pop("max_instruments",None)
         self._trading_calendar = kwargs.get("trading_calendar",None)
         
         if not self._rate_limit:
@@ -69,18 +69,7 @@ class KiteConnect3(APIRateLimitMixin, KiteConnect):
         self._rate_limit_since = None 
         
         if not self._trading_calendar:
-            self._trading_calendar = kite_calendar
-            
-        holidays = kwargs.get("holidays",None)
-        if holidays:
-            try:
-                dts = pd.read_csv(holidays, parse_dates=True)
-                dts = pd.to_datetime(dts.iloc[:,0].tolist())
-                self._trading_calendar.add_holidays(dts)
-            except FileNotFoundError:
-                msg = f"file {holidays} not found"
-                handling = ExceptionHandling.WARN
-                raise ValidationError(msg=msg, handling=handling)
+            raise ValidationError(msg="missing calendar")
     
     def __str__(self):
         return "Kite Connect API v3.0"
@@ -120,16 +109,17 @@ class KiteAuth(TokenAuth):
         
         # pylint: disable=bad-super-call
         super(self.__class__, self).__init__(*args, **kwargs)
-        self._api_key = kwargs.get('api_key',None)
-        self._api_secret = kwargs.get('api_secret',None)
-        self._user_id = kwargs.get('user_id',None)
-        self._request_token = kwargs.get('reuest_token',None)
+        self._api_key = kwargs.pop('api_key',None)
+        self._api_secret = kwargs.pop('api_secret',None)
+        self._user_id = kwargs.pop('user_id',None)
+        self._request_token = kwargs.pop('reuest_token',None)
         
         self._access_token = self.auth_token
         self._api = KiteConnect3(api_key=self._api_key,
-                                 holidays=kwargs.get("holidays",None),
-                                 rate_period=kwargs.get("rate_period",None),
-                                 rate_limit=kwargs.get("rate_limit",None))
+                                 holidays=kwargs.pop("holidays",None),
+                                 rate_period=kwargs.pop("rate_period",None),
+                                 rate_limit=kwargs.pop("rate_limit",None),
+                                 **kwargs)
         self._trading_calendar = self._api._trading_calendar
         
     @property
@@ -157,7 +147,7 @@ class KiteAuth(TokenAuth):
             self._api.set_access_token(auth_token)
             return
         
-        request_token = kwargs.get("request_token",None)
+        request_token = kwargs.pop("request_token",None)
         if not request_token:
             msg = "no authentication or request token supplied for login"
             handling = ExceptionHandling.TERMINATE

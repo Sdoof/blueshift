@@ -6,15 +6,22 @@ Created on Fri Oct 26 10:42:50 2018
 """
 import pandas as pd
 import random
+import os
+import json
 
 from blueshift.utils.brokers.zerodha import (KiteAuth,
                                              KiteAssetFinder,
                                              KiteRestData,
                                              KiteBroker)
 
-kite_auth = KiteAuth(config='kite_config.json', tz='Asia/Calcutta',
+with open(os.path.expanduser('~/.blueshift/.blueshift_config.json')) as fp:
+    config = fp.read()
+    config = json.loads(config)
+    config = config['live_broker']
+    
+kite_auth = KiteAuth(**config, tz='Asia/Calcutta',
                      timeout=(8, 45))
-kite_auth.login(request_token='tIhp5isUd2dyewM7WqXe20QEskwbbc0p')
+kite_auth.login(request_token='LZbaR3oAUJyw1K4mPyBBXulFGyK7sj5M')
 kite_asset_finder = KiteAssetFinder(auth=kite_auth)
 kite_data = KiteRestData(auth=kite_auth)
 kite_broker = KiteBroker(auth = kite_auth,

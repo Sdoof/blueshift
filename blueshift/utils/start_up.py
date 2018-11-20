@@ -15,7 +15,8 @@ import json
 
 from blueshift.configs.config import BlueShiftConfig
 from blueshift.alerts.alert import BlueShiftAlertManager
-from blueshift.algorithm.algorithm import MODE, TradingAlgorithm
+from blueshift.algorithm.algorithm import TradingAlgorithm
+from blueshift.algorithm.state_machine import MODE
 from blueshift.algorithm.api import (get_broker, get_calendar,
                                      register_calendar,
                                      register_broker)
@@ -290,9 +291,11 @@ def run_algo(show_progress=False, publish=False, *args, **kwargs):
             For backtest, run the algo backtest generator, 
             collecting EOD packets and storing them in a list.
             Optionally, publish the packet to a zmq channel as well.
+            Also we pass the alert manager to the backtest run 
+            generator, to intercept and handle exceptions.
         '''
         perfs = []
-        runner = algo._back_test_run(alert_manager)
+        runner = algo._back_test_run(alert_manager=alert_manager)
         length = len(broker.clock.session_nanos)
         
         click.echo(f"starting backtest, total sessions {length}")
@@ -314,5 +317,21 @@ def run_algo(show_progress=False, publish=False, *args, **kwargs):
         return perfs
         
         
+    elif mode == MODE.LIVE:
+        '''
+            For live run, there is no generator. We run the main 
+            async event loop inside the Algorithm object itself.
+            So all messaging has to be handled there. Here we just
+            call the main function and leave it alone to complete.
+        '''
+        broker_name = str(broker.broker)
+        msg = f"starting live, algo {basename(algo_file)} with {broker_name}"
+        click.echo(msg)
+        algo._live_run(alert_manager=alert_manager)
         
-        
+    else:
+        '''
+            Somehow we ended up with unknown mode.
+        '''
+        click.echo(f"illegal mode supplied.")
+        sys_exit(1)

@@ -4,7 +4,6 @@ Created on Mon Oct  8 11:49:54 2018
 
 @author: prodipta
 """
-from enum import Enum
 from os import path as os_path
 import pandas as pd
 from functools import partial
@@ -26,6 +25,7 @@ from blueshift.trades._order_types import OrderSide
 from blueshift.algorithm.api_decorator import api_method
 from blueshift.algorithm.api import get_broker
 from blueshift.utils.types import noop
+from blueshift.algorithm.state_machine import MODE, STATE
 
 from blueshift.utils.exceptions import (
         StateMachineError,
@@ -34,27 +34,9 @@ from blueshift.utils.exceptions import (
         BrokerAPIError,
         BlueShiftException)
 
-from blueshift.utils.decorators import blueprint
-
-class MODE(Enum):
-    '''
-        Track the current running mode - live or backtest.
-    '''
-    BACKTEST = 0
-    LIVE = 1
+from blueshift.utils.decorators import blueprint, singleton
     
-class STATE(Enum):
-    '''
-        Track the current state of the machine.
-    '''
-    STARTUP = 0
-    BEFORE_TRADING_START = 1
-    TRADING_BAR = 2
-    AFTER_TRADING_HOURS = 3
-    SHUTDOWN = 4
-    HEARTBEAT = 5
-    DORMANT = 6
-    
+@singleton
 @blueprint
 class TradingAlgorithm(object):
     
@@ -331,11 +313,14 @@ class TradingAlgorithm(object):
             Process ticks from real clock asynchronously.
         '''
         while True:
-            # start from the beginning, process all ticks except
-            # TRADING_BAR or HEAR_BEAT. For these we skip to the last
-            # TODO: implement this logic in ClockQueue
+            '''
+                start from the beginning, process all ticks except
+                TRADING_BAR or HEAR_BEAT. For these we skip to the last
+                TODO: implement this logic in ClockQueue.
+            '''
             try:
                 t, bar = await self._queue.get_last()
+                print(f"{t}:{bar}")
                 ts = pd.Timestamp.now(
                         tz=self.context.trading_calendar.tz)
                 
@@ -381,7 +366,7 @@ class TradingAlgorithm(object):
         
         # initialize the coroutines
         clock_coro = self.context.clock.tick()
-        algo_coro = self._process_tick()
+        algo_coro = self._process_tick(alert_manager)
         
         try:
             tasks = asyncio.gather(clock_coro,algo_coro,

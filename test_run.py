@@ -6,7 +6,8 @@ Created on Fri Oct 19 10:33:18 2018
 """
 import pandas as pd
 
-from blueshift.algorithm.algorithm import TradingAlgorithm, MODE
+from blueshift.algorithm.algorithm import TradingAlgorithm
+from blueshift.algorithm.state_machine import MODE
 from blueshift.algorithm.api import get_broker, register_broker
 from blueshift.utils.calendars import get_calendar
 

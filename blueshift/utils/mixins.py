@@ -6,7 +6,6 @@ Created on Mon Nov  5 16:19:35 2018
 """
 from pandas import Timestamp
 from time import sleep
-import zmq
 
 from blueshift.utils.exceptions import StateMachineError
 

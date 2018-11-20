@@ -145,7 +145,7 @@ class BlueShiftAlertManager(object):
         
     def set_up_publisher(self, topic):
         addr, port = self.config.\
-                    command_channel['cmd_addr'].split(':')
+                    channels['msg_addr'].split(':')
         self.publisher = ZeroMQPublisher(addr, port, topic)
 
         

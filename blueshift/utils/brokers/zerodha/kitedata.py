@@ -59,7 +59,7 @@ class KiteRestData(RESTDataPortal):
         if not self._trading_calendar:
             self._trading_calendar = self._auth._trading_calendar
             
-        self._asset_finder = kwargs.get("asset_finder", None)
+        self._asset_finder = kwargs.pop("asset_finder", None)
         if self._asset_finder is None:
             self._asset_finder = KiteAssetFinder(auth=self._auth)
             

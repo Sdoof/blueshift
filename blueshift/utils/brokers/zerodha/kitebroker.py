@@ -69,8 +69,8 @@ class KiteBroker(AbstractBrokerAPI):
         check_input(KiteBroker.__init__, locals())
         super(self.__class__, self).__init__(name, broker_type, calendar,
                                              **kwargs)
-        self._auth = kwargs.get("auth",None)
-        self._asset_finder = kwargs.get("asset_finder",None)
+        self._auth = kwargs.pop("auth",None)
+        self._asset_finder = kwargs.pop("asset_finder",None)
         self._api = None
         
         if not self._asset_finder:
@@ -342,12 +342,12 @@ class KiteBroker(AbstractBrokerAPI):
                 variety = OrderFlag.NORMAL
                 parent_order_id = None
                 
-        quantity = kwargs.get("quantity",None)
-        price = kwargs.get("price",None)
-        order_type = kwargs.get("order_type",None)
-        trigger_price = kwargs.get("trigger_price",None)
-        validity = kwargs.get("validity",None)
-        disclosed_quantity = kwargs.get("disclosed_quantity",None)
+        quantity = kwargs.pop("quantity",None)
+        price = kwargs.pop("price",None)
+        order_type = kwargs.pop("order_type",None)
+        trigger_price = kwargs.pop("trigger_price",None)
+        validity = kwargs.pop("validity",None)
+        disclosed_quantity = kwargs.pop("disclosed_quantity",None)
         
         try:
             variety = order_flag_map.teg(variety,"regular")

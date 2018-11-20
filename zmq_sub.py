@@ -8,16 +8,15 @@ from blueshift.alerts.message_brokers import ZeroMQSubscriber
 from blueshift.utils.ctx_mgr import MessageBrokerCtxManager
 import zmq
 
-subscriber = ZeroMQSubscriber('127.0.0.1',"5556",'myalgo', no_block=True)
+subscriber = ZeroMQSubscriber('127.0.0.1',"5556",'myalgo', no_block=False)
 
 with MessageBrokerCtxManager(subscriber, enabled=True) as sub:
-    for i in range(10):
+    while True:
         try:
-            print(i)
             msg = sub.recv()
             if msg == "EOM":
                 break
+            print(msg)
         except zmq.error.Again as e:
-            print("nothing's on")
             continue
 
