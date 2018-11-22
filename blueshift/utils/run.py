@@ -28,8 +28,6 @@ from blueshift.alerts import (register_alert_manager,
                               get_alert_manager)
 from blueshift.utils.decorators import singleton, blueprint
 from blueshift.utils.general_helpers import OnetoOne
-from blueshift.utils.ctx_mgr import (ShowProgressBar,
-                                     MessageBrokerCtxManager)
 
 TradingEnvironment = namedtuple("TradingEnvironment",
                                 ('mode', 'config', 'alert_manager', 
@@ -301,35 +299,18 @@ def run_algo(name, output, show_progress=False, publish=False,
     
     if mode == MODE.BACKTEST:
         '''
-            For backtest, run the algo backtest generator, 
-            collecting EOD packets and storing them in a list.
-            Optionally, publish the packet to a zmq channel as well.
-            Also we pass the alert manager to the backtest run 
-            generator, to intercept and handle exceptions.
-        '''
-        perfs = []
-        runner = algo._back_test_run(alert_manager=alert_manager)
+            For backtest, run the algo backtest generator, and save 
+            the results if required.
+        '''        
         length = len(broker.clock.session_nanos)
-        
         click.secho(f"\nStarting backtest with {basename(algo_file)}", 
                                               fg="yellow")
         msg = f"broker:{broker_name}, timezone:{tz}, total sessions:{length}\n"
         click.echo(msg)
-        
-        with ShowProgressBar(runner, show_progress=show_progress,
-                             label=name,
-                             length=length) as performance,\
-            MessageBrokerCtxManager(alert_manager.publisher,
-                                    enabled=publish) as\
-                                publisher:
-            for packet in performance:
-                perfs.append(packet)
-                if publish:
-                    publisher.send(json.dumps(packet))
+        perfs = algo.back_test_run(alert_manager, show_progress,
+                                   publish)
         
         click.secho(f"backtest run complete", fg="green")
-        idx = pd.to_datetime([p['timestamp'] for p in perfs])
-        perfs = pd.DataFrame(perfs, idx)
         
         if output:
             perfs.to_csv(output)

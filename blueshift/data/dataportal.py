@@ -74,6 +74,7 @@ class DBDataPortal(DataPortal):
         return None
     
     def current(self, assets, fields):
+        return 50
         raise NotImplementedError
         
     def history(self, assets, fields, bars, frequency):

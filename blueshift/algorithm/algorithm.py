@@ -9,6 +9,7 @@ import pandas as pd
 from functools import partial
 import asyncio
 from collections.abc import Iterable
+import json
 
 from transitions import MachineError
 
@@ -26,7 +27,7 @@ from blueshift.trades._order_types import OrderSide, OrderType
 from blueshift.algorithm.api_decorator import api_method
 from blueshift.algorithm.api import get_broker
 from blueshift.utils.types import noop
-from blueshift.algorithm.state_machine import (MODE, STATE, COMMAND,
+from blueshift.algorithm.state_machine import (MODE, COMMAND,
                                                AlgoStateMachine)
 
 from blueshift.alerts import get_logger, get_alert_manager
@@ -36,10 +37,11 @@ from blueshift.utils.exceptions import (
         StateMachineError,
         InitializationError,
         ValidationError,
-        BrokerAPIError,
         BlueShiftException)
 
 from blueshift.utils.decorators import blueprint, singleton
+from blueshift.utils.ctx_mgr import (ShowProgressBar,
+                                     MessageBrokerCtxManager)
     
 @singleton
 @blueprint
@@ -265,9 +267,10 @@ class TradingAlgorithm(AlgoStateMachine):
         self._heartbeat(self.context)
         
     
-    def _back_test_run(self, alert_manager=None):
+    def _back_test_generator(self, alert_manager=None):
         '''
-            The entry point for backtest run.
+            The entry point for backtest run. This generator yields
+            the current day performance.
         '''
         if self.mode != MODE.BACKTEST:
             raise StateMachineError(msg="mode must be back-test")
@@ -318,6 +321,28 @@ class TradingAlgorithm(AlgoStateMachine):
                                                timestamp=timestamp)
                     continue
     
+    def back_test_run(self, alert_manager=None, show_progress=False,
+                      publish_packets=False):
+        
+        runner = self._back_test_generator(alert_manager=alert_manager)
+        length = len(self.context.clock.session_nanos)
+        perfs = []
+        
+        with ShowProgressBar(runner, show_progress=show_progress,
+                             label=self.name,
+                             length=length) as performance,\
+            MessageBrokerCtxManager(alert_manager.publisher,
+                                    enabled=publish_packets) as\
+                                publisher:
+            for packet in performance:
+                perfs.append(packet)
+                if publish_packets:
+                    publisher.send(json.dumps(packet))
+                    
+        idx = pd.to_datetime([p['timestamp'] for p in perfs])
+        perfs = pd.DataFrame(perfs, idx)
+        return perfs
+    
     def _get_event_loop(self):
         '''
             Obtain the current event loop or create one.
@@ -338,7 +363,8 @@ class TradingAlgorithm(AlgoStateMachine):
         
     async def _process_tick(self, alert_manager):
         '''
-            Process ticks from real clock asynchronously.
+            Process ticks from real clock asynchronously. It is not 
+            a generator.
         '''
             
         while True:
