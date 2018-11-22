@@ -22,7 +22,8 @@ from blueshift.algorithm.api import (get_broker, get_calendar,
                                      register_broker)
 from blueshift.utils.calendars.trading_calendar import (
                                             TradingCalendar)
-from blueshift.utils.exceptions import InitializationError
+from blueshift.utils.exceptions import (InitializationError, 
+                                        BlueShiftException)
 from blueshift.alerts import (register_alert_manager,
                               get_alert_manager)
 from blueshift.utils.decorators import singleton, blueprint
@@ -41,6 +42,10 @@ BROKER_TOKEN_EVNVAR = 'BLUESHIFT_BROKER_TOKEN'
 @singleton
 @blueprint
 class BlueShiftEnvironment(object):
+    '''
+        The builder class of underlying objects - calendar, broker tuple, 
+        configuration and alert manager.
+    '''
     RUN_MODE_MAP = OnetoOne({'backtest':MODE.BACKTEST,
                              'live': MODE.LIVE})
     
@@ -66,23 +71,26 @@ class BlueShiftEnvironment(object):
             Function to create a trading environment with all objects
             necessary to run the algo.
         '''
-        self.create_config(*args, **kwargs)
-        self.extract_env_vars()
-        self.create_alert_manager(*args, **kwargs)
-        
-        algo_file = kwargs.get("algo_file", None)
-        self.get_algo_file(algo_file)
-        
-        self.create_calendar()
-        
-        # create the broker based on config details.
-        mode =  kwargs.pop("mode", MODE.BACKTEST)
-        mode = self.RUN_MODE_MAP.get(mode,mode)
-        self.mode = mode
-        self.create_broker(*args, **kwargs)
-        
-        self.save_env_vars()
-        
+        try:
+            self.create_config(*args, **kwargs)
+            self.extract_env_vars()
+            self.create_alert_manager(*args, **kwargs)
+            
+            algo_file = kwargs.get("algo_file", None)
+            self.get_algo_file(algo_file)
+            
+            self.create_calendar()
+            
+            # create the broker based on config details.
+            mode =  kwargs.pop("mode", MODE.BACKTEST)
+            mode = self.RUN_MODE_MAP.get(mode,mode)
+            self.mode = mode
+            self.create_broker(*args, **kwargs)
+            
+            self.save_env_vars()
+        except BlueShiftException as e:
+            click.secho(str(e), fg="red")
+            sys_exit(1)
         
     def delete_environment(self, *args, **kwargs):
         pass
@@ -269,7 +277,8 @@ class BlueShiftEnvironment(object):
             self.env_vars["BLUESHIFT_BROKER_TOKEN"] = broker_token
 
 
-def run_algo(show_progress=False, publish=False, *args, **kwargs):
+def run_algo(name, output, show_progress=False, publish=False, 
+             *args, **kwargs):
     trading_environment = kwargs.pop("trading_environment", None)
     
     if not trading_environment:
@@ -277,14 +286,18 @@ def run_algo(show_progress=False, publish=False, *args, **kwargs):
         trading_environment.create_environment(*args, **kwargs)
     
     if not trading_environment:
-        click.echo("failed to create a trading environment")
+        click.secho("failed to create a trading environment", fg="red")
         sys_exit(1)
         
     alert_manager = trading_environment.alert_manager
     broker = trading_environment.broker_tuple
     mode = trading_environment.mode
     algo_file = trading_environment.algo_file
-    algo = TradingAlgorithm(broker=broker, algo=algo_file, mode=mode)
+    algo = TradingAlgorithm(name=name, broker=broker, algo=algo_file, 
+                            mode=mode)
+    
+    broker_name = str(broker.broker._name)
+    tz = broker.clock.trading_calendar.tz
     
     if mode == MODE.BACKTEST:
         '''
@@ -298,10 +311,13 @@ def run_algo(show_progress=False, publish=False, *args, **kwargs):
         runner = algo._back_test_run(alert_manager=alert_manager)
         length = len(broker.clock.session_nanos)
         
-        click.echo(f"starting backtest, total sessions {length}")
+        click.secho(f"\nStarting backtest with {basename(algo_file)}", 
+                                              fg="yellow")
+        msg = f"broker:{broker_name}, timezone:{tz}, total sessions:{length}\n"
+        click.echo(msg)
         
         with ShowProgressBar(runner, show_progress=show_progress,
-                             label=basename(algo_file),
+                             label=name,
                              length=length) as performance,\
             MessageBrokerCtxManager(alert_manager.publisher,
                                     enabled=publish) as\
@@ -311,9 +327,13 @@ def run_algo(show_progress=False, publish=False, *args, **kwargs):
                 if publish:
                     publisher.send(json.dumps(packet))
         
-        click.echo(f"backtest run complete")
+        click.secho(f"backtest run complete", fg="green")
         idx = pd.to_datetime([p['timestamp'] for p in perfs])
         perfs = pd.DataFrame(perfs, idx)
+        
+        if output:
+            perfs.to_csv(output)
+        
         return perfs
         
         
@@ -324,8 +344,9 @@ def run_algo(show_progress=False, publish=False, *args, **kwargs):
             So all messaging has to be handled there. Here we just
             call the main function and leave it alone to complete.
         '''
-        broker_name = str(broker.broker)
-        msg = f"starting live, algo {basename(algo_file)} with {broker_name}"
+        click.secho("\nstarting LIVE", fg="yellow")
+        msg = "starting LIVE, algo:"+ basename(algo_file) +\
+                " with broker:" + broker_name + ", timezone:" + tz + "\n"
         click.echo(msg)
         algo._live_run(alert_manager=alert_manager)
         
@@ -333,5 +354,5 @@ def run_algo(show_progress=False, publish=False, *args, **kwargs):
         '''
             Somehow we ended up with unknown mode.
         '''
-        click.echo(f"illegal mode supplied.")
+        click.secho(f"illegal mode supplied.", fg="red")
         sys_exit(1)

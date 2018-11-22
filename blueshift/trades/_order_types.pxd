@@ -15,10 +15,10 @@ cpdef enum OrderFlag:
     AMO = 1             # after markets order, schedule next day
     
 cpdef enum OrderType:
-    MARKET = 0,
-    LIMIT = 1,
-    STOPLOSS = 2,
-    STOPLOSS_MARKET = 3
+    MARKET = 0,         # market order
+    LIMIT = 1,          # limit order
+    STOPLOSS = 2,       # stop-limit order
+    STOPLOSS_MARKET = 3 # stoploss order
     
 cpdef enum OrderValidity:
     DAY = 0,

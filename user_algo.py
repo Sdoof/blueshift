@@ -4,7 +4,7 @@ Created on Thu Oct 18 11:22:26 2018
 
 @author: prodipta
 """
-from blueshift.algorithm.api import symbol, order, set_broker
+from blueshift.algorithm.api import symbol, order, order_target_percent
 from blueshift.utils.exceptions import BrokerAPIError
 import pandas as pd
 import random
@@ -19,7 +19,7 @@ def before_trading_start(context, data):
     return
     
 def handle_data(context, data):
-    #order(context.asset, random.randint(10,50))
+    order_target_percent(context.asset, 0.5)
     pass
 
 def heartbeat(context):
@@ -30,9 +30,10 @@ def analyze(context):
     elapsed = (t2-context.t1).total_seconds()*1000
     
     total_order = len(context.orders)
-    orders_per_ms = total_order/elapsed
+    orders_per_ms = int(total_order/elapsed)
     msg1 = f"complete in {elapsed} milliseconds,"
-    msg2=  f" handled {orders_per_ms} orders per millisecond"
-    print(msg1+msg2)
+    msg2 = f" handled {orders_per_ms} orders per millisecond."
+    msg3 = f" total orders {total_order}"
+    print(msg1+msg2+msg3)
         
         

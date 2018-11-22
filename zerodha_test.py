@@ -13,14 +13,14 @@ from blueshift.utils.brokers.zerodha import (KiteAuth,
                                              KiteAssetFinder,
                                              KiteRestData,
                                              KiteBroker)
+from blueshift.algorithm.api import get_calendar
 
 with open(os.path.expanduser('~/.blueshift/.blueshift_config.json')) as fp:
     config = fp.read()
     config = json.loads(config)
     config = config['live_broker']
     
-kite_auth = KiteAuth(**config, tz='Asia/Calcutta',
-                     timeout=(8, 45))
+kite_auth = KiteAuth(**config, trading_calendar = get_calendar('NSE'))
 kite_auth.login(request_token='LZbaR3oAUJyw1K4mPyBBXulFGyK7sj5M')
 kite_asset_finder = KiteAssetFinder(auth=kite_auth)
 kite_data = KiteRestData(auth=kite_auth)

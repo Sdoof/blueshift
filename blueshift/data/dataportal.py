@@ -73,10 +73,10 @@ class DBDataPortal(DataPortal):
     def auth(self):
         return None
     
-    def current(assets, fields):
+    def current(self, assets, fields):
         raise NotImplementedError
         
-    def history(assets, fields):
+    def history(self, assets, fields, bars, frequency):
         raise NotImplementedError
     
     def __str__(self):

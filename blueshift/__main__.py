@@ -21,7 +21,7 @@ from blueshift.configs import generate_default_config
 from blueshift.utils.types import (HashKeyType, 
                                    TimezoneType,
                                    DateType)
-from blueshift.utils.start_up import BlueShiftEnvironment, run_algo
+from blueshift.utils.run import BlueShiftEnvironment, run_algo
 from blueshift.utils.general_helpers import list_to_args_kwargs
 from blueshift.utils.exceptions import BlueShiftException
 
@@ -136,7 +136,7 @@ def config(ctx, root, timezone, broker, broker_id, broker_key,
         
         click.echo(json.dumps(config))
     except BlueShiftException as e:
-        click.echo(str(e))
+        click.secho(str(e), fg="red")
         sys_exit(1)
     
 
@@ -178,11 +178,24 @@ def config(ctx, root, timezone, broker, broker_id, broker_key,
     help='Run mode [backtest, live].',
     )
 @click.option(
+    '-n',
+    '--name',
+    default='myalgo',
+    help='Name of this run',
+    )
+@click.option(
     '-p',
     '--platform',
     default='blueshift',
     type=click.Choice(['blueshift', 'api', 'stand-alone']),
     help='Platform type. [blueshift, api, stand-alone]',
+    )
+@click.option(
+    '-o',
+    '--output',
+    default=None,
+    type=click.Path(file_okay=True, writable=True),
+    help='Output file to write to',
     )
 @click.option(
     '--show-progress/--no-progress',
@@ -195,7 +208,7 @@ def config(ctx, root, timezone, broker, broker_id, broker_key,
 @click.argument('arglist', nargs=-1, type=click.STRING)
 @click.pass_context
 def run(ctx, start_date, end_date, initial_capital, 
-        algo_file, run_mode, platform, show_progress, publish, 
+        algo_file, run_mode, name, platform, output, show_progress, publish, 
         arglist):
     '''
         Set up the context and trigger the run.
@@ -215,11 +228,11 @@ def run(ctx, start_date, end_date, initial_capital,
                                                mode=run_mode,
                                                *args,**kwargs)
         
-        run_algo(show_progress, publish,
+        run_algo(name, output, show_progress, publish,
                  trading_environment=trading_environment, 
                  *args, **kwargs)
     except BlueShiftException as e:
-        click.echo(e)
+        click.secho(str(e), fg="red")
         sys_exit(1)
 
 

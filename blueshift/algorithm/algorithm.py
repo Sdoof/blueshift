@@ -8,8 +8,9 @@ from os import path as os_path
 import pandas as pd
 from functools import partial
 import asyncio
+from collections.abc import Iterable
 
-#from tqdm import tqdm 
+from transitions import MachineError
 
 from blueshift.algorithm.context import AlgoContext
 from blueshift.utils.cutils import check_input 
@@ -21,11 +22,15 @@ from blueshift.assets.assets import AssetFinder
 from blueshift.data.dataportal import DataPortal
 from blueshift.execution.authentications import AbstractAuth
 from blueshift.trades._order import Order
-from blueshift.trades._order_types import OrderSide
+from blueshift.trades._order_types import OrderSide, OrderType
 from blueshift.algorithm.api_decorator import api_method
 from blueshift.algorithm.api import get_broker
 from blueshift.utils.types import noop
-from blueshift.algorithm.state_machine import MODE, STATE
+from blueshift.algorithm.state_machine import (MODE, STATE, COMMAND,
+                                               AlgoStateMachine)
+
+from blueshift.alerts import get_logger, get_alert_manager
+from blueshift.utils.calendars.trading_calendar import make_consistent_tz
 
 from blueshift.utils.exceptions import (
         StateMachineError,
@@ -38,7 +43,7 @@ from blueshift.utils.decorators import blueprint, singleton
     
 @singleton
 @blueprint
-class TradingAlgorithm(object):
+class TradingAlgorithm(AlgoStateMachine):
     
     def _make_bars_dispatch(self):
         '''
@@ -74,9 +79,8 @@ class TradingAlgorithm(object):
             context object. Then read the user algo and extract the 
             API functions and create the dispatcher.
         '''
-        self.name = kwargs.get("name","")
-        self.mode = kwargs.get("mode",MODE.BACKTEST)
-        self.state = STATE.DORMANT
+        super(self.__class__, self).__init__(*args, **kwargs)
+        
         self.namespace = {}
         
         # two ways to kickstart, specify the components...
@@ -155,6 +159,11 @@ class TradingAlgorithm(object):
         self._BROKER_FUNC_DISPATCH = {}
         
         self._make_bars_dispatch()
+        
+        # setup the default logger and alert manager
+        self._logger = self._alert_manager = None
+        self.set_alert_manager()
+        self.set_logger()
 
     def __str__(self):
         return "Algorithm: name:%s, broker:%s" % (self.name,
@@ -171,74 +180,90 @@ class TradingAlgorithm(object):
     
     def initialize(self, timestamp):
         '''
-            Called at the start of the algo.
+            Called at the start of the algo. Or at every resume command.
         '''
-        if self.state != STATE.DORMANT:
-            raise StateMachineError(msg="Initialize called from wrong" 
-                                    " state")
+        try:
+            self.fsm_initialize()
+        except MachineError:
+            msg = f"State Machine Error ({self.state}): in initialize"
+            raise StateMachineError(msg=msg)
+        
         self._initialize(self.context)
-        # ready to go to the next state
-        self.state = STATE.STARTUP
     
     def before_trading_start(self,timestamp):
         '''
             Called at the start of the session.
         '''
-        if self.state not in [STATE.STARTUP, \
-                              STATE.AFTER_TRADING_HOURS,\
-                              STATE.HEARTBEAT]:
-            raise StateMachineError(msg="Before trading start called"
-                                    " from wrong state")
+        try:
+            self.fsm_before_trading_start()
+        except MachineError:
+            msg = f"State Machine Error ({self.state}): in before_trading_start"
+            raise StateMachineError(msg=msg)
+        
         self._before_trading_start(self.context, 
                                    self.context.data_portal)
-        # ready to go to the next state
-        self.state = STATE.BEFORE_TRADING_START
+        
+        # call the handle data state update here.
+        if self.mode != MODE.LIVE:
+            try:
+                self.fsm_handle_data()
+            except MachineError:
+                msg = f"State Machine Error ({self.state}): in handle_data"
+                raise StateMachineError(msg=msg)
     
     def handle_data(self,timestamp):
         '''
-            Called at the start of each trading bar.
+            Called at the start of each trading bar. We call the state
+            machine function only for live mode here, and club with 
+            before trading start for backtest mode. This a bit hacky but
+            speeds things up.
         '''
-        # we take a risk not checking the state maching state at 
-        # handle_data, primarily to speed up things
+        if self.mode == MODE.LIVE:
+            try:
+                self.fsm_handle_data()
+            except MachineError:
+                msg = f"State Machine Error ({self.state}): in handle_data"
+                raise StateMachineError(msg=msg)
+                
         self._handle_data(self.context, self.context.data_portal)
     
     def after_trading_hours(self,timestamp):
         '''
             Called at the end of the session.
         '''
-        # we can jump from before trading to after trading hours!
-        if self.state not in [STATE.BEFORE_TRADING_START, \
-                              STATE.TRADING_BAR]:
-            raise StateMachineError(msg="After trading hours called"
-                                    " from wrong state")
+        try:
+            self.fsm_after_trading_hours()
+        except MachineError:
+            msg = f"State Machine Error ({self.state}): in after_trading_hours"
+            raise StateMachineError(msg=msg)
+        
         self._after_trading_hours(self.context, 
                                   self.context.data_portal)
-        # ready to go to the next state
-        self.state = STATE.AFTER_TRADING_HOURS
     
     def analyze(self,timestamp):
         '''
             Called at the end of the algo run.
         '''
-        if self.state not in [STATE.HEARTBEAT, \
-                              STATE.AFTER_TRADING_HOURS]:
-            raise StateMachineError(msg="Analyze called from wrong"
-                                    " state")
+        try:
+            self.fsm_analyze()
+        except MachineError:
+            msg=f"State Machine Error ({self.state}): in analyze"
+            raise StateMachineError(msg=msg)
+        
         self._analyze(self.context)
         
     def heartbeat(self, timestamp):
         '''
             Called when we are not in a session.
         '''
-        if self.state not in [STATE.BEFORE_TRADING_START, \
-                              STATE.AFTER_TRADING_HOURS, \
-                              STATE.TRADING_BAR,\
-                              STATE.STARTUP,\
-                              STATE.HEARTBEAT]:
-            raise StateMachineError(msg="Heartbeat called from wrong"
-                                    " state")
+        try:
+            self.fsm_heartbeat()
+        except MachineError:
+            msg=f"State Machine Error ({self.state}): in heartbeat"
+            raise StateMachineError(msg=msg)
+        
         self._heartbeat(self.context)
-        self.state = STATE.HEARTBEAT
+        
     
     def _back_test_run(self, alert_manager=None):
         '''
@@ -255,6 +280,9 @@ class TradingAlgorithm(object):
             raise ValidationError(msg="clock must be simulation clock")
             
         self._make_broker_dispatch() # only useful for backtest
+        
+        if not alert_manager:
+            alert_manager = self._alert_manager
         
         for t, bar in self.context.clock:
             try:
@@ -312,6 +340,7 @@ class TradingAlgorithm(object):
         '''
             Process ticks from real clock asynchronously.
         '''
+            
         while True:
             '''
                 start from the beginning, process all ticks except
@@ -320,9 +349,9 @@ class TradingAlgorithm(object):
             '''
             try:
                 t, bar = await self._queue.get_last()
-                print(f"{t}:{bar}")
                 ts = pd.Timestamp.now(
                         tz=self.context.trading_calendar.tz)
+                print(f"{t}:{bar}")
                 
                 if bar == BARS.ALGO_START:
                     self.context.set_up(timestamp=ts)
@@ -336,7 +365,8 @@ class TradingAlgorithm(object):
                     self.context.BAR_update(ts)
                     self.context.EOD_update(ts)
                     
-                self._USER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
+                if self.is_running():       # NOT PAUSED!!
+                    self._USER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
             
             except BlueShiftException as e:
                 if not alert_manager:
@@ -359,6 +389,9 @@ class TradingAlgorithm(object):
         
         if not isinstance(self.context.clock, RealtimeClock):
             raise ValidationError(msg="clock must be real-time clock")
+            
+        if not alert_manager:
+            alert_manager = self._alert_manager
         
         # reset the clock at the start of the run, this also aligns
         # ticks to the nearest rounded bar depending on the frequency
@@ -387,7 +420,49 @@ class TradingAlgorithm(object):
             self._back_test_run()
         else:
             raise StateMachineError(msg="undefined mode")
+            
+    '''
+        A list of methods for processing commands received on the command
+        channel during a live run.
+    '''
+    def _process_command(self):
+        pass
     
+    def _pause(self):
+        self.fsm_pause()
+        
+    def _resume(self):
+        '''
+            Resuming an algo trigger state changes starting with a call
+            to initialize.
+        '''
+        self.fsm_resume()       # PAUSED ==> STARTUP
+        self.initialize()       # STARTUP ==> INITIALIZED
+        
+    def _shutdown(self):
+        pass
+    
+    '''
+        All API functions related to algorithm objects should go in this
+        space. These are accessible from the user code directly.
+    '''
+    def set_logger(self):
+        self._logger = get_logger()
+    
+    def set_alert_manager(self):
+        self._alert_manager = get_alert_manager()
+    
+    @api_method
+    def get_datetime(self):
+        '''
+            Get the current date-time of the algorithm context.
+        '''
+        if self.mode == MODE.BACKTEST:
+            dt = self.context.timestamp
+        else:
+            dt = pd.Timestamp.now(tz=self.context.trading_calendar.tz)
+        return dt
+        
     @api_method
     def symbol(self,symbol_str:str):
         '''
@@ -405,32 +480,182 @@ class TradingAlgorithm(object):
         return self.context.asset_finder.lookup_symbols(symbol_list)
     
     @api_method
-    def order(self, asset, quantity):
+    def sid(self, sec_id):
         '''
-            Place new order.
+            API function to resolve an asset ID (int) to an asset.
         '''
+        return self.context.asset_finder.fetch_asset(sec_id)
+    
+    @api_method
+    def can_trade(self, assets):
+        '''
+            API function to check if asset can be traded at current dt.
+        '''
+        if not self.is_TRADING_BAR():
+            return False
+        
+        if not isinstance(assets, Iterable):
+            assets = [assets]
+            
+        _can_trade = []
+        for asset in assets:
+            if asset.auto_close_date:
+                exp_dt = asset.auto_close_date
+                dt = self.get_datetime()
+                exp_dt = make_consistent_tz(exp_dt, 
+                                            self.context.tradng_calendar.tz)
+                _can_trade.append(exp_dt > dt)
+                
+        return all(_can_trade)
+        
+    
+    @api_method
+    def order(self, asset, quantity, 
+              limit_price=0, stop_price=0, style=None):
+        '''
+            Place new order. This is the interface to underlying broker
+            for ALL order related API functions.
+        '''
+        if not self.is_TRADING_BAR():
+            msg = f"can't place order, market not open"
+            raise ValidationError(msg=msg)
+        
+        mult = asset.mult
+        quantity = int(round(quantity/mult)*mult)
         if quantity == 0:
             return
-        side = OrderSide.BUY if quantity > 0 else OrderSide.SELL
-        o = Order(abs(quantity),side,asset)
-        try:
-            order_id = self.context.broker.place_order(o)
-            return order_id
-        except BrokerAPIError:
-            pass
         
+        side = OrderSide.BUY if quantity > 0 else OrderSide.SELL
+        
+        if not style:
+            order_type = OrderType.STOPLOSS_MARKET
+        else:
+            order_type = style
+        
+        if not isinstance(order_type, OrderType):
+            msg = f"can't place order, illegal order type/ style."
+            raise ValidationError(msg=msg)
+        
+        o = Order(abs(quantity),side,asset,order_type = order_type,
+                  price=limit_price, stoploss_price=stop_price)
+        
+        order_id = self.context.broker.place_order(o)
+        return order_id
+
     @api_method
-    def cancel_order(self, order_id):
+    def order_value(self, asset, value, 
+              limit_price=0, stop_price=0, style=None):
+        '''
+            API function to order an asset worth a specified value.
+        '''
+        last_price = self.context.data_portal.current(asset, "close")
+        qty = int(value/last_price)
+        return self.order(asset,qty,limit_price,stop_price,style)
+    
+    @api_method
+    def order_percent(self, asset, percent, 
+              limit_price=0, stop_price=0, style=None):
+        '''
+            API function to order an asset worth a defined percentage 
+            of account net value.
+        '''
+        net = self.context.account["net"]
+        value = net*percent
+        return self.order_value(asset,value,limit_price,stop_price,style)
+    
+    @api_method
+    def order_target(self, asset, target, 
+              limit_price=0, stop_price=0, style=None):
+        '''
+            API function to order an asset to achieve a specified 
+            quantity value in the portfolio.
+        '''
+        pos = self.context.portfolio.get(asset, None)
+        pos = pos.quantity if pos else 0
+        qty = target - pos
+        return self.order(asset,qty,limit_price,stop_price,style)
+    
+    @api_method
+    def order_target_value(self, asset, target, 
+              limit_price=0, stop_price=0, style=None):
+        '''
+            API function to order an asset to achieve a specified 
+            target value in the portfolio.
+        '''
+        last_price = self.context.data_portal.current(asset, "close")
+        target = target/last_price
+        return self.order_target(asset,target,limit_price,stop_price,style)
+    
+    @api_method
+    def order_target_percent(self, asset, percent, 
+              limit_price=0, stop_price=0, style=None):
+        '''
+            API function to order an asset to achieve a specified 
+            percent of account net worth.
+        '''
+        net = self.context.account["net"]
+        target = net*percent
+        return self.order_target_value(asset,target,limit_price,stop_price,style)
+    
+    @api_method
+    def square_off(self):
+        '''
+            API function to square off ALL open positions and cancel 
+            all open orders. Typically useful for end-of-day closure for
+            intraday strategies or for orderly shut-down.
+        '''
+        open_orders = self.get_open_orders()
+        for order_id in open_orders:
+            self.cancel_order(order_id)
+        
+        open_positions = self.get_open_positions()
+        order_ids = []
+        for asset in open_positions:
+            order_id = self.order_target(asset,0)
+            order_ids.append(order_id)
+            
+        return order_ids
+    
+    @api_method
+    def cancel_order(self, order_param):
         '''
             Cancel existing order if not already executed.
         '''
-        if order_id is None:
-            return
-        try:
-            order_id = self.context.broker.cancel_order(order_id)
-            return order_id
-        except BrokerAPIError:
-            pass
+        if not self.is_TRADING_BAR():
+            msg = f"can't cancel order, market not open."
+            raise ValidationError(msg=msg)
+        
+        order_id = order_param.oid if isinstance(order_param, Order)\
+                        else order_param
+        
+        return self.context.broker.cancel_order(order_id)
+        
+    @api_method
+    def get_order(self, order_id):
+        '''
+            Get an order object by order_id.
+        '''
+        return self.context.broker.order(order_id)
+
+    @api_method
+    def get_open_orders(self):
+        '''
+            Get a dictionary of all open orders, keyed by their id.
+        '''
+        return self.context.broker.open_orders
+    
+    @api_method
+    def get_open_positions(self):
+        '''
+            Get a dictionary of all open orders, keyed by their id.
+        '''
+        positions = self.context.broker.positions
+        open_positions = {}
+        for asset, pos in positions.items():
+            if pos.quantity != 0:
+                open_positions[asset] = pos
+        
+        return open_positions
 
     @api_method
     def set_broker(self, name, *args, **kwargs):
@@ -440,9 +665,8 @@ class TradingAlgorithm(object):
             capital. This will NOT change the clock, and we do not 
             want that either.
         '''
-        if self.state not in [STATE.STARTUP, STATE.DORMANT,\
-                              BARS.HEAR_BEAT]:
-            msg = "cannot set broker in current state"
+        if not self.is_INITIALIZED() or not self.is_HEARTBEAT():
+            msg = "cannot set broker in state ({self.state})"
             raise StateMachineError(msg=msg)
         
         broker = get_broker(name, *args, **kwargs)
