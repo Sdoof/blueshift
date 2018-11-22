@@ -363,8 +363,10 @@ class TradingAlgorithm(AlgoStateMachine):
         
     async def _process_tick(self, alert_manager):
         '''
-            Process ticks from real clock asynchronously. It is not 
-            a generator.
+            Process ticks from real clock asynchronously. This generator 
+            receives a command from the interface, and if it is `continue`,
+            continues normal algo loop. Else either pause or stop the algo.
+            It can also invoke any member function based on command.
         '''
             
         while True:
