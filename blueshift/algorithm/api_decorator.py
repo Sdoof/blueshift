@@ -19,3 +19,10 @@ def api_method(f):
     blueshift.algorithm.api.__all__.append(f.__name__)
     f.is_api = True
     return f
+
+def command_method(f):
+    '''
+        decorator flag a method is a command method in the algorithm.
+    '''
+    f.is_command = True
+    return f

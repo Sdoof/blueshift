@@ -81,6 +81,10 @@ class AlgoContext(object):
         return self.__broker_api
     
     @property
+    def auth(self):
+        return self.__auth
+    
+    @property
     def account(self):
         return self.__account
     

@@ -299,8 +299,8 @@ def run_algo(name, output, show_progress=False, publish=False,
                                               fg="yellow")
         msg = f"broker:{broker_name}, timezone:{tz}, total sessions:{length}\n"
         click.echo(msg)
-        perfs = algo.back_test_run(alert_manager, show_progress,
-                                   publish)
+        perfs = algo.back_test_run(alert_manager, publish,
+                                   show_progress)
         
         click.secho(f"backtest run complete", fg="green")
         
@@ -321,7 +321,8 @@ def run_algo(name, output, show_progress=False, publish=False,
         msg = "starting LIVE, algo:"+ basename(algo_file) +\
                 " with broker:" + broker_name + ", timezone:" + tz + "\n"
         click.echo(msg)
-        algo._live_run(alert_manager=alert_manager)
+        algo.live_run(alert_manager=alert_manager,
+                      publish_packets=publish)
         
     else:
         '''

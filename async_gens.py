@@ -22,7 +22,7 @@ class DummyAlgo():
     def __init__(self, clock_tick=1, processing_time=1):
         self.clock_tick = clock_tick
         self.processing_time = processing_time
-        self.c = ZeroMQCmdPairServer("127.0.0.1",5557)
+        self.c = ZeroMQCmdPairServer("127.0.0.1",5555)
 
     async def tick(self):
         while True:
@@ -63,6 +63,7 @@ class DummyAlgo():
         except BaseException as e:
             print(f"exception {str(e)}")
             tasks.cancel()
+            raise e
         finally:
             loop.close()
             
@@ -87,5 +88,5 @@ class DummyAlgo():
     
     
     
-algo = DummyAlgo(1,1)
+algo = DummyAlgo(60,1)
 algo.run_algo()

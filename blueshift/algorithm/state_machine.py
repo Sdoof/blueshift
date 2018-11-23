@@ -100,6 +100,7 @@ class AlgoStateMachine():
                                      after='set_pause')
         self.machine.add_transition('fsm_resume','PAUSED','STARTUP',
                                      before='reset_pause')
+        self.machine.add_transition('fsm_stop','*','STOPPED')
         
     
     def is_running(self):

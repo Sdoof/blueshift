@@ -9,7 +9,7 @@ from blueshift.alerts.message_brokers import ZeroMQCmdPairClient
 from blueshift.utils.ctx_mgr import MessageBrokerCtxManager
 
 
-client = ZeroMQCmdPairClient("127.0.0.1",5557)
+client = ZeroMQCmdPairClient("127.0.0.1",5555)
 
 with MessageBrokerCtxManager(client, enabled=True) as commander:
     while True:

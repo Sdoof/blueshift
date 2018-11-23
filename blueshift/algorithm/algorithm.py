@@ -24,7 +24,7 @@ from blueshift.data.dataportal import DataPortal
 from blueshift.execution.authentications import AbstractAuth
 from blueshift.trades._order import Order
 from blueshift.trades._order_types import OrderSide, OrderType
-from blueshift.algorithm.api_decorator import api_method
+from blueshift.algorithm.api_decorator import api_method, command_method
 from blueshift.algorithm.api import get_broker
 from blueshift.utils.types import noop
 from blueshift.algorithm.state_machine import (MODE, COMMAND,
@@ -164,8 +164,8 @@ class TradingAlgorithm(AlgoStateMachine):
         
         # setup the default logger and alert manager
         self._logger = self._alert_manager = None
-        self.set_alert_manager()
-        self.set_logger()
+        self._set_alert_manager()
+        self._set_logger()
 
     def __str__(self):
         return "Algorithm: name:%s, broker:%s" % (self.name,
@@ -321,8 +321,8 @@ class TradingAlgorithm(AlgoStateMachine):
                                                timestamp=timestamp)
                     continue
     
-    def back_test_run(self, alert_manager=None, show_progress=False,
-                      publish_packets=False):
+    def back_test_run(self, alert_manager=None, publish_packets=False,
+                      show_progress=False):
         
         runner = self._back_test_generator(alert_manager=alert_manager)
         length = len(self.context.clock.session_nanos)
@@ -364,7 +364,7 @@ class TradingAlgorithm(AlgoStateMachine):
     async def _process_tick(self, alert_manager):
         '''
             Process ticks from real clock asynchronously. This generator 
-            receives a command from the interface, and if it is `continue`,
+            receives a command from the channel, and if it is `continue`,
             continues normal algo loop. Else either pause or stop the algo.
             It can also invoke any member function based on command.
         '''
@@ -376,10 +376,23 @@ class TradingAlgorithm(AlgoStateMachine):
                 TODO: implement this logic in ClockQueue.
             '''
             try:
+                cmd = yield         # get the command if any.
+                if cmd:
+                    self._process_command(cmd)
+                
                 t, bar = await self._queue.get_last()
                 ts = pd.Timestamp.now(
                         tz=self.context.trading_calendar.tz)
                 print(f"{t}:{bar}")
+                
+                # if state is STOPPED, time to exit the loop.
+                if self.is_STOPPED():
+                    self._logger.info("algorithm stopped, will exit.")
+                    break
+                # if state is PAUSED, continue the loop
+                elif self.is_PAUSED():
+                    self._logger.info("algorithm paused.")
+                    continue
                 
                 if bar == BARS.ALGO_START:
                     self.context.set_up(timestamp=ts)
@@ -387,11 +400,12 @@ class TradingAlgorithm(AlgoStateMachine):
                 
                 if bar == BARS.TRADING_BAR:    
                     self.context.BAR_update(ts)
-                    #yield self.context.pnls
+                    yield {'bar':self.context.pnls}
                 
                 if bar == BARS.AFTER_TRADING_HOURS:
                     self.context.BAR_update(ts)
                     self.context.EOD_update(ts)
+                    yield {'daily':self.context.performance}
                     
                 if self.is_running():       # NOT PAUSED!!
                     self._USER_FUNC_DISPATCH.get(bar,self._bar_noop)(ts)
@@ -403,8 +417,24 @@ class TradingAlgorithm(AlgoStateMachine):
                     alert_manager.handle_error(e,'algorithm')
                     continue
             
+    async def _run_live(self, alert_manager, publish_packets):
+        '''
+            Function to run the main algo loop generator and also
+            handle incoming commands from the command channel.
+        '''
+        g = self._process_tick(alert_manager)
+        with MessageBrokerCtxManager(alert_manager.cmd_listener, 
+                                     enabled=True) as c,\
+            MessageBrokerCtxManager(alert_manager.publisher,
+                                    enabled=publish_packets) as\
+                                        publisher:
+            async for msg in g:
+                cmd = c.get_next_command()  # no wait if there is none.
+                packet = await g.asend(cmd) # None if no command.
+                if publish_packets:
+                    publisher.send(json.dumps(packet))
     
-    def _live_run(self, alert_manager=None):
+    def live_run(self, alert_manager=None, publish_packets=False):
         '''
             The entry point for a live run.
         '''
@@ -427,7 +457,7 @@ class TradingAlgorithm(AlgoStateMachine):
         
         # initialize the coroutines
         clock_coro = self.context.clock.tick()
-        algo_coro = self._process_tick(alert_manager)
+        algo_coro = self._run_live(alert_manager, publish_packets)
         
         try:
             tasks = asyncio.gather(clock_coro,algo_coro,
@@ -443,43 +473,68 @@ class TradingAlgorithm(AlgoStateMachine):
         
     def run(self):
         if self.mode == MODE.LIVE:
-            self._live_run()
+            self.live_run()
         elif self.mode == MODE.BACKTEST:
-            self._back_test_run()
+            self.back_test_run()
         else:
             raise StateMachineError(msg="undefined mode")
             
+    def _set_logger(self):
+        self._logger = get_logger()
+    
+    def _set_alert_manager(self):
+        self._alert_manager = get_alert_manager()
+        
+    
     '''
         A list of methods for processing commands received on the command
         channel during a live run.
     '''
-    def _process_command(self):
-        pass
-    
-    def _pause(self):
-        self.fsm_pause()
+    def _process_command(self, cmd):
+        fn = getattr(self, cmd.cmd, None)
+        if fn:
+            is_cmd_fn = getattr(self.wrapped, "is_command", False)
+            if is_cmd_fn:
+                fn(*cmd.args, **cmd.kwargs)
+        else:
+            self._logger.warning("unknown command, will be ignored.",
+                                 "algorithm")
         
-    def _resume(self):
+    @command_method
+    def pause(self):
+        self.fsm_pause()
+        msg = "algorithm paused. No further processing till resumed"
+        self._logger.warning(msg, "algorithm")
+        
+    @command_method
+    def resume(self):
         '''
             Resuming an algo trigger state changes starting with a call
             to initialize.
         '''
         self.fsm_resume()       # PAUSED ==> STARTUP
-        self.initialize()       # STARTUP ==> INITIALIZED
+        # TODO: this is risky, there is a change that the queue
+        # may be None within the tick coroutine in clock.
+        self._reset_clock(self.context.clock.emit_frequency)
+        self._logger.warning("algorithm resumed.", "algorithm")
         
-    def _shutdown(self):
-        pass
+    @command_method
+    def shutdown(self):
+        self.fsm_stop()
+        self._logger.warning("algorithm stopped.","algorithm")
+    
+    @command_method
+    def login(self, *args, **kwargs):
+        auth = self.context.broker.auth
+        if auth:
+            auth.login(*args, **kwargs)
+        self._logger.warning("executed login with authenticator.",
+                             "algorithm")
     
     '''
         All API functions related to algorithm objects should go in this
         space. These are accessible from the user code directly.
     '''
-    def set_logger(self):
-        self._logger = get_logger()
-    
-    def set_alert_manager(self):
-        self._alert_manager = get_alert_manager()
-    
     @api_method
     def get_datetime(self):
         '''

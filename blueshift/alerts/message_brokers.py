@@ -28,10 +28,10 @@ class ZeroMQPublisher(object):
     def connect(self):
         self._context = zmq.Context()
         self._socket = self._context.socket(zmq.PUB)
-        conn_srting = "%s://%s:%s" % (self._protocol, 
+        conn_string = "%s://%s:%s" % (self._protocol, 
                                       self._addr, 
                                       self._port)
-        self._socket.bind(conn_srting)
+        self._socket.bind(conn_string)
     
     def send(self, msg):
         msg = bytes(msg, self._encoding)
@@ -65,10 +65,10 @@ class ZeroMQSubscriber(object):
     def connect(self):
         self._context = zmq.Context()
         self._socket = self._context.socket(zmq.SUB)
-        conn_srting = "%s://%s:%s" % (self._protocol, 
+        conn_string = "%s://%s:%s" % (self._protocol, 
                                       self._addr, 
                                       self._port)
-        self._socket.connect(conn_srting)
+        self._socket.connect(conn_string)
         self._socket.setsockopt(zmq.SUBSCRIBE, self._encoded_topic)
     
     def recv(self, *args, **kwargs):
@@ -131,11 +131,12 @@ class ZeroMQCmdPairServer(object):
         
     def connect(self):
         self._context = zmq.Context()
-        self._socket = self._context.socket(zmq.PAIR)
-        conn_srting = "%s://%s:%s" % (self._protocol, 
+        self._socket = self._context.socket(zmq.SUB)
+        conn_string = "%s://%s:%s" % (self._protocol, 
                                       self._addr, 
                                       self._port)
-        self._socket.bind(conn_srting)
+        self._socket.bind(conn_string)
+        self._socket.setsockopt_string(zmq.SUBSCRIBE, "")
         
     def get_next_command(self):
         try:
@@ -173,11 +174,11 @@ class ZeroMQCmdPairClient(object):
         
     def connect(self):
         self._context = zmq.Context()
-        self._socket = self._context.socket(zmq.PAIR)
-        conn_srting = "%s://%s:%s" % (self._protocol, 
+        self._socket = self._context.socket(zmq.PUB)
+        conn_string = "%s://%s:%s" % (self._protocol, 
                                       self._addr, 
                                       self._port)
-        self._socket.connect(conn_srting)
+        self._socket.connect(conn_string)
         
     def send_command(self):
         cmd = str(input("enter a command") or "contine")
