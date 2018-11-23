@@ -4,8 +4,11 @@ Created on Mon Nov 19 13:34:00 2018
 
 @author: prodipta
 """
+import json
 import zmq
 from zmq.asyncio import Context as async_Context
+
+from blueshift.utils.types import Command
 
 class ZeroMQPublisher(object):
     '''
@@ -113,3 +116,103 @@ class ZeroMQSubscriber(object):
     def handle_msg(self, msg, *args, **kwargs):
         print(msg)
         
+class ZeroMQCmdPairServer(object):
+    '''
+        ZeroMQ PAIR socket server for receiving on the command channel
+        and processing + forwarding the input. This should go in the
+        algo class that receives and executes a command. Commands are
+        interpreted as jasonified strings cast in to the Command type.
+    '''
+    def __init__(self, addr, port, protocol="tcp", no_block=True):
+        self._protocol = protocol
+        self._addr = addr
+        self._port = port
+        self._no_block = no_block
+        
+    def connect(self):
+        self._context = zmq.Context()
+        self._socket = self._context.socket(zmq.PAIR)
+        conn_srting = "%s://%s:%s" % (self._protocol, 
+                                      self._addr, 
+                                      self._port)
+        self._socket.bind(conn_srting)
+        
+    def get_next_command(self):
+        try:
+            strcmd = self._socket.recv_string(flags=zmq.NOBLOCK)
+            cmd_dict = json.loads(strcmd)
+            cmd = cmd_dict['cmd']
+            args = cmd_dict['args']
+            kwargs = cmd_dict['kwargs']
+            cmd = Command(cmd, args, kwargs)
+            return cmd
+        except zmq.Again as e:
+            return None
+    
+    def close(self):
+        if self._socket:
+            self._socket.close()
+        
+        if self._context:
+            self._context.term()
+        
+        self._context = self._socket = None
+        
+class ZeroMQCmdPairClient(object):
+    '''
+        ZeroMQ PAIR socket client for sending commands on the command
+        channel. Commands are of Command type, sent as jasonified 
+        strings. This should be part of the system controlling the 
+        running algo, locally or from a remote machine.
+    '''
+    def __init__(self, addr, port, protocol="tcp", no_block=False):
+        self._protocol = protocol
+        self._addr = addr
+        self._port = port
+        self._no_block = no_block
+        
+    def connect(self):
+        self._context = zmq.Context()
+        self._socket = self._context.socket(zmq.PAIR)
+        conn_srting = "%s://%s:%s" % (self._protocol, 
+                                      self._addr, 
+                                      self._port)
+        self._socket.connect(conn_srting)
+        
+    def send_command(self):
+        cmd = str(input("enter a command") or "contine")
+        args = list(input("enter argument lists") or [])
+        kwargs = dict(input("enter keyword argument lists") or {})
+        cmd = Command(cmd,args,kwargs)
+        strcmd = json.dumps(cmd._asdict())
+        self._socket.send_string(strcmd)
+    
+    def close(self):
+        if self._socket:
+            self._socket.close()
+        
+        if self._context:
+            self._context.term()
+        
+        self._context = self._socket = None
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

@@ -8,9 +8,7 @@ from os.path import isabs, join, isfile, expanduser, basename
 from os import environ as os_environ
 from sys import exit as sys_exit
 import pandas as pd
-from collections import namedtuple
 import click
-import json
 
 
 from blueshift.configs.config import BlueShiftConfig
@@ -28,11 +26,6 @@ from blueshift.alerts import (register_alert_manager,
                               get_alert_manager)
 from blueshift.utils.decorators import singleton, blueprint
 from blueshift.utils.general_helpers import OnetoOne
-
-TradingEnvironment = namedtuple("TradingEnvironment",
-                                ('mode', 'config', 'alert_manager', 
-                                 'trading_calendar', 
-                                 'broker_tuple','algo_file'))
 
 
 BROKER_TOKEN_EVNVAR = 'BLUESHIFT_BROKER_TOKEN'
@@ -299,8 +292,7 @@ def run_algo(name, output, show_progress=False, publish=False,
     
     if mode == MODE.BACKTEST:
         '''
-            For backtest, run the algo backtest generator, and save 
-            the results if required.
+            print initial messages and run the algo object backtest.
         '''        
         length = len(broker.clock.session_nanos)
         click.secho(f"\nStarting backtest with {basename(algo_file)}", 

@@ -9,7 +9,7 @@ from .kiteauth import KiteAuth
 from .kiteassets import KiteAssetFinder
 from .kitedata import KiteRestData
 from .kitebroker import KiteBroker
-from blueshift.utils.brokers.core import Broker
+from blueshift.utils.types import Broker
 from blueshift.execution.clock import RealtimeClock
 
 def make_broker_pack(name, *args, **kwargs):
