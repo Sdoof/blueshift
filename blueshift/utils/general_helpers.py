@@ -136,3 +136,31 @@ def list_to_args_kwargs(opt_list):
             
     return args, kwargs
     
+def generate_args(strargs):
+    if not strargs:
+        return []
+    
+    strargs = strargs.replace('-','_')
+    return strargs.split(',')
+
+
+def generate_kwargs(strkwargs):
+    kwargs = {}
+    if not strkwargs:
+        return kwargs
+    
+    strkwargs = strkwargs.replace('-','_')
+    pairs = strkwargs.split(',')
+    for pair in pairs:
+        pair = pair.split('=')
+        if len(pair)<2:
+            key, value = pair[0], None
+        else:
+            key, value = tuple(pair[:2])
+        kwargs[key] = value
+        
+    return kwargs
+        
+    
+    
+    

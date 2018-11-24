@@ -173,6 +173,10 @@ class AssetFinder(object):
         from broker or mixed types.
     '''
     @abstractmethod
+    def refresh_data(self, *args, **kwargs):
+        raise NotImplementedError
+        
+    @abstractmethod
     def fetch_asset(self, sid):
         raise NotImplementedError
         
@@ -206,6 +210,9 @@ class DBAssetFinder(AssetFinder):
     
     def __repr__(self):
         return self.__str__()
+    
+    def refresh_data(self, *args, **kwargs):
+        pass
     
     @lru_cache(maxsize=LRU_CACHE_SIZE,typed=False)
     def fetch_asset(self, sid):

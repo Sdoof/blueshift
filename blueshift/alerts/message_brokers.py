@@ -6,9 +6,9 @@ Created on Mon Nov 19 13:34:00 2018
 """
 import json
 import zmq
-from zmq.asyncio import Context as async_Context
 
 from blueshift.utils.types import Command
+from blueshift.utils.general_helpers import generate_kwargs, generate_args
 
 class ZeroMQPublisher(object):
     '''
@@ -181,9 +181,9 @@ class ZeroMQCmdPairClient(object):
         self._socket.connect(conn_string)
         
     def send_command(self):
-        cmd = str(input("enter a command") or "contine")
-        args = list(input("enter argument lists") or [])
-        kwargs = dict(input("enter keyword argument lists") or {})
+        cmd = str(input("enter a command:") or "contine")
+        args = generate_args(input("enter arguments list (comma separated):"))
+        kwargs = generate_kwargs(input("enter keyword arguments list(comma separated):"))
         cmd = Command(cmd,args,kwargs)
         strcmd = json.dumps(cmd._asdict())
         self._socket.send_string(strcmd)

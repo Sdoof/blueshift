@@ -33,6 +33,10 @@ class BlueShiftException(Exception):
 
     __repr__ = __str__
     
+class ControlException(BlueShiftException):
+    msg = "User error: {msg}"
+    handling = ExceptionHandling.TERMINATE
+
 class DataError(BlueShiftException):
     msg = "User error: {msg}"
     handling = ExceptionHandling.WARN
@@ -53,6 +57,14 @@ class GeneralException(BlueShiftException):
     msg = "Unknown error: {msg}"
     handling = ExceptionHandling.TERMINATE
     
+# Control Exception
+class CommandShutdownException(ControlException):
+    '''
+        Raised when a shutdown command received.
+    '''
+    msg = "Shutdown command: {msg}"
+    handling = ExceptionHandling.TERMINATE
+
 # Data Errors    
 class MissingDataError(DataError):
     '''

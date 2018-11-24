@@ -37,6 +37,7 @@ from blueshift.utils.exceptions import (
         StateMachineError,
         InitializationError,
         ValidationError,
+        CommandShutdownException,
         BlueShiftException)
 
 from blueshift.utils.decorators import blueprint, singleton
@@ -162,9 +163,8 @@ class TradingAlgorithm(AlgoStateMachine):
         
         self._make_bars_dispatch()
         
-        # setup the default logger and alert manager
-        self._logger = self._alert_manager = None
-        self._set_alert_manager()
+        # setup the default logger
+        self._logger = None
         self._set_logger()
 
     def __str__(self):
@@ -284,9 +284,6 @@ class TradingAlgorithm(AlgoStateMachine):
             
         self._make_broker_dispatch() # only useful for backtest
         
-        if not alert_manager:
-            alert_manager = self._alert_manager
-        
         for t, bar in self.context.clock:
             try:
                 ts = pd.Timestamp(t,unit='ns',
@@ -328,6 +325,9 @@ class TradingAlgorithm(AlgoStateMachine):
         length = len(self.context.clock.session_nanos)
         perfs = []
         
+        if not alert_manager:
+            publish_packets = False
+        
         with ShowProgressBar(runner, show_progress=show_progress,
                              label=self.name,
                              length=length) as performance,\
@@ -361,7 +361,7 @@ class TradingAlgorithm(AlgoStateMachine):
         self._queue = ClockQueue(loop=self._loop)
         self.context.clock.reset(self._queue, delay)
         
-    async def _process_tick(self, alert_manager):
+    async def _process_tick(self, alert_manager=None):
         '''
             Process ticks from real clock asynchronously. This generator 
             receives a command from the channel, and if it is `continue`,
@@ -385,13 +385,11 @@ class TradingAlgorithm(AlgoStateMachine):
                         tz=self.context.trading_calendar.tz)
                 print(f"{t}:{bar}")
                 
-                # if state is STOPPED, time to exit the loop.
                 if self.is_STOPPED():
-                    self._logger.info("algorithm stopped, will exit.")
-                    break
-                # if state is PAUSED, continue the loop
+                    self._logger.info("algorithm stopped, will exit.",
+                                      "algorithm")
+                    raise CommandShutdownException(msg="shutting down.")
                 elif self.is_PAUSED():
-                    self._logger.info("algorithm paused.")
                     continue
                 
                 if bar == BARS.ALGO_START:
@@ -417,20 +415,26 @@ class TradingAlgorithm(AlgoStateMachine):
                     alert_manager.handle_error(e,'algorithm')
                     continue
             
-    async def _run_live(self, alert_manager, publish_packets):
+    async def _run_live(self, alert_manager=None, publish_packets=False):
         '''
             Function to run the main algo loop generator and also
             handle incoming commands from the command channel.
         '''
         g = self._process_tick(alert_manager)
+        command_enabled = True
+        
+        if not alert_manager:
+            command_enabled=False
+            publish_packets=False
+        
         with MessageBrokerCtxManager(alert_manager.cmd_listener, 
-                                     enabled=True) as c,\
+                                     enabled=command_enabled) as commander,\
             MessageBrokerCtxManager(alert_manager.publisher,
                                     enabled=publish_packets) as\
                                         publisher:
             async for msg in g:
-                cmd = c.get_next_command()  # no wait if there is none.
-                packet = await g.asend(cmd) # None if no command.
+                cmd = commander.get_next_command()  # no wait.
+                packet = await g.asend(cmd)         # None if no command.
                 if publish_packets:
                     publisher.send(json.dumps(packet))
     
@@ -447,9 +451,6 @@ class TradingAlgorithm(AlgoStateMachine):
         
         if not isinstance(self.context.clock, RealtimeClock):
             raise ValidationError(msg="clock must be real-time clock")
-            
-        if not alert_manager:
-            alert_manager = self._alert_manager
         
         # reset the clock at the start of the run, this also aligns
         # ticks to the nearest rounded bar depending on the frequency
@@ -471,19 +472,16 @@ class TradingAlgorithm(AlgoStateMachine):
         finally:
             self._loop.close()
         
-    def run(self):
+    def run(self, alert_manager=None, publish=False, show_progress=False):
         if self.mode == MODE.LIVE:
-            self.live_run()
+            self.live_run(alert_manager, publish) # no progress bar for live
         elif self.mode == MODE.BACKTEST:
-            self.back_test_run()
+            self.back_test_run(alert_manager, publish, show_progress)
         else:
             raise StateMachineError(msg="undefined mode")
             
     def _set_logger(self):
         self._logger = get_logger()
-    
-    def _set_alert_manager(self):
-        self._alert_manager = get_alert_manager()
         
     
     '''
@@ -491,45 +489,66 @@ class TradingAlgorithm(AlgoStateMachine):
         channel during a live run.
     '''
     def _process_command(self, cmd):
+        print(cmd)
         fn = getattr(self, cmd.cmd, None)
         if fn:
-            is_cmd_fn = getattr(self.wrapped, "is_command", False)
+            is_cmd_fn = getattr(fn, "is_command", False)
             if is_cmd_fn:
                 fn(*cmd.args, **cmd.kwargs)
         else:
-            self._logger.warning("unknown command, will be ignored.",
+            self._logger.warning(f"unknown command {cmd.cmd}, will be ignored.",
                                  "algorithm")
         
     @command_method
-    def pause(self):
-        self.fsm_pause()
-        msg = "algorithm paused. No further processing till resumed"
-        self._logger.warning(msg, "algorithm")
+    def pause(self, *args, **kwargs):
+        try:
+            self.fsm_pause()
+            msg = "algorithm paused. No further processing till resumed."
+            self._logger.warning(msg, "algorithm")
+        except MachineError:
+            msg=f"State Machine Error ({self.state}): attempt to pause."
+            raise StateMachineError(msg=msg)
         
     @command_method
-    def resume(self):
+    def resume(self, *args, **kwargs):
         '''
             Resuming an algo trigger state changes starting with a call
             to initialize.
         '''
-        self.fsm_resume()       # PAUSED ==> STARTUP
-        # TODO: this is risky, there is a change that the queue
-        # may be None within the tick coroutine in clock.
-        self._reset_clock(self.context.clock.emit_frequency)
-        self._logger.warning("algorithm resumed.", "algorithm")
+        try:
+            self.fsm_resume()       # PAUSED ==> STARTUP
+            # TODO: this is risky, there is a change that the queue
+            # may be None within the tick coroutine in clock possibly?
+            self._reset_clock(self.context.clock.emit_frequency)
+            self._logger.warning("algorithm resumed.", "algorithm")
+        except MachineError:
+            msg=f"State Machine Error ({self.state}): attempt to resume."
+            raise StateMachineError(msg=msg)
         
     @command_method
-    def shutdown(self):
-        self.fsm_stop()
-        self._logger.warning("algorithm stopped.","algorithm")
+    def shutdown(self, *args, **kwargs):
+        try:
+            self.fsm_stop()
+            self._logger.warning("algorithm stopped.","algorithm")
+        except MachineError:
+            # this should never fail.
+            msg=f"State Machine Error ({self.state}): attempt to stop."
+            raise StateMachineError(msg=msg)
     
     @command_method
     def login(self, *args, **kwargs):
-        auth = self.context.broker.auth
+        auth = self.context.auth
         if auth:
             auth.login(*args, **kwargs)
         self._logger.warning("executed login with authenticator.",
                              "algorithm")
+        
+    @command_method
+    def refresh_asset_db(self, *args, **kwargs):
+        asset_finder = self.context.asset_finder
+        if asset_finder:
+            asset_finder.refresh_data(*args, **kwargs)
+        self._logger.warning("Relaoded asset database.", "algorithm")
     
     '''
         All API functions related to algorithm objects should go in this

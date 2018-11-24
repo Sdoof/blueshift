@@ -14,6 +14,7 @@ from blueshift.alerts.logging_utils import BlueShiftLogger
 from blueshift.utils.exceptions import (ExceptionHandling,
                                         DataError,UserError,
                                         APIError,InternalError,
+                                        ControlException,
                                         GeneralException)
 from blueshift.utils.decorators import singleton, blueprint
 from blueshift.alerts.message_brokers import (ZeroMQPublisher,
@@ -32,7 +33,7 @@ class BlueShiftAlertManager(object):
     '''
     
     ERROR_TYPES = [DataError,UserError,APIError,InternalError,
-               GeneralException]
+               ControlException, GeneralException]
 
     ERROR_RULES_MAP = {"warn":ExceptionHandling.WARN,
                       "stop":ExceptionHandling.TERMINATE,
@@ -102,7 +103,7 @@ class BlueShiftAlertManager(object):
             self.logger.error(str(e),module)
             self.graceful_exit(*args, **kwargs)
                 
-        handling = self.error_rules[error_type]
+        handling = self.error_rules.get(error_type, None)
         handling = handling if handling is not None else e.handling
         
         if handling == ExceptionHandling.IGNORE:

@@ -105,7 +105,7 @@ class KiteAuth(TokenAuth):
             kwargs = {**config, **kwargs}
         
         if not kwargs.get('name',None):
-            kwargs['name'] = 'kite'
+            kwargs['name'] = 'zerodha'
         
         # pylint: disable=bad-super-call
         super(self.__class__, self).__init__(*args, **kwargs)
@@ -116,7 +116,6 @@ class KiteAuth(TokenAuth):
         
         self._access_token = self.auth_token
         self._api = KiteConnect3(api_key=self._api_key,
-                                 holidays=kwargs.pop("holidays",None),
                                  rate_period=kwargs.pop("rate_period",None),
                                  rate_limit=kwargs.pop("rate_limit",None),
                                  **kwargs)

@@ -304,6 +304,10 @@ class KiteAssetFinder(BrokerAssetFinder):
             
         return asset
         
+    def refresh_data(self, *args, **kwargs):
+        instruments_list = kwargs.get("instruments_list",None)
+        self.update_instruments_list(instruments_list)
+    
     @lru_cache(maxsize=LRU_CACHE_SIZE,typed=False)
     def symbol_to_asset(self, tradingsymbol, as_of_date=None):
         '''
