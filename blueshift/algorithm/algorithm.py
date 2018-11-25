@@ -14,7 +14,7 @@ import json
 from transitions import MachineError
 
 from blueshift.algorithm.context import AlgoContext
-from blueshift.utils.cutils import check_input 
+from blueshift.utils.cutils import check_input
 from blueshift.execution.broker import AbstractBrokerAPI
 from blueshift.execution._clock import (SimulationClock, 
                                         BARS)
@@ -23,14 +23,14 @@ from blueshift.assets.assets import AssetFinder
 from blueshift.data.dataportal import DataPortal
 from blueshift.execution.authentications import AbstractAuth
 from blueshift.trades._order import Order
-from blueshift.trades._order_types import OrderSide, OrderType
+from blueshift.trades._order_types import OrderSide
 from blueshift.algorithm.api_decorator import api_method, command_method
 from blueshift.algorithm.api import get_broker
 from blueshift.utils.types import noop
 from blueshift.algorithm.state_machine import (MODE, COMMAND,
                                                AlgoStateMachine)
 
-from blueshift.alerts import get_logger, get_alert_manager
+from blueshift.alerts import get_logger
 from blueshift.utils.calendars.trading_calendar import make_consistent_tz
 
 from blueshift.utils.exceptions import (
@@ -123,14 +123,16 @@ class TradingAlgorithm(AlgoStateMachine):
         # extract the user algo
         self.algo = kwargs.get("algo", None)
         if self.algo is None:
-            self.algo = self.context.algo
-            algo_file = "<context>"
-        elif os_path.isfile(self.algo):
+            raise InitializationError(msg="algo file missing.")
+        
+        if os_path.isfile(self.algo):
             algo_file = os_path.basename(self.algo)
             with open(self.algo) as algofile:
                 self.algo = algofile.read()
         elif isinstance(self.algo, str):
             algo_file = "<string>"
+        else:
+            raise InitializationError(msg="algo file not found.")
         
         code = compile(self.algo, algo_file, 'exec')
         exec(code, self.namespace)
@@ -168,7 +170,7 @@ class TradingAlgorithm(AlgoStateMachine):
         self._set_logger()
 
     def __str__(self):
-        return "Algorithm: name:%s, broker:%s" % (self.name,
+        return "Blueshift Algorithm [name:%s, broker:%s]" % (self.name,
                                                   self.context.broker)
     
     def __repr__(self):
@@ -582,10 +584,11 @@ class TradingAlgorithm(AlgoStateMachine):
         return self.context.asset_finder.lookup_symbols(symbol_list)
     
     @api_method
-    def sid(self, sec_id):
+    def sid(self, sec_id:int):
         '''
             API function to resolve an asset ID (int) to an asset.
         '''
+        check_input(self.sid, locals())
         return self.context.asset_finder.fetch_asset(sec_id)
     
     @api_method
@@ -620,8 +623,10 @@ class TradingAlgorithm(AlgoStateMachine):
         '''
         
         if not self.is_TRADING_BAR():
-            msg = f"can't place order, market not open"
-            raise ValidationError(msg=msg)
+            msg = f"can't place order for {asset.symbol},"
+            msg = msg + " market not open yet."
+            self._logger.warning(msg,"algorithm")
+            return
         
         mult = asset.mult
         quantity = int(round(quantity/mult)*mult)
@@ -630,14 +635,14 @@ class TradingAlgorithm(AlgoStateMachine):
         
         side = OrderSide.BUY if quantity > 0 else OrderSide.SELL
         
-        if not style:
-            order_type = OrderType.STOPLOSS_MARKET
-        else:
+        order_type = 0
+        if style:
             order_type = style
-        
-        if not isinstance(order_type, OrderType):
-            msg = f"can't place order, illegal order type/ style."
-            raise ValidationError(msg=msg)
+        else:
+            if limit_price > 0:
+                order_type = 1
+            if stop_price > 0:
+                order_type = order_type|2
         
         o = Order(abs(quantity),side,asset,order_type = order_type,
                   price=limit_price, stoploss_price=stop_price)

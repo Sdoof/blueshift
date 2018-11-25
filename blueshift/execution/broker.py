@@ -31,7 +31,7 @@ class AbstractBrokerAPI(ABC):
         self._connected = False
         
     def __str__(self):
-        return "Broker: name:%s" % (self._name)
+        return "Blueshift Broker [name:%s]" % (self._name)
     
     def __repr__(self):
         return self.__str__()

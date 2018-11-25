@@ -73,7 +73,7 @@ cdef class Trade:
             raise TypeError
             
     def __str__(self):
-        return 'Trade:sym:%s,qty:%d,average price:%f' % \
+        return 'Trade[sym:%s,qty:%d,average price:%f]' % \
                     (self.asset.symbol,self.quantity, 
                      self.average_price)
     

@@ -49,7 +49,7 @@ def make_broker_pack(name, *args, **kwargs):
     return auth, asset_finder, data_portal, broker, clock
 
 def BackTest(*args, **kwargs):
-    name = kwargs.get("name","blueshift")
+    name = kwargs.pop("name","blueshift")
     auth, asset_finder, data_portal, broker, clock =\
             make_broker_pack(name, *args, **kwargs)
                 

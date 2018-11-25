@@ -85,25 +85,39 @@ class OnetoOne(object):
 
 
 
-def import_user_module(source_file, module_name, path):
+def exec_user_module(source, module, path):
     '''
         function to load multi-file user code in to Blueshift. This
         execs the source_file, which may contain full (NOT relative)
         import of other resources from the module `module_name`. The
-        path is usually the local source dir under the Blueshift 
+        path is usually the local source dir under the Blueshift
         root which contains the `module_name`, which in turn contains
         the `source_file`.
     '''
-    module_path = os_path.expanduser(path)
+    namespace = {}
     
-    with AddPythonPath(module_path):
-        namespace = {}
-        path = os_path.join(module_path, module_name,source_file)
-        with open(path) as fp:
-            algo_text = fp.read()
-        
-        code = compile(algo_text,source_file,'exec')
-        exec(code, namespace)
+    if os_path.isfile(source):
+        source_file = os_path.basename(source)
+        if module==None:
+            with open(source) as algofile:
+                algo_text = algofile.read()
+            code = compile(algo_text,source_file,'exec')
+            exec(code, namespace)
+        else:
+            module_path = os_path.expanduser(path)
+            with AddPythonPath(module_path):
+                path = os_path.join(module_path, module, source)
+                with open(path) as fp:
+                    algo_text = fp.read()
+                code = compile(algo_text,source_file,'exec')
+                exec(code, namespace)
+    elif isinstance(source, str):
+            source_file = "<string>"
+            algo_text = source
+            code = compile(algo_text,source_file,'exec')
+            exec(code, namespace)
+    else:
+        raise 
     
     return namespace
     

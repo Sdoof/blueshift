@@ -74,6 +74,10 @@ class ShowProgressBar():
         pass
     
 class MessageBrokerCtxManager():
+    '''
+        A context manager for handling ZMQ sockets creation and 
+        clean-up.
+    '''
     
     def __init__(self, message_broker, enabled=False):
         self._message_broker = message_broker

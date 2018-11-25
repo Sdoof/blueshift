@@ -88,7 +88,7 @@ cdef class SimulationClock(TradingClock):
         
     def __str__(self):
         tz = self.trading_calendar.tz
-        return f"Simulation Clock, tick:{self.emit_frequency},tz:{tz}"
+        return f"Blueshift Simulation Clock [tick:{self.emit_frequency},tz:{tz}]"
                     
     def __repr__(self):
         return self.__str__()

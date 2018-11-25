@@ -89,7 +89,7 @@ class BackTester(object):
         self.api.send(None)
         
     def __str__(self):
-        return "Backtester: name:%s" % (self.broker_name)
+        return "Blueshift Backtester [name:%s]" % (self.broker_name)
     
     def __repr__(self):
         return self.__str__()
@@ -445,7 +445,7 @@ class BackTesterAPI(AbstractBrokerAPI):
         self._connected = True
             
     def __str__(self):
-        return 'Broker:name:%s, type:%s'%(self._name, self._type)
+        return 'Blueshift Broker [name:%s, type:%s]'%(self._name, self._type)
     
     def __repr__(self):
         return self.__str__()

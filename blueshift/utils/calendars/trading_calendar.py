@@ -135,7 +135,7 @@ class TradingCalendar(object):
         return t
         
     def __str__(self):
-        return "Trading Calendar:%s, timezone:%s" % (self.name,
+        return "Blueshift Trading Calendar [name:%s, timezone:%s]" % (self.name,
                                                        self.tz)
         
     def to_json(self):

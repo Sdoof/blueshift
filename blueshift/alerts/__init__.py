@@ -7,6 +7,7 @@ Created on Thu Oct  4 17:59:56 2018
 
 from blueshift.utils.exceptions import AlertManagerError
 from blueshift.utils.decorators import blueprint
+from .alert import BlueShiftAlertManager
 
 @blueprint
 class AlertManagerWrapper(object):
@@ -40,4 +41,5 @@ get_logger = global_alert_manager_wrapper.get_logger
 
 __all__ = [register_alert_manager,
            get_alert_manager,
-           get_logger]
+           get_logger,
+           BlueShiftAlertManager]

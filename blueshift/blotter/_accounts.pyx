@@ -59,7 +59,7 @@ cdef class Account:
                 'commissions':self.commissions}
         
     def __str__(self):
-        return 'Account:name:%s, net:%.2f, cash:%.2f, mtm:%.2f' % \
+        return 'Blueshift Account [name:%s, net:%.2f, cash:%.2f, mtm:%.2f]' % \
                     (self.name,self.net,self.cash, self.mtm)
     
     def __repr__(self):

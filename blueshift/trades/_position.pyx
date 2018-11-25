@@ -103,7 +103,7 @@ cdef class Position:
             raise TypeError
             
     def __str__(self):
-        return 'Position:sym:%s,qty:%d,realized:%f, unrealized:%f' %\
+        return 'Position[sym:%s,qty:%d,realized:%f, unrealized:%f]' %\
             (self.asset.symbol,self.quantity, self.realized_pnl, 
              self.unrealized_pnl)
     

@@ -81,7 +81,7 @@ class DBDataPortal(DataPortal):
         raise NotImplementedError
     
     def __str__(self):
-        return "DB Data:%s" % self.name
+        return "Blueshift Data Portal [name:%s]" % self.name
     
     def __repr__(self):
         return self.__str__()

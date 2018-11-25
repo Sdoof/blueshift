@@ -6,6 +6,8 @@ Created on Mon Oct  8 11:25:53 2018
 """
 import json
 
+from .config import BlueShiftConfig
+
 #default_config
 _default_config =\
 {
@@ -98,3 +100,6 @@ def generate_default_config(filename=None):
     with open(filename,"w") as fp:
         json.dump(_default_config,fp)
     
+
+__all__ = [generate_default_config,
+           BlueShiftConfig]

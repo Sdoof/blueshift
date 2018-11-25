@@ -31,12 +31,6 @@ class AlgoContext(object):
         self._name = kwargs.get("name","blueshift")
         self.__timestamp = None
         
-        # get the algo object and mark initialized
-        self._algo_initialized = False
-        self.__algo = kwargs.get("algo", None)
-        if self.__algo:
-            self._algo_initialized = True
-        
         # get the broker object and mark initialize
         self.__broker_initialized = False
         self.__clock = None
@@ -57,6 +51,7 @@ class AlgoContext(object):
         self._reset_trackers()
             
         # initialize the performance tracker
+        # TODO: this perhaps need to go and replaced by _reset_performance
         self.__performance = kwargs.get("perf",None)
         
         # in case the algo is part of a Algostack add parent
@@ -66,7 +61,7 @@ class AlgoContext(object):
         self._perf_initialized = False
         
     def __str__(self):
-        return "Context: name:%s, broker:%s" % (self.name,
+        return "Blueshift Context [name:%s, broker:%s]" % (self.name,
                                                 self.broker)
     
     def __repr__(self):
@@ -123,10 +118,6 @@ class AlgoContext(object):
     def set_timestamp(self, timestamp):
         # no validation check for the sake of speed!
         self.__timestamp = timestamp
-    
-    @property
-    def algo(self):
-        return self.__algo
     
     @property
     def asset_finder(self):
@@ -195,7 +186,7 @@ class AlgoContext(object):
         # check for valid object types
         if self.__clock:
             if not isinstance(self.__clock, TradingClock):
-                raise ValidationError(msg="data portal supplied is of "
+                raise ValidationError(msg="clock supplied is of "
                                       "illegal type")            
         if self.__asset_finder:
             if not isinstance(self.__asset_finder, AssetFinder):
@@ -207,7 +198,8 @@ class AlgoContext(object):
                                           "illegal type")
         if self.__broker_api:
             if not isinstance(self.__broker_api, AbstractBrokerAPI):
-                    raise
+                    raise ValidationError(msg="data portal supplied is of "
+                                          "illegal type")
         if self.__auth:
             if not isinstance(self.__auth, AbstractAuth):
                 raise ValidationError(msg="authentication supplied is of "
@@ -261,6 +253,10 @@ class AlgoContext(object):
             self.__performance = Performance(self.__account,
                                              self.__timestamp.value)
             
+        if not isinstance(self.__performance, Performance):
+            raise InitializationError(msg="accounts still not "
+                                          "initialized")
+        
         self._perf_initialized = True
     
     def reset(self, *args, **kwargs):

@@ -70,8 +70,8 @@ class RealtimeClock(TradingClock):
         self.reset(queue,emit_frequency)
         
     def __str__(self):
-        return f"Realtime Clock, tick:{self.emit_frequency}, \
-                    tz:{self.trading_calendar.tz}"
+        return f"Blueshift Realtime Clock [tick:{self.emit_frequency}, \
+                    tz:{self.trading_calendar.tz}]"
                     
     def __repr__(self):
         return self.__str__()

@@ -52,7 +52,7 @@ class BlueShiftEnvironment(object):
         
     def __str__(self):
         mode = self.RUN_MODE_MAP.teg(self.mode)
-        return f"Blueshift Environment: {mode}"
+        return f"Blueshift Environment [mode:{mode}]"
     
     def __repr__(self):
         return self.__str__()

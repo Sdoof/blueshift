@@ -39,7 +39,7 @@ class AssetDBConfiguration(object):
         self.table_name = kwargs.get("table_name","asset_db.csv")
         
     def __str__(self):
-        return "AssetDBConfiguration, db type:%s, db name:%s" % (
+        return "Blueshift AssetDBConfiguration [db type:%s, db name:%s]" % (
                 self.type, self.db_name)
         
     def __repr__(self):
@@ -199,14 +199,14 @@ class DBAssetFinder(AssetFinder):
         look up assets.
     '''
     
-    def __init__(self, query_engine, name=""):
+    def __init__(self, query_engine, name="blueshift"):
         self.name = name
         self.query_engine = query_engine
         self._caches = (self._asset_cache, self._sym_map_cache) \
                     = {}, {}
         
     def __str__(self):
-        return "AssetFinder:%s" % self.name
+        return "Bluesfhit AssetFinder [name:%s]" % self.name
     
     def __repr__(self):
         return self.__str__()
@@ -256,11 +256,11 @@ class NoAssetFinder(DBAssetFinder):
         asset database
     '''
     
-    def __init__(self, query_engine=None, name=""):
+    def __init__(self, query_engine=None, name="blueshift"):
         self.name = name
         
     def __str__(self):
-        return "NoAssetFinder:%s" % self.name
+        return "Blueshift NoAssetFinder [name:%s]" % self.name
     
     def __repr__(self):
         return self.__str__()

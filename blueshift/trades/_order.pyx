@@ -134,7 +134,7 @@ cdef class Order:
             raise TypeError
             
     def __str__(self):
-        return 'Order:sym:%s, qty:%d, side:%s, filled:%d, at:%f, status:%s' % \
+        return 'Order[sym:%s, qty:%d, side:%s, filled:%d, at:%f, status:%s]' % \
                 (self.asset.symbol,self.quantity,side_dict[self.side], 
                  self.filled,self.average_price,
                  status_dict[self.status])

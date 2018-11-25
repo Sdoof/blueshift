@@ -89,7 +89,7 @@ class AbstractAuth(ABC):
         return self._timeout
     
     def __str__(self):
-        return "Authentication:%s" % self.name
+        return "Blueshift Authentication [name:%s]" % self.name
     
     def __repr__(self):
         return self.__str__()

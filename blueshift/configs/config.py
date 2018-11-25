@@ -6,7 +6,7 @@ Created on Mon Nov 12 10:17:03 2018
 """
 
 import json
-from blueshift.configs import _default_config
+
 from blueshift.utils.decorators import singleton, blueprint
 from blueshift.utils.exceptions import InitializationError, ValidationError
 
@@ -49,10 +49,11 @@ class BlueShiftConfig(object):
                 with open(config_file) as fp:
                     config = json.load(fp)
             except FileNotFoundError:
-                msg='missing config file {config_file}'
+                msg='config file {config_file} not found'
                 raise InitializationError(msg=msg)
         else:
-            config = _default_config
+            msg='missing config file {config_file}'
+            raise InitializationError(msg=msg)
             
         self.algo = config['algo']
         self.owner = config['owner']
@@ -93,7 +94,7 @@ class BlueShiftConfig(object):
         return val
     
     def __str__(self):
-        return "Blueshift Config:{}".format(self.algo)
+        return "Blueshift Config [name:{}]".format(self.algo)
     
     def __repr__(self):
         return self.__str__()

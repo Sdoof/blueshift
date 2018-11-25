@@ -35,7 +35,8 @@ register_calendar_alias = global_cal_dispatch.register_alias
 deregister_calendar_alias = global_cal_dispatch.deregister_alias
                             
 
-__all__ = [get_calendar,
+__all__ = [TradingCalendar,
+           get_calendar,
            register_calendar,
            deregister_calendar,
            register_calendar_alias,

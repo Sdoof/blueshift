@@ -106,7 +106,7 @@ class KiteBroker(AbstractBrokerAPI):
         self._account = EquityAccount(self._name,0.01)
             
     def __str__(self):
-        return 'Broker:name:%s, type:%s'%(self._name, self._type)
+        return 'Blueshift Broker [name:%s, type:%s]'%(self._name, self._type)
     
     def __repr__(self):
         return self.__str__()

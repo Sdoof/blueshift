@@ -85,7 +85,7 @@ class KiteAssetFinder(BrokerAssetFinder):
         return self._auth._name
     
     def __str__(self):
-        return "BrokerAssetFinder:%s" % self.name
+        return "Blueshift BrokerAssetFinder [name:%s]" % self.name
     
     def __repr__(self):
         return self.__str__()
