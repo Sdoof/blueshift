@@ -29,7 +29,9 @@ class BlueShiftAlertManager(object):
         manager should be called in a try/except block, passing
         any necessary arguments. The manager, based on the user
         specified rules, will decide how to handle the exception,
-        including re-starts if provisioned.
+        including re-starts if provisioned. It also initiates the 
+        pub-sub for performance packets as well as external command
+        channel to control a live algorithm.
     '''
     
     ERROR_TYPES = [DataError,UserError,APIError,InternalError,

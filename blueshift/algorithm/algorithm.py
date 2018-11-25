@@ -618,6 +618,7 @@ class TradingAlgorithm(AlgoStateMachine):
             Place new order. This is the interface to underlying broker
             for ALL order related API functions.
         '''
+        
         if not self.is_TRADING_BAR():
             msg = f"can't place order, market not open"
             raise ValidationError(msg=msg)
