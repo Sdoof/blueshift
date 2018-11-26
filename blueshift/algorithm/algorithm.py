@@ -490,6 +490,7 @@ class TradingAlgorithm(AlgoStateMachine):
             
     def _set_logger(self):
         self._logger = get_logger()
+        self._logger.tz = self.context.trading_calendar.tz
         
     def log_info(self, msg):
         if self._logger:
