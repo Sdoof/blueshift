@@ -6,17 +6,6 @@ Created on Sat Oct  6 11:51:35 2018
 """
 
 from abc import ABC, abstractmethod, abstractproperty
-from enum import Enum
-
-class BrokerType(Enum):
-    '''
-        Types of brokers. TWS broker is specific to IB only.
-    '''
-    BACKTESTER = 0
-    PAPERTRADER = 1
-    RESTBROKER = 2
-    TWSBROKER = 3
-
 
 class AbstractBrokerAPI(ABC):
     '''

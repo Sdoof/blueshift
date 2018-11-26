@@ -19,16 +19,15 @@ from blueshift.execution.broker import AbstractBrokerAPI
 from blueshift.execution._clock import (SimulationClock, 
                                         BARS)
 from blueshift.execution.clock import RealtimeClock, ClockQueue
-from blueshift.assets.assets import AssetFinder
+from blueshift.assets import AssetFinder
 from blueshift.data.dataportal import DataPortal
 from blueshift.execution.authentications import AbstractAuth
 from blueshift.trades._order import Order
 from blueshift.trades._order_types import OrderSide
 from blueshift.algorithm.api_decorator import api_method, command_method
-from blueshift.algorithm.api import get_broker
-from blueshift.utils.types import noop
-from blueshift.algorithm.state_machine import (MODE, COMMAND,
-                                               AlgoStateMachine)
+from blueshift.api import get_broker
+from blueshift.utils.types import noop, MODE
+from blueshift.algorithm.state_machine import AlgoStateMachine
 
 from blueshift.alerts import get_logger
 from blueshift.utils.calendars.trading_calendar import make_consistent_tz
@@ -40,11 +39,11 @@ from blueshift.utils.exceptions import (
         CommandShutdownException,
         BlueShiftException)
 
-from blueshift.utils.decorators import blueprint, singleton
+from blueshift.utils.decorators import blueprint
 from blueshift.utils.ctx_mgr import (ShowProgressBar,
                                      MessageBrokerCtxManager)
     
-@singleton
+
 @blueprint
 class TradingAlgorithm(AlgoStateMachine):
     
@@ -329,11 +328,14 @@ class TradingAlgorithm(AlgoStateMachine):
         
         if not alert_manager:
             publish_packets = False
+            publisher_handle = None
+        else:
+            publisher_handle = alert_manager.publisher
         
         with ShowProgressBar(runner, show_progress=show_progress,
                              label=self.name,
                              length=length) as performance,\
-            MessageBrokerCtxManager(alert_manager.publisher,
+            MessageBrokerCtxManager(publisher_handle,
                                     enabled=publish_packets) as\
                                 publisher:
             for packet in performance:
@@ -388,8 +390,7 @@ class TradingAlgorithm(AlgoStateMachine):
                 print(f"{t}:{bar}")
                 
                 if self.is_STOPPED():
-                    self._logger.info("algorithm stopped, will exit.",
-                                      "algorithm")
+                    self.log_info("algorithm stopped, will exit.")
                     raise CommandShutdownException(msg="shutting down.")
                 elif self.is_PAUSED():
                     continue
@@ -428,10 +429,15 @@ class TradingAlgorithm(AlgoStateMachine):
         if not alert_manager:
             command_enabled=False
             publish_packets=False
+            publisher_handle = None
+            commander_handle = None
+        else:
+            publisher_handle = alert_manager.publisher_handle
+            commander_handle = alert_manager.commander_handle
         
-        with MessageBrokerCtxManager(alert_manager.cmd_listener, 
+        with MessageBrokerCtxManager(commander_handle, 
                                      enabled=command_enabled) as commander,\
-            MessageBrokerCtxManager(alert_manager.publisher,
+            MessageBrokerCtxManager(publisher_handle,
                                     enabled=publish_packets) as\
                                         publisher:
             async for msg in g:
@@ -485,6 +491,17 @@ class TradingAlgorithm(AlgoStateMachine):
     def _set_logger(self):
         self._logger = get_logger()
         
+    def log_info(self, msg):
+        if self._logger:
+            self._logger.info(msg,"algorithm")
+            
+    def log_warning(self, msg):
+        if self._logger:
+            self._logger.warning(msg,"algorithm")
+            
+    def log_error(self, msg):
+        if self._logger:
+            self._logger.error(msg,"algorithm")
     
     '''
         A list of methods for processing commands received on the command
@@ -498,15 +515,15 @@ class TradingAlgorithm(AlgoStateMachine):
             if is_cmd_fn:
                 fn(*cmd.args, **cmd.kwargs)
         else:
-            self._logger.warning(f"unknown command {cmd.cmd}, will be ignored.",
-                                 "algorithm")
+            msg = f"unknown command {cmd.cmd}, will be ignored."
+            self.log_warning(msg)
         
     @command_method
     def pause(self, *args, **kwargs):
         try:
             self.fsm_pause()
             msg = "algorithm paused. No further processing till resumed."
-            self._logger.warning(msg, "algorithm")
+            self.log_warning(msg)
         except MachineError:
             msg=f"State Machine Error ({self.state}): attempt to pause."
             raise StateMachineError(msg=msg)
@@ -522,7 +539,7 @@ class TradingAlgorithm(AlgoStateMachine):
             # TODO: this is risky, there is a change that the queue
             # may be None within the tick coroutine in clock possibly?
             self._reset_clock(self.context.clock.emit_frequency)
-            self._logger.warning("algorithm resumed.", "algorithm")
+            self.log_warning("algorithm resumed.")
         except MachineError:
             msg=f"State Machine Error ({self.state}): attempt to resume."
             raise StateMachineError(msg=msg)
@@ -531,7 +548,7 @@ class TradingAlgorithm(AlgoStateMachine):
     def shutdown(self, *args, **kwargs):
         try:
             self.fsm_stop()
-            self._logger.warning("algorithm stopped.","algorithm")
+            self.log_warning("algorithm stopped.")
         except MachineError:
             # this should never fail.
             msg=f"State Machine Error ({self.state}): attempt to stop."
@@ -542,15 +559,14 @@ class TradingAlgorithm(AlgoStateMachine):
         auth = self.context.auth
         if auth:
             auth.login(*args, **kwargs)
-        self._logger.warning("executed login with authenticator.",
-                             "algorithm")
+        self.log_warning("executed login with authenticator.")
         
     @command_method
     def refresh_asset_db(self, *args, **kwargs):
         asset_finder = self.context.asset_finder
         if asset_finder:
             asset_finder.refresh_data(*args, **kwargs)
-        self._logger.warning("Relaoded asset database.", "algorithm")
+        self.log_warning("Relaoded asset database.")
     
     '''
         All API functions related to algorithm objects should go in this
@@ -625,7 +641,7 @@ class TradingAlgorithm(AlgoStateMachine):
         if not self.is_TRADING_BAR():
             msg = f"can't place order for {asset.symbol},"
             msg = msg + " market not open yet."
-            self._logger.warning(msg,"algorithm")
+            self.log_warning(msg)
             return
         
         mult = asset.mult

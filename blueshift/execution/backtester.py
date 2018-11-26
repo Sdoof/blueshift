@@ -7,7 +7,7 @@ Created on Sat Oct  6 12:54:09 2018
 
 from enum import Enum
 
-from blueshift.execution.broker import AbstractBrokerAPI, BrokerType
+from blueshift.execution.broker import AbstractBrokerAPI
 from blueshift.execution._clock import BARS
 from blueshift.trades._order import Order
 from blueshift.trades._position import Position
@@ -24,6 +24,7 @@ from blueshift.utils.exceptions import (InsufficientFund,
 from blueshift.utils.validation import positive_num
 from blueshift.utils.cutils import check_input
 from blueshift.utils.decorators import blueprint
+from blueshift.utils.types import BrokerType
 
 import random
 

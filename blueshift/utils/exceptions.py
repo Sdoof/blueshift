@@ -188,5 +188,16 @@ class AlertManagerError(InternalError):
     msg = "Unexpected Error in alert manager:{msg}"
     handling = ExceptionHandling.TERMINATE
 
+class ConfigurationError(InternalError):
+    '''
+        Unexpected error about config object.
+    '''
+    msg = "Unexpected Error in config:{msg}"
+    handling = ExceptionHandling.TERMINATE
     
-
+class BlueShiftPathException(InternalError):
+    '''
+        Unexpected error about path handling.
+    '''
+    msg = "Unexpected Error in Blueshift:{msg}"
+    handling = ExceptionHandling.TERMINATE

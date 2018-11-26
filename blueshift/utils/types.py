@@ -10,6 +10,7 @@ from pytz import all_timezones as pytz_all_timezones
 import click
 import pandas as pd
 from datetime import datetime
+from enum import Enum, unique
 
 '''
     Sentinel for a generic function.
@@ -75,3 +76,61 @@ class DateType(click.ParamType):
             'invalid datetime format: {}. (choose from {})'.format(
                 value, ', '.join(self.formats)))
         
+@unique
+class MODE(Enum):
+    '''
+        Track the current running mode of algo - live or backtest.
+    '''
+    BACKTEST = 0
+    LIVE = 1
+    
+@unique
+class STATE(Enum):
+    '''
+        Track the current state of the algo state machine.
+    '''
+    STARTUP = 0
+    INITIALIZED = 1
+    BEFORE_TRADING_START = 2
+    TRADING_BAR = 3
+    AFTER_TRADING_HOURS = 4
+    HEARTBEAT = 5
+    PAUSED = 6
+    STOPPED = 7
+    DORMANT = 8
+
+class DataPortalFlag(Enum):
+    '''
+        A flag for different types of data sources
+    '''
+    FILEBASE = 1
+    DATABASE = 2
+    REST = 4
+    WEBSOCKETS = 8
+    
+'''
+    A list for the OHLCV fields.
+'''
+OHLCV_FIELDS = ['open', 'high', 'low', 'close', 'volume']
+
+class AuthType(Enum):
+    '''
+        Auth types. It can be either token based (where the token is
+        obtained by means outside the scope of this package). For 
+        every subsequent request, this token is passed for 
+        validation of the API access. The other method (IB) is using
+        a dedicated external app that mediates communication - this
+        is the TWS mode.
+    '''
+    TOKEN = 0
+    TWS = 1
+    
+class BrokerType(Enum):
+    '''
+        Types of brokers. TWS broker is specific to IB only.
+    '''
+    BACKTESTER = 0
+    PAPERTRADER = 1
+    RESTBROKER = 2
+    TWSBROKER = 3
+    

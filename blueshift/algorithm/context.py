@@ -14,13 +14,14 @@ from blueshift.blotter._perf import (Performance,
 from blueshift.utils.exceptions import (InitializationError,
                                         ValidationError,
                                         ExceptionHandling)
-from blueshift.assets.assets import AssetFinder
+from blueshift.assets import AssetFinder
 from blueshift.execution.broker import AbstractBrokerAPI
 from blueshift.data.dataportal import DataPortal
 from blueshift.execution._clock import TradingClock
 from blueshift.execution.authentications import AbstractAuth
 from blueshift.utils.brokers import Broker
 from blueshift.utils.decorators import blueprint
+from blueshift.configs import blueshift_run_get_name
 
 @blueprint
 class AlgoContext(object):
@@ -28,7 +29,7 @@ class AlgoContext(object):
     def __init__(self, *args, **kwargs):
         # name of the context. Good practice is to match the algo name
         # this will be used to tag orders where supported
-        self._name = kwargs.get("name","blueshift")
+        self._name = kwargs.get("name",blueshift_run_get_name())
         self.__timestamp = None
         
         # get the broker object and mark initialize

@@ -20,7 +20,7 @@ from blueshift.utils.exceptions import (AuthenticationError,
                                         ValidationError)
 
 from blueshift.utils.decorators import singleton, api_retry, blueprint
-from blueshift.assets.assets import BrokerAssetFinder
+from blueshift.assets import BrokerAssetFinder
 
 # pylint: disable=no-name-in-module
 from blueshift.assets._assets import (Equity, EquityFutures, Forex,

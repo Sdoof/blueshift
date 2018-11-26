@@ -8,21 +8,11 @@ Created on Fri Nov  9 16:32:08 2018
 import pandas as pd
 
 from abc import ABC, abstractmethod
-from enum import Enum
 
 from blueshift.utils.decorators import blueprint
+from blueshift.utils.types import AuthType
+from blueshift.configs import blueshift_run_get_name
 
-class AuthType(Enum):
-    '''
-        Auth types. It can be either token based (where the token is
-        obtained by means outside the scope of this package). For 
-        every subsequent request, this token is passed for 
-        validation of the API access. The other method (IB) is using
-        a dedicated external app that mediates communication - this
-        is the TWS mode.
-    '''
-    TOKEN = 0
-    TWS = 1
 
 class AbstractAuth(ABC):
     '''
@@ -36,7 +26,7 @@ class AbstractAuth(ABC):
             is not deemed to be catastrophic. If the API call raises
             invalid token, another handshake can be triggered.
         '''
-        self._name = kwargs.get("name","")
+        self._name = kwargs.get("name",blueshift_run_get_name())
         self._type = None
         self._timeout = kwargs.get("timeout",None)
         self._tz = kwargs.get("tz",None)

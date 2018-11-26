@@ -11,11 +11,10 @@ from blueshift.assets.assets import (AssetDBConfiguration,
                                      AssetDBQueryEngineCSV,
                                      DBAssetFinder)
 from blueshift.data.dataportal import DBDataPortal
-from blueshift.execution.broker import BrokerType
 from blueshift.execution.backtester import BackTesterAPI
 from blueshift.execution._clock import SimulationClock
 from blueshift.utils.exceptions import InitializationError
-from blueshift.utils.types import Broker
+from blueshift.utils.types import Broker, BrokerType
 
 def make_broker_pack(name, *args, **kwargs):
     auth = None

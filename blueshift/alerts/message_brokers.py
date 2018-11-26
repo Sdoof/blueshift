@@ -8,7 +8,8 @@ import json
 import zmq
 
 from blueshift.utils.types import Command
-from blueshift.utils.general_helpers import generate_kwargs, generate_args
+from blueshift.utils.general_helpers import (generate_kwargs, 
+                                             generate_args)
 
 class ZeroMQPublisher(object):
     '''

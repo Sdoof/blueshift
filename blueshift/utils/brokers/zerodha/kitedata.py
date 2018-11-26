@@ -13,7 +13,7 @@ from requests.exceptions import RequestException
 from kiteconnect.exceptions import KiteException
 
 from blueshift.data.rest_data import RESTDataPortal
-from blueshift.data.dataportal import OHLCV_FIELDS
+from blueshift.utils.types import OHLCV_FIELDS
 from blueshift.utils.exceptions import (AuthenticationError, 
                                         ExceptionHandling,
                                         MissingDataError,

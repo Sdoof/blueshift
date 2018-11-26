@@ -10,7 +10,7 @@ from sys import exit as sys_exit
 from sys import executable as sys_executable
 from psutil import Process
 
-from blueshift.alerts.logging_utils import BlueShiftLogger
+from blueshift.alerts.logging_utils import BlueShiftLogger, get_logger
 from blueshift.utils.exceptions import (ExceptionHandling,
                                         DataError,UserError,
                                         APIError,InternalError,
@@ -19,6 +19,8 @@ from blueshift.utils.exceptions import (ExceptionHandling,
 from blueshift.utils.decorators import singleton, blueprint
 from blueshift.alerts.message_brokers import (ZeroMQPublisher,
                                               ZeroMQCmdPairServer)
+from blueshift.configs import (get_config_recovery, get_config_name,
+                               get_config_channel)
 
 
 @singleton
@@ -43,7 +45,7 @@ class BlueShiftAlertManager(object):
                       "ignore":ExceptionHandling.IGNORE,
                       "log":ExceptionHandling.LOG}
     
-    def __init__(self, config, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         '''
             Set up the error rules and logger. The logger does the
             message dispatch. The error rules decide the error
@@ -54,8 +56,12 @@ class BlueShiftAlertManager(object):
             enable any object a method to persist itself, for 
             example.
         '''
-        self.config = config
-        self.logger = BlueShiftLogger(config, *args, **kwargs)
+        logger = get_logger()
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = BlueShiftLogger(*args, **kwargs)
+        
         self.error_rules = {}
         self.callbacks = []
         self.publisher = None
@@ -63,7 +69,7 @@ class BlueShiftAlertManager(object):
         
         self.set_error_handling()
         
-        topic = kwargs.get("topic",self.config.algo)
+        topic = kwargs.get("topic",get_config_name())
         self.set_up_publisher(topic)
         self.set_up_cmd_listener()
         
@@ -81,13 +87,13 @@ class BlueShiftAlertManager(object):
         
     def set_error_handling(self):
         self.error_rules[DataError] = self.ERROR_RULES_MAP.get(
-                self.config.recovery['data_error'], None)
+                get_config_recovery('data_error'), None)
         self.error_rules[APIError] = self.ERROR_RULES_MAP.get(
-                self.config.recovery['api_error'], None)
+                get_config_recovery('api_error'), None)
         self.error_rules[UserError] = self.ERROR_RULES_MAP.get(
-                self.config.recovery['user_error'], None)
+                get_config_recovery('user_error'), None)
         self.error_rules[InternalError] = self.ERROR_RULES_MAP.get(
-                self.config.recovery['internal_error'],None)
+                get_config_recovery('internal_error'),None)
         self.error_rules[GeneralException] = ExceptionHandling.\
                                                         TERMINATE
     
@@ -151,12 +157,31 @@ class BlueShiftAlertManager(object):
         sys_exit(1)
         
     def set_up_publisher(self, topic):
-        addr, port = self.config.\
-                    channels['msg_addr'].split(':')
+        addr, port = get_config_channel('msg_addr').split(':')
         self.publisher = ZeroMQPublisher(addr, port, topic)
         
     def set_up_cmd_listener(self):
-        addr, port = self.config.\
-                    channels['cmd_addr'].split(':')
+        addr, port = get_config_channel('cmd_addr').split(':')
         self.cmd_listener = ZeroMQCmdPairServer(addr, port)
         
+@blueprint
+class AlertManagerWrapper(object):
+    '''
+        A wrapper class for alert manager to make access global.
+    '''
+    
+    def __init__(self, alert_manager=None):
+        self.instance = alert_manager
+    
+    def get_alert_manager(self):        
+        return self.instance
+    
+    def register_alert_manager(self, alert_manager):
+        self.instance = alert_manager
+        
+global_alert_manager_wrapper = AlertManagerWrapper()
+register_alert_manager = global_alert_manager_wrapper.\
+                                            register_alert_manager
+                                            
+get_alert_manager = global_alert_manager_wrapper.\
+                                            get_alert_manager

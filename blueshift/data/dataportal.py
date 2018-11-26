@@ -5,17 +5,11 @@ Created on Fri Oct 19 01:28:32 2018
 @author: prodi
 """
 from abc import ABC, abstractmethod, abstractproperty
-from enum import Enum
 
 from blueshift.utils.decorators import blueprint
+from blueshift.utils.types import DataPortalFlag, OHLCV_FIELDS
+from blueshift.configs import blueshift_run_get_name
 
-OHLCV_FIELDS = ['open', 'high', 'low', 'close', 'volume']
-
-class DataPortalFlag(Enum):
-    FILEBASE = 1
-    DATABASE = 2
-    REST = 4
-    WEBSOCKETS = 8
 
 class DataPortal(ABC):
     '''
@@ -55,7 +49,7 @@ class DBDataPortal(DataPortal):
     '''
     
     def __init__(self, *args, **kwargs):
-        self._name = kwargs.get("name","blueshift")
+        self._name = kwargs.get("name",blueshift_run_get_name())
     
     @property
     def name(self):

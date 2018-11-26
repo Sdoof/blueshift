@@ -6,6 +6,7 @@ Created on Thu Oct 25 14:20:31 2018
 """
 from blueshift.data.dataportal import DataPortal
 from blueshift.utils.decorators import blueprint
+from blueshift.configs import blueshift_run_get_name
 
 @blueprint
 class RESTDataPortal(DataPortal):
@@ -13,7 +14,7 @@ class RESTDataPortal(DataPortal):
         Abstract interface for RESTful data service.
     '''
     def __init__(self, *args, **kwargs):
-        self._name = kwargs.get("name","")
+        self._name = kwargs.get("name",blueshift_run_get_name())
         self._trading_calendar = kwargs.get("trading_calendar",None)
         self._api = kwargs.get("api",None)
         self._auth = kwargs.get("auth",None)

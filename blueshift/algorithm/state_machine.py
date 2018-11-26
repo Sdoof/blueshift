@@ -7,41 +7,9 @@ Created on Tue Nov 20 15:04:35 2018
 from enum import Enum, unique
 from transitions import Machine
 from blueshift.utils.decorators import blueprint
+from blueshift.utils.types import MODE, STATE
+from blueshift.configs import blueshift_run_get_name
 
-@unique
-class MODE(Enum):
-    '''
-        Track the current running mode - live or backtest.
-    '''
-    BACKTEST = 0
-    LIVE = 1
-    
-@unique
-class STATE(Enum):
-    '''
-        Track the current state of the machine.
-    '''
-    STARTUP = 0
-    INITIALIZED = 1
-    BEFORE_TRADING_START = 2
-    TRADING_BAR = 3
-    AFTER_TRADING_HOURS = 4
-    HEARTBEAT = 5
-    PAUSED = 6
-    STOPPED = 7
-    DORMANT = 8
-    
-@unique
-class COMMAND(Enum):
-    '''
-        Set of acceptable commands for state transitions. Will only be
-        processed for a live mode (ignored for backtest mode).
-    '''
-    RESUME = 0      # start user func processing, reschedule functions
-    PAUSE = 1       # cancel open orders and stop user func processing
-                    # also cancel any scheduled functions
-    SQUAREOFF = 2   # cancel open orders and all close positions, then pause
-    STOP = 4        # cancel open orders and shut down in orderly manner
 
 @blueprint
 class AlgoStateMachine():
@@ -54,7 +22,7 @@ class AlgoStateMachine():
     states = [s for s, v in STATE.__members__.items()]
     
     def __init__(self, *args, **kwargs):
-        self.name = kwargs.pop("name","myalgo")
+        self.name = kwargs.pop("name",blueshift_run_get_name())
         self.mode = kwargs.pop("mode", MODE.BACKTEST)
         self._paused = False
         

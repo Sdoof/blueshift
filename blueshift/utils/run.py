@@ -4,26 +4,35 @@ Created on Tue Nov 13 09:00:35 2018
 
 @author: prodipta
 """
-from os.path import isabs, join, isfile, expanduser, basename
+from os.path import isabs, join, isfile, expanduser, basename, dirname
 from os import environ as os_environ
 from sys import exit as sys_exit
 import pandas as pd
 import click
 
 
-from blueshift.configs.config import BlueShiftConfig
-from blueshift.alerts.alert import BlueShiftAlertManager
-from blueshift.algorithm.algorithm import TradingAlgorithm
-from blueshift.algorithm.state_machine import MODE
-from blueshift.algorithm.api import (get_broker, get_calendar,
+from blueshift.configs import (BlueShiftConfig, register_config,
+                               blueshift_source_path,
+                               get_config_calendar_details,
+                               blueshift_data_path,
+                               get_config_backtest_details,
+                               get_config_livetrade_details,
+                               get_config_env_vars,
+                               blueshit_run_set_name)
+from blueshift.alerts import (BlueShiftLogger, 
+                              BlueShiftAlertManager,
+                              register_logger,
+                              register_alert_manager, 
+                              get_alert_manager)
+from blueshift.algorithm import TradingAlgorithm
+from blueshift.utils.types import MODE
+from blueshift.api import (get_broker, get_calendar,
                                      register_calendar,
                                      register_broker)
 from blueshift.utils.calendars.trading_calendar import (
                                             TradingCalendar)
 from blueshift.utils.exceptions import (InitializationError, 
                                         BlueShiftException)
-from blueshift.alerts import (register_alert_manager,
-                              get_alert_manager)
 from blueshift.utils.decorators import singleton, blueprint
 from blueshift.utils.general_helpers import OnetoOne
 
@@ -41,8 +50,6 @@ class BlueShiftEnvironment(object):
                              'live': MODE.LIVE})
     
     def __init__(self):
-        self.config = None
-        self.alert_manager = None
         self.trading_calendar = None
         self.broker_tuple = None
         self.algo_file = None
@@ -65,6 +72,7 @@ class BlueShiftEnvironment(object):
         try:
             self.create_config(*args, **kwargs)
             self.extract_env_vars()
+            self.create_logger(*args, **kwargs)
             self.create_alert_manager(*args, **kwargs)
             
             algo_file = kwargs.get("algo_file", None)
@@ -98,10 +106,12 @@ class BlueShiftEnvironment(object):
             config_file = join(expanduser('~'), '.blueshift',
                                '.blueshift_config.json')
         
-        self.config = BlueShiftConfig(config_file=config_file, 
+        config = BlueShiftConfig(config_file=config_file, 
                                       *args, **kwargs)
+        register_config(config)
+        
         self.env_vars["BLUESHIFT_API_KEY"] = \
-                    self.config.env_vars["BLUESHIFT_API_KEY"]
+                    get_config_env_vars("BLUESHIFT_API_KEY")
         self.env_vars["BLUESHIFT_CONFIG_FILE"] = config_file
     
     def extract_env_vars(self, *args, **kwargs):
@@ -110,7 +120,7 @@ class BlueShiftEnvironment(object):
             list in config. Then over-write if any supplied in the
             kwwargs.
         '''
-        for var in self.config.env_vars:
+        for var in get_config_env_vars():
             self.env_vars[var] = os_environ.get(var, None)
         for var in self.env_vars:
             self.env_vars[var] = kwargs.pop(var, self.env_vars[var])
@@ -121,13 +131,19 @@ class BlueShiftEnvironment(object):
             if value:
                 os_environ[var] = value
     
+    def create_logger(self, *args, **kwargs):
+        '''
+            create and register the alert manager.
+        '''
+        logger = BlueShiftLogger(*args, **kwargs)
+        register_logger(logger)
+    
     def create_alert_manager(self, *args, **kwargs):
         '''
             create and register the alert manager.
         '''
-        alert_manager = BlueShiftAlertManager(self.config)
+        alert_manager = BlueShiftAlertManager()
         register_alert_manager(alert_manager)
-        self.alert_manager = get_alert_manager()
     
     def get_algo_file(self, algo_file):
         '''
@@ -137,8 +153,9 @@ class BlueShiftEnvironment(object):
         if not algo_file:
             raise InitializationError(msg="missing algo file.")
         if not isabs(algo_file) and not isfile(algo_file):
-            user_root = self.config.user_space['root']
-            user_code_dir = self.config.user_space['code']
+            code_dir = blueshift_source_path()
+            user_root = dirname(code_dir)
+            user_code_dir = basename(code_dir)
             algo_file = join(user_root, user_code_dir, algo_file)
             
         if not isfile(algo_file):
@@ -154,19 +171,21 @@ class BlueShiftEnvironment(object):
             the calendar and return the object. This calendar can be
             then fetched using the get_calendar API from user code.
         '''
-        name = self.config.calendar['cal_name']
-        tz = self.config.calendar['tz']
-        opens = self.config.calendar['opens']
-        closes = self.config.calendar['closes']
-        business_days = self.config.calendar['business_days']
-        weekends = self.config.calendar['weekends']
-        holidays = self.config.calendar['holidays']
+        cal_dict = get_config_calendar_details()
+        name = cal_dict['cal_name']
+        tz = cal_dict['tz']
+        opens = cal_dict['opens']
+        closes = cal_dict['closes']
+        business_days = cal_dict['business_days']
+        weekends = cal_dict['weekends']
+        holidays = cal_dict['holidays']
         trading_calendar = None
         
         if business_days:
             if not isabs(business_days) and not isfile(business_days):
-                user_root = self.config.user_space['root']
-                user_data_dir = self.config.user_space['data']
+                data_dir = blueshift_data_path()
+                user_root = dirname(data_dir)
+                user_data_dir = basename(data_dir)
                 business_days = join(user_root, user_data_dir, 
                                      business_days)
             
@@ -187,8 +206,9 @@ class BlueShiftEnvironment(object):
         
         if holidays:
             if not isabs(holidays) and not isfile(holidays):
-                user_root = self.config.user_space['root']
-                user_data_dir = self.config.user_space['data']
+                data_dir = blueshift_data_path()
+                user_root = dirname(data_dir)
+                user_data_dir = basename(data_dir)
                 holidays = join(user_root, user_data_dir, holidays)
             
             if not isfile(holidays):
@@ -209,26 +229,29 @@ class BlueShiftEnvironment(object):
             particular broker module under utils/brokers/.
         '''                    
         if self.mode == MODE.BACKTEST:
-            name = self.config.backtester['backtester_name']
-            start_date = self.config.backtester['start']
-            end_date = self.config.backtester['end']
-            frequency = self.config.backtester['backtest_frequency']
-            initial_capital = self.config.backtester['initial_capital']
+            backtest_dict = get_config_backtest_details()
+            name = backtest_dict['backtester_name']
+            start_date = backtest_dict['start']
+            end_date = backtest_dict['end']
+            frequency = backtest_dict['backtest_frequency']
+            initial_capital = backtest_dict['initial_capital']
             
             register_broker(name,start_date=start_date, 
                             end_date=end_date, 
                             trading_calendar=self.trading_calendar,
                             initial_capital=initial_capital,
                             frequency=frequency)
+        
         elif self.mode == MODE.LIVE:
-            name = self.config.live_broker['broker_name']
-            api_key = self.config.live_broker['api_key']
-            api_secret = self.config.live_broker['api_secret']
-            user_id = self.config.live_broker['broker_id']
-            rate_limit = self.config.live_broker['rate_limit']
-            rate_period = self.config.live_broker['rate_period']
-            timeout = self.config.live_broker['login_reset_time']
-            frequency = self.config.live_broker['live_frequency']
+            live_dict = get_config_livetrade_details()
+            name = live_dict['broker_name']
+            api_key = live_dict['api_key']
+            api_secret = live_dict['api_secret']
+            user_id = live_dict['broker_id']
+            rate_limit = live_dict['rate_limit']
+            rate_period = live_dict['rate_period']
+            timeout = live_dict['login_reset_time']
+            frequency = live_dict['live_frequency']
             
             request_token = kwargs.get('request_token',None)
             auth_token = kwargs.get('auth_token',None)
@@ -280,7 +303,8 @@ def run_algo(name, output, show_progress=False, publish=False,
         click.secho("failed to create a trading environment", fg="red")
         sys_exit(1)
         
-    alert_manager = trading_environment.alert_manager
+    blueshit_run_set_name(name)
+    alert_manager = get_alert_manager()
     broker = trading_environment.broker_tuple
     mode = trading_environment.mode
     algo_file = trading_environment.algo_file

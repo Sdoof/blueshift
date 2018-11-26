@@ -8,7 +8,8 @@ Created on Mon Nov 12 10:17:03 2018
 import json
 
 from blueshift.utils.decorators import singleton, blueprint
-from blueshift.utils.exceptions import InitializationError, ValidationError
+from blueshift.utils.exceptions import (InitializationError, 
+                                        ValidationError)
 
 @singleton
 @blueprint
@@ -98,3 +99,23 @@ class BlueShiftConfig(object):
     
     def __repr__(self):
         return self.__str__()
+    
+@blueprint
+class BlueShiftConfigWrapper():
+    '''
+        A wrapper object for Blueshift Configuration object to make 
+        access to it global.
+    '''
+    def __init__(self, config=None):
+        self.instance = config
+        
+    def get_config(self):
+        return self.instance
+    
+    def register_config(self, config):
+        self.instance = config
+        
+global_config_wrapper = BlueShiftConfigWrapper()
+register_config = global_config_wrapper.register_config
+get_config = global_config_wrapper.get_config
+

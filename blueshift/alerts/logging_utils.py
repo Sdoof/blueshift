@@ -11,16 +11,19 @@ from os import path as os_path
 import pandas as pd
 
 from blueshift.utils.decorators import singleton, blueprint
-from blueshift.algorithm.state_machine import MODE
+from blueshift.utils.types import MODE
+from blueshift.configs import (blueshift_log_path, 
+                               get_config_alerts, get_config_tz)
 
 @blueprint
 class BlueShiftLogHandlers(object):
     
     LOG_DEST = ['log', 'console', 'email', 'msg', 'websocket']
     
-    def __init__(self, config, *args, **kwargs):
-        self.log_root = config.user_space['root']
-        self.log_dir = config.user_space['logs']
+    def __init__(self, *args, **kwargs):
+        log_path = blueshift_log_path()
+        self.log_root = os_path.dirname(log_path)
+        self.log_dir = os_path.basename(log_path)
         
         name = kwargs.get("name","blueshift")
         timestamp = pd.Timestamp.now().normalize()
@@ -45,7 +48,8 @@ class BlueShiftLogHandlers(object):
                 self.handlers[key].setFormatter(formatstr)
             
         # set up alert levels according to the rules in config
-        alert_rules = config.alerts
+        alert_rules = get_config_alerts()
+        
         # set level for errors
         for dest in alert_rules['error']:
             if self.handlers[dest]:
@@ -71,10 +75,10 @@ class BlueShiftLogHandlers(object):
 @blueprint
 class BlueShiftLogger(object):
     
-    def __init__(self, config, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         self.logger = logging.getLogger("blueshift")
-        self.handler_obj = BlueShiftLogHandlers(config, 
-                                                *args, **kwargs)
+        
+        self.handler_obj = BlueShiftLogHandlers(*args, **kwargs)
         self.handlers = self.handler_obj.handlers
         
         for tag, handler in self.handlers.items():
@@ -83,7 +87,11 @@ class BlueShiftLogger(object):
                 
         self.logger.setLevel(logging.INFO)
         
-        self.tz = config.calendar.get('tz','Etc/UTC')
+        tz = kwargs.get('tz', None)
+        if tz:
+            self.tz = tz
+        else:
+            self.tz = get_config_tz()
                 
     def __str__(self):
         return "Blueshift Logger"
@@ -127,6 +135,22 @@ class BlueShiftLogger(object):
     def daily_log(self):
         pass
     
-
+@blueprint
+class BlueShiftLoggerWrapper():
+    '''
+        A wrapper object for Blueshift Configuration object to make 
+        access to it global.
+    '''
+    def __init__(self, logger=None):
+        self.instance = logger
         
+    def get_logger(self):
+        return self.instance
+    
+    def register_logger(self, logger):
+        self.instance = logger
+        
+global_logger_wrapper = BlueShiftLoggerWrapper()
+register_logger = global_logger_wrapper.register_logger
+get_logger = global_logger_wrapper.get_logger
     
