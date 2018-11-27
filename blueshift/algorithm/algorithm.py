@@ -46,6 +46,15 @@ from blueshift.utils.ctx_mgr import (ShowProgressBar,
 
 @blueprint
 class TradingAlgorithm(AlgoStateMachine):
+    '''
+        The trading algorithm is responsible for 1. reading the input
+        program, 2. collecting and running user functions in appropriate
+        event functions, 3. handling commands and publishing performance
+        packets as well as defining the API functions. The main loops in
+        backtest and live runs are different. Backtest in implemented as
+        generator. Live loop is an async generator to make use of the 
+        sleep time of the real clock.
+    '''
     
     def _make_bars_dispatch(self):
         '''
@@ -159,7 +168,7 @@ class TradingAlgorithm(AlgoStateMachine):
         self._queue = None
         
         # create the bars dispatch dictionaries
-        self.USER_FUNC_DISPATCH = {}
+        self._USER_FUNC_DISPATCH = {}
         self._BROKER_FUNC_DISPATCH = {}
         
         self._make_bars_dispatch()
@@ -490,7 +499,8 @@ class TradingAlgorithm(AlgoStateMachine):
             
     def _set_logger(self):
         self._logger = get_logger()
-        self._logger.tz = self.context.trading_calendar.tz
+        if self._logger:
+            self._logger.tz = self.context.trading_calendar.tz
         
     def log_info(self, msg):
         if self._logger:
@@ -519,6 +529,10 @@ class TradingAlgorithm(AlgoStateMachine):
             msg = f"unknown command {cmd.cmd}, will be ignored."
             self.log_warning(msg)
         
+    @command_method
+    def current_state(self):
+        print(self.state)
+    
     @command_method
     def pause(self, *args, **kwargs):
         try:

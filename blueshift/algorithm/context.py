@@ -25,6 +25,14 @@ from blueshift.configs import blueshift_run_get_name
 
 @blueprint
 class AlgoContext(object):
+    '''
+        The algorithm context acts as an interface to the input program
+        as well as a container for all necessary objects to run an algo.
+        The algorithm class implements just the logic of operations. 
+        Context encapsulates these objects. Primarily it tracks the data 
+        portal, broker api, algo clock, asset finder and authentication.
+        It also keeps track of portfolio (positions) and performance.
+    '''
     
     def __init__(self, *args, **kwargs):
         # name of the context. Good practice is to match the algo name

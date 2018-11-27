@@ -4,7 +4,7 @@ Created on Tue Nov 20 15:04:35 2018
 
 @author: prodipta
 """
-from enum import Enum, unique
+
 from transitions import Machine
 from blueshift.utils.decorators import blueprint
 from blueshift.utils.types import MODE, STATE

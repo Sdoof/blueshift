@@ -22,7 +22,7 @@ def api_method(f):
 
 def command_method(f):
     '''
-        decorator flag a method is a command method in the algorithm.
+        decorator to flag a method as a command method in the algorithm.
     '''
     f.is_command = True
     return f
