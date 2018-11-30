@@ -1,4 +1,16 @@
-# -*- coding: utf-8 -*-
+# Copyright 2018 QuantInsti Quantitative Learnings Pvt Ltd.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 Created on Mon Oct 15 23:25:53 2018
 
@@ -217,7 +229,8 @@ class AlgoContext(object):
         self.__broker_tuple = Broker(self.__auth, self.__asset_finder,
                                      self.__data_portal,
                                      self.__broker_api,
-                                     self.__clock)
+                                     self.__clock, 
+                                     self.__broker_api._mode_supports)
         
         # authentication object can be null for backtester
         if self.__asset_finder and self.__data_portal and\

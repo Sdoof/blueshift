@@ -1,4 +1,16 @@
-# -*- coding: utf-8 -*-
+# Copyright 2018 QuantInsti Quantitative Learnings Pvt Ltd.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 Created on Mon Oct 29 16:27:45 2018
 
@@ -31,7 +43,7 @@ from blueshift.trades._order_types import (ProductType,
 from blueshift.trades._order import Order
 from blueshift.utils.decorators import api_rate_limit, singleton, blueprint
 from blueshift.utils.general_helpers import OnetoOne
-from blueshift.utils.types import BrokerType
+from blueshift.utils.types import BrokerType, MODE
 
 class ResponseType(Enum):
     SUCCESS = "success"
@@ -66,10 +78,17 @@ class KiteBroker(AbstractBrokerAPI):
                  broker_type:BrokerType=BrokerType.RESTBROKER, 
                  calendar:TradingCalendar=None,
                  **kwargs):
-        
+        self._create(name, broker_type, calendar, **kwargs)
+            
+    def _create(self, 
+                 name:str="kite", 
+                 broker_type:BrokerType=BrokerType.RESTBROKER, 
+                 calendar:TradingCalendar=None,
+                 **kwargs):
         check_input(KiteBroker.__init__, locals())
         super(self.__class__, self).__init__(name, broker_type, calendar,
                                              **kwargs)
+        self._mode_supports = [MODE.LIVE]
         self._auth = kwargs.pop("auth",None)
         self._asset_finder = kwargs.pop("asset_finder",None)
         self._api = None
@@ -105,7 +124,7 @@ class KiteBroker(AbstractBrokerAPI):
         self._closed_positions = []
         
         self._account = EquityAccount(self._name,0.01)
-            
+    
     def __str__(self):
         return 'Blueshift Broker [name:%s, type:%s]'%(self._name, self._type)
     

@@ -1,4 +1,16 @@
-# -*- coding: utf-8 -*-
+# Copyright 2018 QuantInsti Quantitative Learnings Pvt Ltd.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 Created on Mon Oct 29 16:27:37 2018
 
@@ -6,7 +18,6 @@ Created on Mon Oct 29 16:27:37 2018
 """
 
 import json
-import pandas as pd
 from requests.exceptions import RequestException
 
 from kiteconnect import KiteConnect
@@ -33,6 +44,9 @@ class KiteConnect3(APIRateLimitMixin, KiteConnect):
         kiteconnect modified to force a singleton (and to print pretty).
     '''
     def __init__(self, *args, **kwargs):
+        self._create(*args, **kwargs)
+    
+    def _create(self, *args, **kwargs):
         # pylint: disable=bad-super-call
         #super(self.__class__, self).__init__(*args, **kwargs)
         api_key = kwargs.pop('api_key',None)
@@ -92,6 +106,9 @@ class KiteAuth(TokenAuth):
     '''
     # pylint: disable=too-many-instance-attributes
     def __init__(self, *args, **kwargs):
+        self._create(*args, **kwargs)
+    
+    def _create(self, *args, **kwargs):
         config = None
         config_file = kwargs.pop('config',None)
         if config_file:
@@ -120,7 +137,7 @@ class KiteAuth(TokenAuth):
                                  rate_limit=kwargs.pop("rate_limit",None),
                                  **kwargs)
         self._trading_calendar = self._api._trading_calendar
-        
+    
     @property
     def api_key(self):
         return self._api_key

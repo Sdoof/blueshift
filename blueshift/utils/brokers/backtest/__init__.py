@@ -1,4 +1,16 @@
-# -*- coding: utf-8 -*-
+# Copyright 2018 QuantInsti Quantitative Learnings Pvt Ltd.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 Created on Fri Nov  9 13:50:36 2018
 
@@ -16,7 +28,7 @@ from blueshift.execution._clock import SimulationClock
 from blueshift.utils.exceptions import InitializationError
 from blueshift.utils.types import Broker, BrokerType
 
-def make_broker_pack(name, *args, **kwargs):
+def make_broker_pack(*args, **kwargs):
     auth = None
     trading_calendar = kwargs.get("trading_calendar",None)
     initial_capital = kwargs.get("initial_capital",None)
@@ -51,8 +63,8 @@ def BackTest(*args, **kwargs):
     name = kwargs.pop("name","blueshift")
     auth, asset_finder, data_portal, broker, clock =\
             make_broker_pack(name, *args, **kwargs)
-                
-    backtest = Broker(auth, asset_finder, data_portal, broker, clock)
+    modes = broker._mode_supports
+    backtest = Broker(auth, asset_finder, data_portal, broker, clock, modes)
     
     return backtest
 

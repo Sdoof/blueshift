@@ -1,8 +1,23 @@
-# -*- coding: utf-8 -*-
+# Copyright 2018 QuantInsti Quantitative Learnings Pvt Ltd.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 Created on Tue Nov 13 09:00:35 2018
 
 @author: prodipta
+
+does the background object building and defines run_algo.
+
 """
 from os.path import isabs, join, isfile, expanduser, basename, dirname
 from os import environ as os_environ
@@ -10,13 +25,11 @@ from sys import exit as sys_exit
 import pandas as pd
 import click
 
-
 from blueshift.configs import (BlueShiftConfig, register_config,
                                blueshift_source_path,
                                get_config_calendar_details,
                                blueshift_data_path,
-                               get_config_backtest_details,
-                               get_config_livetrade_details,
+                               get_config_broker_details,
                                get_config_env_vars,
                                blueshit_run_set_name)
 from blueshift.alerts import (BlueShiftLogger, 
@@ -29,8 +42,6 @@ from blueshift.utils.types import MODE
 from blueshift.api import (get_broker, get_calendar,
                                      register_calendar,
                                      register_broker)
-from blueshift.utils.calendars.trading_calendar import (
-                                            TradingCalendar)
 from blueshift.utils.exceptions import (InitializationError, 
                                         BlueShiftException)
 from blueshift.utils.decorators import singleton, blueprint
@@ -179,7 +190,6 @@ class BlueShiftEnvironment(object):
         business_days = cal_dict['business_days']
         weekends = cal_dict['weekends']
         holidays = cal_dict['holidays']
-        trading_calendar = None
         
         if business_days:
             if not isabs(business_days) and not isfile(business_days):
@@ -193,16 +203,13 @@ class BlueShiftEnvironment(object):
                 msg = "business days file does not exists."
                 raise InitializationError(msg=msg)
             
-            dts = pd.read_csv(business_days, parse_dates=True)
-            dts = pd.to_datetime(dts.iloc[:,0].tolist())
+            business_days = pd.read_csv(business_days, parse_dates=True)
+            business_days = pd.to_datetime(business_days.iloc[:,0].tolist())
         
-            trading_calendar = TradingCalendar(name,tz=tz, bizdays=dts,
-                                       opens=opens, closes=closes,
-                                       weekends=weekends)
-        else:
-            trading_calendar = TradingCalendar(name,tz=tz, opens=opens, 
-                                               closes=closes,
-                                               weekends=weekends)
+            
+        register_calendar(name,tz=tz, bizdays=business_days, opens=opens, 
+                          closes=closes, weekends=weekends)
+        cal = get_calendar(name)
         
         if holidays:
             if not isabs(holidays) and not isfile(holidays):
@@ -217,79 +224,30 @@ class BlueShiftEnvironment(object):
             
             dts = pd.read_csv(holidays, parse_dates=True)
             dts = pd.to_datetime(dts.iloc[:,0].tolist())
-            trading_calendar.add_holidays(dts)
-            
-        register_calendar(name,trading_calendar)
+            cal.add_holidays(dts)
         
-        self.trading_calendar = get_calendar(name)
-
+        self.trading_calendar = cal
+        
     def create_broker(self, *args, **kwargs):
         '''
             Create the broker object based on name mapping to a 
             particular broker module under utils/brokers/.
         '''                    
-        if self.mode == MODE.BACKTEST:
-            backtest_dict = get_config_backtest_details()
-            name = backtest_dict['backtester_name']
-            start_date = backtest_dict['start']
-            end_date = backtest_dict['end']
-            frequency = backtest_dict['backtest_frequency']
-            initial_capital = backtest_dict['initial_capital']
-            
-            register_broker(name,start_date=start_date, 
-                            end_date=end_date, 
-                            trading_calendar=self.trading_calendar,
-                            initial_capital=initial_capital,
-                            frequency=frequency)
+        brkr_dict = get_config_broker_details()
+        factory_name = brkr_dict.pop("factory")
+        name = brkr_dict["name"]
         
-        elif self.mode == MODE.LIVE:
-            live_dict = get_config_livetrade_details()
-            name = live_dict['broker_name']
-            api_key = live_dict['api_key']
-            api_secret = live_dict['api_secret']
-            user_id = live_dict['broker_id']
-            rate_limit = live_dict['rate_limit']
-            rate_period = live_dict['rate_period']
-            timeout = live_dict['login_reset_time']
-            frequency = live_dict['live_frequency']
-            
-            request_token = kwargs.get('request_token',None)
-            auth_token = kwargs.get('auth_token',None)
-            
-            if not request_token and not auth_token:
-                # try to getch auth_token from env vars
-                auth_token = self.env_vars.get(
-                        "BLUESHIFT_BROKER_TOKEN",None)
-                if not auth_token:
-                    msg = "No authentication info given."
-                    raise InitializationError(msg=msg)
-            
-            if auth_token:
-                register_broker(name, api_key=api_key,
-                                api_secret=api_secret,
-                                user_id=user_id, rate_limit=rate_limit,
-                                rate_period=rate_period,timeout=timeout,
-                                trading_calendar=self.trading_calendar, 
-                                frequency=frequency,
-                                auth_token=auth_token)
-            else:
-                register_broker(name, api_key=api_key,
-                                api_secret=api_secret,
-                                user_id=user_id, rate_limit=rate_limit,
-                                rate_period=rate_period,timeout=timeout,
-                                trading_calendar=self.trading_calendar, 
-                                frequency=frequency,
-                                request_token=request_token)
-        else:
-            raise InitializationError(msg="Illegal mode supplied.")
-            
+        brkr_dict["trading_calendar"] = self.trading_calendar
+        brkr_dict["start_date"] = kwargs.pop("start_date", None)
+        brkr_dict["end_date"] = kwargs.pop("end_date", None)
+        brkr_dict["initial_capital"] = kwargs.pop("initial_capital", None)
         
+        register_broker(name, factory_name, **brkr_dict)
         self.broker_tuple = get_broker(name)
         
         if self.mode == MODE.LIVE:
             broker_token = self.broker_tuple.auth.auth_token
             self.env_vars["BLUESHIFT_BROKER_TOKEN"] = broker_token
-
 
 def run_algo(name, output, show_progress=False, publish=False, 
              *args, **kwargs):

@@ -1,21 +1,30 @@
-# -*- coding: utf-8 -*-
+# Copyright 2018 QuantInsti Quantitative Learnings Pvt Ltd.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
-Created on Tue Nov 13 14:40:36 2018
+Created on Tue Nov 13 09:00:35 2018
 
 @author: prodipta
+Main entry point 
 """
+
 import click
 from sys import exit as sys_exit
 from os import path as os_path
 from os import environ as os_environ
 from os import mkdir
 import json
-
-import sys
-import os
-current_dir = os.getcwd()
-if current_dir not in sys.path:
-    sys.path.append(current_dir)
 
 from blueshift.configs import generate_default_config
 from blueshift.utils.types import (HashKeyType, 
@@ -178,20 +187,23 @@ def config(ctx, root, timezone, broker, broker_id, broker_key,
     help='Run mode [backtest, live].',
     )
 @click.option(
-    '-n',
+    '--broker',
+    default=None,
+    type=click.STRING,
+    help='Choose the broker to run this strategy.',
+    )
+@click.option(
     '--name',
     default='myalgo',
     help='Name of this run',
     )
 @click.option(
-    '-p',
     '--platform',
     default='blueshift',
     type=click.Choice(['blueshift', 'api', 'stand-alone']),
     help='Platform type. [blueshift, api, stand-alone]',
     )
 @click.option(
-    '-o',
     '--output',
     default=None,
     type=click.Path(file_okay=True, writable=True),
@@ -208,8 +220,8 @@ def config(ctx, root, timezone, broker, broker_id, broker_key,
 @click.argument('arglist', nargs=-1, type=click.STRING)
 @click.pass_context
 def run(ctx, start_date, end_date, initial_capital, 
-        algo_file, run_mode, name, platform, output, show_progress, publish, 
-        arglist):
+        algo_file, run_mode, broker, name, platform, output, show_progress, 
+        publish, arglist):
     '''
         Set up the context and trigger the run.
     '''
@@ -226,6 +238,7 @@ def run(ctx, start_date, end_date, initial_capital,
                                                initial_capital=\
                                                    initial_capital,
                                                mode=run_mode,
+                                               broker=broker,
                                                *args,**kwargs)
         
         run_algo(name, output, show_progress, publish,

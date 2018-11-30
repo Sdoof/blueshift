@@ -1,4 +1,16 @@
-# -*- coding: utf-8 -*-
+# Copyright 2018 QuantInsti Quantitative Learnings Pvt Ltd.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 Created on Wed Oct  3 10:00:58 2018
 
@@ -16,11 +28,11 @@ from blueshift.assets._assets import create_asset_from_dict
 from blueshift.utils.cutils import check_input
 from blueshift.utils.exceptions import SymbolNotFound
 from blueshift.utils.decorators import blueprint
+from blueshift.configs import blueshift_data_path
 
 # TODO: add instrument id in hash, also add search by instrument id
 
 LRU_CACHE_SIZE = 4096
-
 
 class AssetDBConfiguration(object):
     '''
@@ -34,7 +46,8 @@ class AssetDBConfiguration(object):
     def __init__(self, *args, **kwargs):
         self.type = kwargs.get("db_type","csv")
         self.conn_string = kwargs.get("conn_string",".")
-        self.db_name = kwargs.get("db_name","asset_db.csv")
+        self.db_name = kwargs.get("db_name",
+                                  os_path.join(blueshift_data_path(),"asset_db.csv"))
         self.sym_map = kwargs.get("sym_map",None)
         self.table_name = kwargs.get("table_name","asset_db.csv")
         

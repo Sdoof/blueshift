@@ -1,4 +1,16 @@
-# -*- coding: utf-8 -*-
+# Copyright 2018 QuantInsti Quantitative Learnings Pvt Ltd.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 Created on Fri Oct 19 08:43:56 2018
 
@@ -47,7 +59,7 @@ _default_config =\
     "backtester_name":"blueshift",
     "start": "2010-01-04",
     "end": "2018-01-04",
-    "backtest_frequency": 1,
+    "frequency": 1,
     "initial_capital": 10000
   },
   # live broker configuration for the algo
@@ -59,7 +71,7 @@ _default_config =\
     "rate_limit": 2,
     "rate_period": 1,
     "login_reset_time": [8,45],
-    "live_frequency": 1
+    "frequency": 1
   },
   # calendar configuration for the algo
   "calendar": {
@@ -248,29 +260,22 @@ def get_config_calendar_details():
     if config:
         cal_dict = config.calendar
     else:
-        cal_dict = _default_config["calendar"]
+        default_cal = _default_config["defaults"]["calendar"]
+        cal_dict = _default_config["calendars"][default_cal]
         
     return cal_dict
 
-def get_config_backtest_details():
+def get_config_broker_details():
     config = get_config()
     
     if config:
-        bt_dict = config.backtester
+        brkr_dict = config.broker
     else:
-        bt_dict = _default_config["backtester"]
-        
-    return bt_dict
+        default_brkr = _default_config["defaults"]["broker"]
+        brkr_dict = _default_config["brokers"][default_brkr]
 
-def get_config_livetrade_details():
-    config = get_config()
-    
-    if config:
-        lt_dict = config.live_broker
-    else:
-        lt_dict = _default_config["live_broker"]
         
-    return lt_dict
+    return brkr_dict
 
 def get_config_env_vars(var_name=None):
     config = get_config()

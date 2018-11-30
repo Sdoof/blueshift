@@ -1,4 +1,16 @@
-# -*- coding: utf-8 -*-
+# Copyright 2018 QuantInsti Quantitative Learnings Pvt Ltd.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 Created on Mon Nov 12 10:17:03 2018
 
@@ -16,7 +28,7 @@ from blueshift.utils.exceptions import (InitializationError,
 class BlueShiftConfig(object):
     
     def __init__(self, config_file=None, *args, **kwargs):
-        self.load_config(config_file, *args, **kwargs)
+        self._create(config_file, *args, **kwargs)
     
     def to_dict(self):
         '''
@@ -39,7 +51,7 @@ class BlueShiftConfig(object):
             msg='missing config file {config_file}'
             raise ValidationError(msg=msg)
             
-    def load_config(self, config_file=None, *args, **kwargs):
+    def _create(self, config_file=None, *args, **kwargs):
         '''
             Read the supplied config file, or generate a default config,
             In case more named arguments are supplied as keywords, use
@@ -55,16 +67,22 @@ class BlueShiftConfig(object):
         else:
             msg='missing config file {config_file}'
             raise InitializationError(msg=msg)
-            
+        
+        calendar = kwargs.pop("calendar", None)
+        if not calendar:
+            calendar = config["defaults"]["calendar"]
+        broker = kwargs.pop("broker", None)
+        if not broker:
+            broker = config["defaults"]["broker"]
+        
         self.algo = config['algo']
         self.owner = config['owner']
         self.platform = config['platform']
         self.contact = config['contact']
         self.user_space = config['user_workspace']
         self.alerts = config['alerts']
-        self.backtester = config['backtester']
-        self.live_broker = config['live_broker']
-        self.calendar = config['calendar']
+        self.broker = config['brokers'][broker]
+        self.calendar = config['calendars'][calendar]
         self.channels = config['channels']
         self.risk_management = config['risk_management']
         self.recovery = config['error_handling']
@@ -82,14 +100,17 @@ class BlueShiftConfig(object):
         '''
         if not isinstance(self.__dict__[var], dict):
             self.__dict__[var] = self.list_to_tuple(
-                    kwargs.get(var, self.__dict__[var]))
+                    kwargs.pop(var, self.__dict__[var]))
         else:
             for key in self.__dict__[var]:
                 self.__dict__[var][key] = self.list_to_tuple(
-                        kwargs.get(key, self.__dict__[var][key]))
+                        kwargs.pop(key, self.__dict__[var][key]))
     
     @staticmethod
     def list_to_tuple(val):
+        '''
+            To make calendar creation input compatible.
+        '''
         if isinstance(val, list):
             return tuple(val)
         return val
