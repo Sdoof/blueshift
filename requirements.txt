@@ -1,0 +1,40 @@
+# DO NOT USE ANY ENVIRONMENT MARKERS... setup will fail!!
+# Dev machine PIP version - update it. Also we require python>=3.6
+pip>=10.0.0
+
+# to import cython requirement properly
+setuptools>=18.0
+
+# We drop panel data and go for multi-index
+pandas>=0.22.0
+numpy>=1.14.0
+
+# for finite state machine
+transitions>=0.6.0
+
+# for attempting restart on crash
+psutil>=5.4.0
+
+# for cython routines
+cython>=0.28.0
+
+
+# some calendar utility
+pytz>=2018.0
+
+# for command line entry point
+click>=6.7
+
+# for message and command channel communication
+pyzmq>=17.0.0
+
+# for database interaction
+sqlalchemy>=1.2.0
+pymongo>=3.7.0
+bcolz>=1.2.0
+
+# for broker APIs
+requests>=2.18.0
+
+# implemented brokers' packages
+kiteconnect
