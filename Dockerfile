@@ -6,7 +6,7 @@ MAINTAINER Quantra Blueshift <blueshift-support@quantinsti.com>
 
 ENV PYTHONPATH "${PYTHONPATH}:/blueshift"
 
-COPY .requirements.txt /blueshift/requirements.txt
+COPY requirements.txt /blueshift/requirements.txt
 COPY ./dist/blueshift-0.0.1.tar.gz /blueshift/blueshift-0.0.1.tar.gz
 WORKDIR /blueshift
 
