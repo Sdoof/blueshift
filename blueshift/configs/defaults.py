@@ -54,34 +54,43 @@ _default_config =\
     "third_party_msg": ["email"],
     "tag": "blueshift"
   },
-  # backtest API description for the algo
-  "backtester":{
-    "backtester_name":"blueshift",
-    "start": "2010-01-04",
-    "end": "2018-01-04",
-    "frequency": 1,
-    "initial_capital": 10000
-  },
-  # live broker configuration for the algo
-  "live_broker":{
-    "broker_name": "zerodha", 
-    "api_key": "xxx", 
-    "api_secret": "yyy", 
-    "broker_id": "zzz",
-    "rate_limit": 2,
-    "rate_period": 1,
-    "login_reset_time": [8,45],
-    "frequency": 1
+  # default broker and calendar name
+  "defaults": {
+    "calendar":"NSE_EQ",
+    "broker":"backtest"
+  },        
+  # list of recognized brokers
+  "brokers": {
+    "backtest": {
+        "name": "blueshift",  
+        "frequency": 1, 
+        "factory":"backtest"
+    }, 
+    "zerodha": {
+      "name": "zerodha", 
+      "frequency": 1, 
+      "factory":"zerodha", 
+      "api_key": None, 
+      "api_secret": None, 
+      "broker_id": "DP2026", 
+      "rate_limit": 2, 
+      "rate_period": 1, 
+      "timeout": [8, 45], 
+      "request_token": None, 
+      "auth_token": None
+      }
   },
   # calendar configuration for the algo
-  "calendar": {
-    "tz": "Asia/Calcutta",
-    "cal_name": "NSE_EQ",
-    "holidays": "nse_holidays.csv",
-    "opens": [9,15,0],
-    "closes": [3,30,0],
-    "business_days": None,
-    "weekends": [5,6]
+  "calendars": {
+    "NSE_EQ": {
+      "tz": "Asia/Calcutta",
+      "cal_name": "NSE_EQ", 
+      "holidays": "nse_eq_holidays.csv", 
+      "opens": [9, 15, 0], 
+      "closes": [15, 30, 0], 
+      "business_days": None, 
+      "weekends": [5, 6]
+    }
   },
   # command control channel specification
   "channels":{
