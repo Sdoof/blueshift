@@ -2,3 +2,6 @@ include *.txt
 include *.md
 
 recursive-include blueshift/resources *.*
+recursive-include blueshift *.pyx
+recursive-include blueshift *.pxd
+recursive-include blueshift *.c

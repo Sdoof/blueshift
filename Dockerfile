@@ -15,8 +15,9 @@ RUN apk add make cmake gcc g++ gfortran libffi openssl linux-headers
 RUN apk add libffi-dev openssl-dev build-base python3-dev py3-pip 
 RUN pip install cython
 RUN pip install numpy
+RUN pip install setuptools-scm
 RUN pip install -r requirements.txt
 RUN pip install blueshift-0.0.1.tar.gz
 
-#ENTRYPOINT ["blueshift"]
+#ENTRYPOINT ["/bin/sh"]
 CMD ["/bin/sh"]

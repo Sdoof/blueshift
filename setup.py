@@ -6,7 +6,7 @@ Created on Thu Nov 29 17:09:36 2018
 """
 import os
 from setuptools import setup, find_packages, Extension
-from Cython.Distutils import build_ext 
+from setuptools.command.build_ext import build_ext as _build_ext
     
 # lazy loading of cython, see below:
 # https://stackoverflow.com/questions/37471313/setup-requires-with-cython 
@@ -33,7 +33,7 @@ def install_requires():
     return list(set([r for r in parse_requirements('requirements.txt')]))
 
 # custom build extension for numpy
-class BlueshiftBuildExt(build_ext):
+class BlueshiftBuildExt(_build_ext):
     '''
         build_ext command for use when numpy headers are needed.
         see https://stackoverflow.com/questions/2379898/make\
@@ -42,9 +42,9 @@ class BlueshiftBuildExt(build_ext):
     def run(self):
         import numpy
         self.include_dirs.append(numpy.get_include())
-        build_ext.run(self)
+        _build_ext.run(self)
 
-
+print(f"working dir is {os.getcwd()}")
 ext_modules = [
         Extension('blueshift.assets._assets', ['blueshift/assets/_assets.pyx']),
         Extension('blueshift.blotter._accounts', ['blueshift/blotter/_accounts.pyx']),
