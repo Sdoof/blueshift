@@ -170,7 +170,7 @@ class BlueShiftEnvironment(object):
             algo_file = join(user_root, user_code_dir, algo_file)
             
         if not isfile(algo_file):
-            raise InitializationError(msg="algo file does not exists.")
+            raise InitializationError(msg=f"algo file {algo_file} does not exists.")
         
         # TODO: add local import replacement to support multi-file
         # projects. No mods required for PYTHONPATH.
@@ -200,7 +200,7 @@ class BlueShiftEnvironment(object):
                                      business_days)
             
             if not isfile(business_days):
-                msg = "business days file does not exists."
+                msg = f"business days file {business_days} does not exists."
                 raise InitializationError(msg=msg)
             
             business_days = pd.read_csv(business_days, parse_dates=True)
@@ -219,7 +219,7 @@ class BlueShiftEnvironment(object):
                 holidays = join(user_root, user_data_dir, holidays)
             
             if not isfile(holidays):
-                msg = "holidays file does not exists."
+                msg = f"holidays file {holidays} does not exists."
                 raise InitializationError(msg=msg)
             
             dts = pd.read_csv(holidays, parse_dates=True)
