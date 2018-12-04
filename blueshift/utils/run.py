@@ -96,7 +96,6 @@ class BlueShiftEnvironment(object):
             mode = self.RUN_MODE_MAP.get(mode,mode)
             self.mode = mode
             self.create_broker(*args, **kwargs)
-            
             self.save_env_vars()
         except BlueShiftException as e:
             click.secho(str(e), fg="red")
@@ -117,8 +116,8 @@ class BlueShiftEnvironment(object):
             config_file = join(expanduser('~'), '.blueshift',
                                '.blueshift_config.json')
         
-        config = BlueShiftConfig(config_file=config_file, 
-                                      *args, **kwargs)
+        
+        config = BlueShiftConfig(config_file, *args, **kwargs)
         register_config(config)
         
         self.env_vars["BLUESHIFT_API_KEY"] = \

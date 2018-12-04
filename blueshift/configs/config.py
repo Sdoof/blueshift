@@ -27,7 +27,7 @@ from blueshift.utils.exceptions import (InitializationError,
 @blueprint
 class BlueShiftConfig(object):
     
-    def __init__(self, config_file=None, *args, **kwargs):
+    def __init__(self, config_file, *args, **kwargs):
         self._create(config_file, *args, **kwargs)
     
     def to_dict(self):
@@ -51,7 +51,7 @@ class BlueShiftConfig(object):
             msg='missing config file {config_file}'
             raise ValidationError(msg=msg)
             
-    def _create(self, config_file=None, *args, **kwargs):
+    def _create(self, config_file, *args, **kwargs):
         '''
             Read the supplied config file, or generate a default config,
             In case more named arguments are supplied as keywords, use

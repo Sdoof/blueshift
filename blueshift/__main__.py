@@ -128,11 +128,6 @@ def config(ctx, root, timezone, broker, broker_id, broker_key,
         config['owner'] = os_environ.get('USERNAME')
         config['api_key'] = ctx.obj.get('api_key', None)
         config['user_workspace']['root'] = root
-        config['live_broker']['broker_name'] = broker
-        config['live_broker']['api_key'] = broker_key
-        config['live_broker']['api_secret'] = broker_secret
-        config['live_broker']['broker_id'] = broker_id
-        config['calendar']['tz'] = timezone
         
         # create all directories in root if they do not exists already
         for d in config['user_workspace']:
