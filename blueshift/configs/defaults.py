@@ -72,7 +72,7 @@ _default_config =\
       "factory":"zerodha", 
       "api_key": None, 
       "api_secret": None, 
-      "broker_id": "DP2026", 
+      "broker_id": None, 
       "rate_limit": 2, 
       "rate_period": 1, 
       "timeout": [8, 45], 
