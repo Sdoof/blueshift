@@ -73,8 +73,6 @@ class AssetDBConfiguration(object):
         d = json.loads(jsonstr)
         return cls(**d)
 
-        
-
 class AssetDBQueryInterface(ABC):
     '''
         ABC for the asset db implementation interface. Any type of

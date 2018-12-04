@@ -67,6 +67,7 @@ def days_to_nano(dts, tz, weekends):
         convert a list of bizdays to a list of sessions in nanos
     '''
     dtsn = []
+    # TODO: optimize this function
     if dts is None:
         start = make_consistent_tz(START_DATE, tz)
         end = make_consistent_tz(END_DATE, tz)
