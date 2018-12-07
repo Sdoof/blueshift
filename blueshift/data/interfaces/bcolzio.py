@@ -19,11 +19,14 @@ Created on Thu Dec  6 09:50:26 2018
 
 from os import path as os_path
 import numpy as np
+import pandas as pd
 import bcolz
 
 
 from blueshift.configs.defaults import ensure_directory
-from blueshift.data.ingestors.utils import dataframe_hash
+from blueshift.data.interfaces.interface import DataWriter, DataReader
+from blueshift.data.interfaces.utils import dataframe_hash
+from blueshift.utils.types import NANO_SECOND
 
 '''
     We define asset ids to be upto 6 digit (so max possible is 999999)
@@ -34,11 +37,17 @@ class BcolzSchema(object):
         first as daily vs minute sub-dirs at first level, followed by asset level
         prefixes (six digits, split into XX-XX-XX.bcolz).
     '''
-    def __init__(self, root, prefixes=[], max_assets=6, sid_splits=[2,2]):
+    def __init__(self, root, prefixes=[], max_assets=6, sid_splits=[2,2],
+                 expectedlen=0):
         self._root = root
         self._max_sid_digits = max_assets
         self._sid_split_levels = sid_splits
         self._prefixes = prefixes
+        self._expectedlen = expectedlen
+        if expectedlen == 0:
+            # see http://bcolz.blosc.org/en/latest/opt-tips.html
+            ##informing-about-the-length-of-your-carrays
+            self._expectedlen = 500*252*15
         
     def map_sid_to_path(self, sid):
         chrsid = str(sid).zfill(self._max_sid_digits)
@@ -57,19 +66,21 @@ class BcolzSchema(object):
         except (ValueError, TypeError):
             raise ValueError("not valid path")
             
-    def __str__(self):
-        return f"Blueshift BColz Schema, root:{self._root}"
-    
-    def __repr__(self):
-        return self.__str__()
+    def write_dataframes(self, sids, *args, **kwargs):
+        pass
 
 
-class BColzWriter(object):
+class BColzWriter(DataWriter):
     '''
-        serialize data to bcolz. Data must be in the form of numpy array
+        serialize data to bcolz. Data must be in the form of dataframe
         (or convertible to such) and integer (signed 32).
     '''
+    INDEX_NAME = 'timestamp'
+    SCALE_KEY = 'scaling'
+    NOSCALE_KEY = 'noscale'
+    
     def __init__(self, ncols, names, meta_data={}, *args, **kwargs):
+        self._type = 'BColz'
         self._ncols = ncols
         self._colnames = names
         self._meta_data = meta_data
@@ -89,11 +100,12 @@ class BColzWriter(object):
         sid_dir = os_path.dirname(sid_path)
         ensure_directory(sid_dir)
         ncols = self._ncols + 1 # for timestamp column
-        colnames = ['timestamp'] + self._colnames
+        colnames = [self.INDEX_NAME] + self._colnames
         columns = [np.empty(0, np.int32)]*ncols
         
         ct = bcolz.ctable(rootdir = sid_path, columns = columns, 
-                          names=colnames, mode='w')
+                          names=colnames, 
+                          expectedlen=self._schema._expectedlen, mode='w')
         
         for key in self._meta_data:
             ct.attrs[key] = self._meta_data[key]
@@ -113,7 +125,7 @@ class BColzWriter(object):
             ct.attr[key] = self._meta_data[key]
         ct.flush()
         
-    def _write_dataframe(self, sid, df):
+    def write_dataframe(self, sid, df):
         ct = self._ensure_ctable(sid)
         current_hash = dataframe_hash(df)
         try:
@@ -128,11 +140,48 @@ class BColzWriter(object):
         ct.append(cols)
         ct.attrs['hash'] = current_hash
         ct.flush()
-    
-    def __str__(self):
-        return f"Blueshift BColz Writer, root:{self._schema._root}"
-    
-    def __repr__(self):
-        return self.__str__()
         
+class BColzReader(DataReader):
+    '''
+        de-serialize data to bcolz. Data must be in the form of numpy array
+        (or convertible to such) and integer (signed 32).
+    '''
+    INDEX_NAME = 'timestamp'
+    SCALE_KEY = 'scaling'
+    NOSCALE_KEY = 'noscale'
+    
+    def __init__(self, schema, *args, **kwargs):
+        self._type = 'BColz'
+        self._schema = schema
+        
+    def read_dataframe(self, sid):
+        sid_path = self._schema.map_sid_to_path(sid)
+        try:
+            ct = bcolz.ctable(rootdir=sid_path)
+            scale = ct.attrs[self.SCALE_KEY]
+            try:
+                no_scale_cols = ct.attrs[self.NOSCALE_KEY]
+            except KeyError:
+                no_scale_cols = None
+            return self._to_dataframe(ct, scale, no_scale_cols)
+        except:
+            ValueError(f"{sid} could not be found.")
+            
+    def _to_dataframe(self, ct, scale, no_scale_cols=None):
+        df = ct.todataframe()
+        df[self.INDEX_NAME] = pd.to_datetime(df[self.INDEX_NAME].\
+                                  astype(np.int64)*NANO_SECOND)
+        
+        df = df.set_index(self.INDEX_NAME)
+        
+        names = ct.names.copy()
+        names.remove(self.INDEX_NAME)
+        
+        for col in names:
+            if no_scale_cols:
+                if col in no_scale_cols:
+                    continue
+            df[col] = df[col]/scale
+            
+        return df
         

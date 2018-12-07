@@ -24,6 +24,8 @@ import pandas as pd
 from datetime import datetime
 from enum import Enum, unique
 
+NANO_SECOND = 1000000000
+
 '''
     Sentinel for a generic function.
 '''

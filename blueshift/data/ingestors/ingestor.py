@@ -16,13 +16,13 @@ Created on Wed Dec  5 10:32:40 2018
 
 @author: prodipta
 """
-import os
 import pandas as pd
 import numpy as np
 from collections import namedtuple
 from abc import ABC, abstractmethod
 
 from blueshift.assets._assets import MktDataType
+from blueshift.utils.types import NANO_SECOND
 
 '''
     Transformation defines a structure to apply a transformation column
@@ -125,12 +125,18 @@ class OHLCVCSVtoBColzIngestor(Ingestor):
         return out_df
     
     def integer_conversion(self, df):
+        '''
+            We convert all data to int32 for bcolz. Timestamps are converted
+            to nano and then to seconds since epoch and saved as int32. All
+            floats are multipleid by scale factor and saved as int32. If a
+            column is not convertable (like text) we leave it as is.
+        '''
         scale_factor = self._scale_factor
         
         for c in df.columns:
             if c=='timestamp':
                 df.loc[:,c] = df[c].astype(np.int64)
-                df.loc[:,c] = (df[c]/1000000000).astype(np.int32)
+                df.loc[:,c] = (df[c]/NANO_SECOND).astype(np.int32)
                 continue
             
             if df[c].dtype not in self._convert_dtypes:

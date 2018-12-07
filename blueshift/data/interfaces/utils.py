@@ -19,8 +19,6 @@ Created on Thu Dec  6 09:20:52 2018
 import pandas as pd
 from hashlib import md5
 
-LARGE_PRIME = 68718952447 # carol prime!!
-
 def merge_date_time(x:pd.Timestamp,y:pd.Timestamp):
     '''
         This function takes in a date part (as naive timestamp) and a 
@@ -44,7 +42,7 @@ def no_change(value):
     return value
 
 def dataframe_hash(df):
-    first_row = ''.join([str(e) for e in df.iloc[1].tolist()])
+    first_row = ''.join([str(e) for e in df.iloc[0].tolist()])
     last_row = ''.join([str(e) for e in df.iloc[-1].tolist()])
     checksum = (first_row + last_row).encode()
     return md5(checksum).hexdigest()

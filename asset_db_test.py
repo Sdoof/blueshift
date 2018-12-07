@@ -71,11 +71,11 @@ df.iloc[:,:18].to_sql('equities', con=engine, if_exists='append', chunksize=50)
 '''
 import os
 from blueshift.data.ingestors.ingestor import OHLCVCSVtoBColzIngestor,DataTransform
-from blueshift.data.ingestors.utils import merge_date_time, no_change, one
-from blueshift.data.ingestors.bcolzio import BColzWriter, BcolzSchema
+from blueshift.data.interfaces.utils import merge_date_time, no_change, one
+from blueshift.data.interfaces.bcolzio import BColzWriter, BcolzSchema, BColzReader
 
 strpath = 'C:/Users/academy.academy-72/Desktop/dev platform/data/GDFL/data'
-strfile = 'GFDLCM_INDICES_17042018.csv'
+strfile = 'GFDLCM_STOCK_16042018.csv'
 root_dir = os.path.expanduser('~/.blueshift/data/gdfl.bcolz')
     
 input_cols = ['Ticker', 'Date', 'Time', 'Open', 'High', 'Low', 
@@ -107,13 +107,17 @@ schema = BcolzSchema(root=os.path.expanduser('~/.blueshift/bcolz'),
 
 writer = BColzWriter(ncols=6, 
                      names=["open","high","low","close","volume","adj_ratio"], 
-                     meta_data={"scaling":10000}, 
+                     meta_data={"scaling":10000,'noscale':['volume']}, 
                      schema=schema)
 
 sid = 1
 for sym, data, freq in converter.read_large_csv(source):
-    writer._write_dataframe(sid, data)
+    writer.write_dataframe(sid, data)
     sid = sid + 1
+
+
+reader = BColzReader(schema=schema)
+df = reader.read_dataframe(6)
 
 import bcolz
 ct = bcolz.ctable(rootdir=os.path.expanduser('~/.blueshift/bcolz/minute/00/00/000001.bcolz'))
