@@ -185,3 +185,10 @@ class BColzReader(DataReader):
             
         return df
         
+    def _read_field(self, sid, field):
+        sid_path = self._schema.map_sid_to_path(sid)
+        ts_path = os_path.join(sid_path, self.INDEX_NAME)
+        f_path = os_path.join(sid_path, field)
+        
+        
+        

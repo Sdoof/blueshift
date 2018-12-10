@@ -659,7 +659,7 @@ class TradingAlgorithm(AlgoStateMachine):
                 
         return all(_can_trade)
         
-    
+    # TODO: cythonize the creation of order
     @api_method
     def order(self, asset, quantity, 
               limit_price=0, stop_price=0, style=None):
