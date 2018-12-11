@@ -84,7 +84,7 @@ class singleton(object):
             tmp_ref = self.cls(*args,**kwargs)
             self.__instance = weakref_ref(tmp_ref)
         else:
-            self.__instance._create(*args,**kwargs)
+            self.__instance()._create(*args,**kwargs)
         
         return self.__instance()
 
