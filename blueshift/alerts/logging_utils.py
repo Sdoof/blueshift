@@ -114,7 +114,7 @@ class BlueShiftLogger(object):
     def __repr__(self):
         return self.__str__()
     
-    def info(self, msg, module, *args, **kwargs):
+    def info(self, msg, module=None, *args, **kwargs):
         msg="in "+module+":"+msg
         
         mode = kwargs.pop('mode', None)
@@ -125,7 +125,7 @@ class BlueShiftLogger(object):
             
         self.logger.info(msg, extra={'myasctime':asctime})
         
-    def warning(self, msg, module, *args, **kwargs):
+    def warning(self, msg, module=None, *args, **kwargs):
         msg="in "+module+":"+msg
         
         mode = kwargs.pop('mode', None)
@@ -136,7 +136,10 @@ class BlueShiftLogger(object):
             
         self.logger.warn(msg, extra={'myasctime':asctime})
         
-    def error(self, msg, module, *args, **kwargs):
+    def warn(self, msg, module=None, *args, **kwargs):
+        self.warning(msg, module, *args, **kwargs)
+        
+    def error(self, msg, module=None, *args, **kwargs):
         msg="in "+module+":"+msg
         
         mode = kwargs.pop('mode', None)

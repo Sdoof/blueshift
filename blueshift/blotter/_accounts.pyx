@@ -128,7 +128,9 @@ cdef class Account:
         self.net = self.mtm + self.liquid_value
     
 cdef class BacktestAccount(Account):
-    
+    '''
+        back-testing account.
+    '''
     cpdef fund_transfer(self, float amount):
         if amount + self.cash < 0:
             raise InsufficientFund()
@@ -168,7 +170,24 @@ cdef class BacktestAccount(Account):
         self.margin = self.margin + amount
         
         
-cdef class EquityAccount(Account):
-    
+cdef class TradingAccount(Account):
+    '''
+        real trading account. Most of the stuff is already done by the 
+        broker.
+    '''
     cpdef reconcile(self, object trades, object positions):
         pass
+        
+cdef class EquityAccount(TradingAccount):
+    '''
+        Trading account for equity trading.
+    '''
+    pass
+    
+cdef class ForexAccount(TradingAccount):
+    '''
+        Trading account for equity trading.
+    '''
+    cpdef convert_currency(self, object currency):
+        pass
+    

@@ -47,6 +47,11 @@ cdef class BacktestAccount(Account):
     cpdef block_margin(self, float amount)
     cpdef release_margin(self, float amount)
     
-    
-cdef class EquityAccount(Account):
+cdef class TradingAccount(Account):
     cpdef reconcile(self, object trades, object positions)
+
+cdef class EquityAccount(TradingAccount):
+    pass
+
+cdef class ForexAccount(TradingAccount):
+    cpdef convert_currency(self, object currency)
