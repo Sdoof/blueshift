@@ -22,7 +22,7 @@ from enum import Enum
 
 from requests.exceptions import RequestException
 
-from kiteconnect.exceptions import KiteException, NetworkException
+from fxcmpy.fxcmpy import ServerError
 
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.execution.broker import AbstractBrokerAPI
@@ -50,8 +50,7 @@ class ResponseType(Enum):
     
 product_type_map = OnetoOne({'NRML':ProductType.DELIVERY, 
                     'MIS':ProductType.INTRADAY})
-order_validity_map = OnetoOne({'DAY':OrderValidity.DAY, 
-                    'IOC':OrderValidity.IOC,
+order_validity_map = OnetoOne({'DAY':OrderValidity.DAY,
                     'GTC':OrderValidity.GTC})
 order_flag_map = OnetoOne({'NORMAL':OrderFlag.NORMAL, 
                     'AMO':OrderFlag.AMO})
@@ -293,56 +292,57 @@ class FXCMBroker(AbstractBrokerAPI):
             an asset understood by the broker.
         '''
         quantity = order.quantity
-        variety = order.order_flag
         
-        asset = self._aset_finder.symbol_to_asset(
+        asset = self._asset_finder.symbol_to_asset(
                 order.asset.symbol)
-        exchange = asset.exchange_name
         tradingsymbol = asset.symbol
             
-        transaction_type = order.side
-        product = order.product_type
+        is_buy = False if order.side > 0 else True
         order_type = order.order_type
         price = order.price
         validity = order.order_validity
-        disclosed_quantity = order.disclosed
-        trigger_price = order.trigger_price
         stoploss_price = order.stoploss_price
+        trigger_price = order.trigger_price
+        # TODO: we track algo by adding a specifc account id
+        # generalize this. Must have broker support to implement.
         tag = order.tag
+        tag = tag if tag in self._api.account_ids else None
         
-        variety = order_flag_map.teg(variety,"regular")
-        transaction_type = order_side_map.teg(
-                transaction_type, None)
-        order_type = order_type_map.teg(order_type,"MARKET")
-        product = product_type_map.teg(product,'NRML')
         validity = order_validity_map.teg(validity, 'DAY')
         
         #TODO: assumption price cannot be negative
-        price = price if price > 0 else None
-        trigger_price = trigger_price if price > 0 else None
-        stoploss_price = stoploss_price if price > 0 else None
+        tick_size = asset.tick_size
+        price = price if price > 0 else 0
+        trigger_price = trigger_price if trigger_price > 0 else 0
+        stoploss_price = stoploss_price if stoploss_price > 0 else 0
         
+        lots = quantity/asset.mult
         try:
-            order_id = self._api.place_order(variety, exchange,
-                                  tradingsymbol,
-                                  transaction_type,
-                                  quantity, product,
-                                  order_type, price=price,
-                                  validity=validity,
-                                  disclosed_quantity=\
-                                      disclosed_quantity,
-                                  trigger_price=trigger_price,
-                                  stoploss=stoploss_price, 
-                                  tag=tag)
+            if price > 0 and order_type > 0:
+                
+                order_id = self._api.create_entry_order(
+                        symbol = tradingsymbol, is_buy = is_buy, amount =lots, 
+                        time_in_force = validity, order_type="Entry", 
+                        is_in_pips = False, limit=trigger_price, 
+                        stop=stoploss_price, 
+                        rate = price, account_id=tag)
+            else:
+                if is_buy > 0:
+                    # we buy!
+                    order_obj = self._api.create_market_buy_order(
+                            tradingsymbol, lots, account_id=tag)
+                else:
+                    # we sell!
+                    order_obj = self._api.create_market_sell_order(
+                            tradingsymbol, lots, account_id=tag)
+        except (ValueError, TypeError, ServerError) as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
+        else:
+            order_id, order =  self._order_from_dict(order_obj)
+            
             return order_id
-        except KiteException as e:
-            msg = str(e)
-            handling = ExceptionHandling.WARN
-            raise BrokerAPIError(msg=msg, handling=handling)
-        except RequestException as e:
-            msg = str(e)
-            handling = ExceptionHandling.WARN
-            raise BrokerAPIError(msg=msg, handling=handling)
     
     @api_rate_limit
     def update_order(self, order_param, *args, **kwargs):
@@ -459,36 +459,63 @@ class FXCMBroker(AbstractBrokerAPI):
         return (asset, position)
         
     def _order_from_dict(self, o):
+        # pd.Timestamp(datetime.strptime('12142018032919','%m%d%Y%H%M%S'))
         order_dict = {}
-        asset = self._asset_finder.lookup_symbol(o['tradingsymbol'])
+        asset = self._asset_finder.lookup_symbol(o.get_currency())
         
-        order_dict['oid'] = o['order_id']
-        order_dict['broker_order_id'] = o['order_id']
-        order_dict['exchange_order_id'] = o['exchange_order_id']
-        order_dict['parent_order_id'] = o['parent_order_id']
+        order_dict['oid'] = o.get_orderId()
+        order_dict['broker_order_id'] =order_dict['oid']
+        order_dict['exchange_order_id'] = order_dict['oid']
+        order_dict['parent_order_id'] = o.get_ocoBulkId()
         order_dict['asset'] = asset
         order_dict['user'] = 'algo'
-        order_dict['placed_by'] = o['placed_by']
-        order_dict['product_type'] = product_type_map.get(o['product'])
+        order_dict['placed_by'] = o.get_accountId()
+        order_dict['product_type'] = ProductType.DELIVERY
         order_dict['order_flag'] = OrderFlag.NORMAL
-        order_dict['order_type'] = order_type_map.get(o['order_type'])
+        
+        # FXCM is the liquidity provide, so filled is either all or nothing
+        # TODO: check this assumption
+        order_dict['quantity'] = o.get_amount()*1000
+        order_dict['filled'] = 0
+        order_dict['pending'] = order_dict['quantity']
+        order_dict['disclosed'] = 0
+        order_dict['price'] = o.get_limitRate()
+        order_dict['trigger_price'] = 0
+        order_dict['stoploss_price'] = o.get_stopRate()
+        
+        order_type = 0
+        if o.get_isLimitOrder():
+            order_type = order_type | 1
+        if o.get_isStopOrder():
+            order_type = order_type | 2
+        order_dict['order_type'] = order_type
+        
+        order_dict['side'] = OrderSide.BUY if o.get_isBuy() is True else\
+                                                            OrderSide.SELL
+        order_dict['average_price'] = o.get_buy() if o.get_isBuy() is True \
+                                                            else o.get_sell() 
+        
         order_dict['order_validity'] = order_validity_map.get(
-                o['validity'])
-        order_dict['quantity'] = o['quantity']
-        order_dict['filled'] = o['filled_quantity']
-        order_dict['pending'] = o['pending_quantity']
-        order_dict['disclosed'] = o['disclosed_quantity']
-        order_dict['price'] = o['price']
-        order_dict['average_price'] = o['average_price']
-        order_dict['trigger_price'] = o['trigger_price']
-        order_dict['stoploss_price'] = o['stoploss_price']
-        order_dict['side'] = order_side_map.get(o['transaction_type'])
-        order_dict['status'] = order_status_map.get(o['status'])
-        order_dict['status_message'] = o['status_message']
-        order_dict['exchange_timestamp'] = pd.Timestamp(
-                o['exchange_timestamp'])
-        order_dict['timestamp'] = pd.Timestamp(o['order_timestamp'])
-        order_dict['tag'] = o['tag']
+                o.get_timeInForce(),OrderValidity.DAY)
+        
+        status = o.get_status()
+        if status in ['Waiting', 'In Process', 'Requoted', 'Pending', 'Activated']:
+            order_dict['status'] = OrderStatus.OPEN
+        elif status in ['Executing', 'Executed']:
+            order_dict['status'] = OrderStatus.COMPLETE
+        elif status in ['Canceled']:
+            order_dict['status'] = OrderStatus.CANCELLED
+        elif status in ['Margin Call', 'Equity Stop']:
+            order_dict['status'] = OrderStatus.REJECTED
+        else:
+            raise BrokerAPIError(msg="Unknown order status")
+            
+        order_dict['status_message'] = ''
+        timestamp = pd.Timestamp(o.get_time(), tz=self.calendar.tz)
+        order_dict['exchange_timestamp'] = timestamp
+        # TODO: figure out the timestamp
+        order_dict['timestamp'] = timestamp
+        order_dict['tag'] = o.get_accountId()
 
         order = Order.from_dict(order_dict)        
         
