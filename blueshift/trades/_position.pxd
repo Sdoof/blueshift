@@ -48,5 +48,6 @@ cdef class Position:
     cdef readonly int product_type
     cpdef to_dict(self)
     cpdef __reduce__(self)
+    cpdef add_to_position(self, Position pos)
     cpdef update(self, Trade trade, float margin)
     cpdef if_closed(self)

@@ -172,6 +172,38 @@ cdef class Position:
                      t.timestamp)
         return p
     
+    cpdef add_to_position(self, Position pos):
+        if pos.side == OrderSide.BUY:
+            self.buy_price = self.buy_quantity*self.buy_price + \
+                                pos.buy_quantity*pos.buy_price
+            self.buy_quantity = self.buy_quantity + pos.buy_quantity
+            self.buy_price = self.buy_price / self.buy_quantity
+            self.quantity = self.quantity + pos.quantity
+        else:
+            self.sell_price = self.sell_quantity*self.sell_price + \
+                                pos.sell_quantity*pos.sell_price
+            self.sell_quantity = self.sell_quantity + pos.sell_quantity
+            self.sell_price = self.sell_price / self.sell_quantity
+            self.quantity = self.quantity + pos.quantity
+        
+        self.last_price = pos.last_price
+        self.value = self.quantity*self.last_price
+        self.timestamp = pos.timestamp
+        
+        if self.buy_quantity > self.sell_quantity:
+            self.realized_pnl = self.sell_quantity*\
+                                    (self.sell_price - self.buy_price)
+            self.unrealized_pnl = (self.buy_quantity - self.sell_quantity)*\
+                                    (self.last_price - self.buy_price)
+        else:
+            self.realized_pnl = self.buy_quantity*\
+                                    (self.sell_price - self.buy_price)
+            self.unrealized_pnl = (self.sell_quantity - self.buy_quantity)*\
+                                    (self.sell_price - self.last_price)
+                                    
+        self.pnl = self.unrealized_pnl + self.realized_pnl
+        self.margin = self.margin + pos.margin
+    
     cpdef update(self, Trade trade, float margin):
         if trade.side == OrderSide.BUY:
             self.buy_price = self.buy_quantity*self.buy_price + \

@@ -194,7 +194,7 @@ class ZeroMQCmdPairClient(object):
         self._socket.connect(conn_string)
         
     def send_command(self):
-        cmd = str(input("enter a command:") or "contine")
+        cmd = str(input("enter a command:") or "continue")
         args = generate_args(input("enter arguments list (comma separated):"))
         kwargs = generate_kwargs(input("enter keyword arguments list(comma separated):"))
         cmd = Command(cmd,args,kwargs)

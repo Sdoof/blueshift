@@ -540,6 +540,9 @@ class TradingAlgorithm(AlgoStateMachine):
             is_cmd_fn = getattr(fn, "is_command", False)
             if is_cmd_fn:
                 fn(*cmd.args, **cmd.kwargs)
+            else:
+                msg = f"{fn} is not a recognized command, will be ignored."
+                self.log_warning(msg)
         else:
             msg = f"unknown command {cmd.cmd}, will be ignored."
             self.log_warning(msg)

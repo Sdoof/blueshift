@@ -19,6 +19,7 @@ Created on Wed Dec 12 14:16:49 2018
 
 import pandas as pd
 from enum import Enum
+from datetime import datetime
 
 from requests.exceptions import RequestException
 
@@ -120,6 +121,7 @@ class FXCMBroker(AbstractBrokerAPI):
         self._open_orders = {}
         self._open_positions = {}
         self._closed_positions = []
+        self._processed_positions = []
         
         self._account = ForexAccount(self._name,0.01)
     
@@ -160,7 +162,7 @@ class FXCMBroker(AbstractBrokerAPI):
             accounts = self._api.account_ids
             return {'default_account':default_account,
                     'account_ids':accounts}
-        except KiteException as e:
+        except AttributeError as e:
             msg = str(e)
             handling = ExceptionHandling.LOG
             raise BrokerAPIError(msg=msg, handling=handling)
@@ -174,20 +176,15 @@ class FXCMBroker(AbstractBrokerAPI):
         '''
         last_version = self._account
         try:
-            data = self._api.margins()
-            cash = data['equity']['available']['cash'] +\
-                data['equity']['available']['intraday_payin']-\
-                data['equity']['utilised']['payout'] +\
-                data['equity']['utilised']['m2m_realised']
-            margin = data['equity']['utilised']['exposure'] +\
-                data['equity']['utilised']['span'] +\
-                data['equity']['utilised']['option_premium']
+            data = self._api.get_accounts().T
+            cash = sum(data.loc['usableMargin',])
+            margin = sum(data.loc['usdMr',])
             _positions = self.positions
             self._account.update_account(cash, margin,
                                          _positions)
             return self._account.to_dict()
-        except KiteException as e:
-            if isinstance(e, NetworkException):
+        except (ValueError, TypeError, ServerError) as e:
+            if isinstance(e, ServerError):
                 self._account =  last_version
                 return self._account.to_dict()
             else:
@@ -205,21 +202,22 @@ class FXCMBroker(AbstractBrokerAPI):
         '''
             Fetch the positions
         '''
+        
         try:
-            position_details = self._api.positions()
-            if not position_details:
-                return self._open_positions
-            
-            position_details = position_details['net']
+            # check if there is a new addition to closed position
+            position_details = self._api.get_closed_positions(kind='list')
             for p in position_details:
-                asset, position = self._position_from_dict(p)
-                self._open_positions[asset] = position
-                if self._open_positions[asset].if_closed():
-                    self._closed_positions.append(
-                            self._open_positions.pop(asset))
+                asset, position = self._position_from_dict(p, closed=True)
+                if position:
+                    self._closed_positions.append(position)
+                    
+            # open positions are processed afresh each time
+            position_details = self._api.get_open_positions(kind='list')
+            if position_details:
+                self._open_positions = self._create_pos_dict(position_details)
             
             return self._open_positions
-        except KiteException as e:
+        except (ValueError, TypeError, ServerError) as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
@@ -433,30 +431,64 @@ class FXCMBroker(AbstractBrokerAPI):
         raise BrokerAPIError(msg=msg, handling=handling)
     
     
-    def _position_from_dict(self, p):
-        asset = self._asset_finder.lookup_symbol(p['tradingsymbol'])
-        quantity = p['quantity']
-        buy_quantity = p['buy_quantity']
-        buy_price = p['buy_price']
-        sell_quantity = p['sell_quantity']
-        sell_price = p['sell_price']
-        pnl = p['pnl']
-        realized_pnl = p['realised']
-        unrealized_pnl = p['unrealised']
-        last_price = p['last_price']
-        instrument_id = p['instrument_token']
-        product_type = product_type_map.get(p['product'],
-                                            ProductType.DELIVERY)
-        average_price = p['average_price']
-        margin = 0
-        timestamp = pd.Timestamp.now(tz=self.tz)
-        position = Position(asset, quantity,-1,instrument_id,
+    def _position_from_dict(self, p, closed=True):
+        instrument_id = p['tradeId'] # check against double processing.
+        
+        if instrument_id in self._processed_positions and closed:
+            return (None, None)
+        
+        asset = self._asset_finder.lookup_symbol(p['currency'])
+        # TODO: assumed in 1000s, check and confirm.
+        quantity = p['amountK']*1000
+        pnl = p['grossPL']
+        last_price = p['close']
+        product_type = ProductType.DELIVERY
+        average_price = 0
+        margin = p['usedMargin']
+        
+        if closed:
+            side = -1
+            buy_quantity = sell_quantity = quantity
+            buy_price = p['open'] if p['isBuy'] is True else p['close']
+            sell_price = p['open'] if p['isBuy'] is False else p['close']
+            unrealized_pnl = 0
+            realized_pnl = pnl
+            timestamp = pd.Timestamp(datetime.strptime(p['closeTime'],
+                                                       '%m%d%Y%H%M%S'),
+                                     tz=self.calendar.tz)
+            quantity = 0
+            self._processed_positions.append(instrument_id)
+        else:
+            side = OrderSide.BUY if p['isBuy'] is True else OrderSide.SELL
+            buy_quantity = quantity if p['isBuy'] is True else 0
+            buy_price = p['open'] if p['isBuy'] is True else 0
+            sell_quantity = quantity if p['isBuy'] is False else 0
+            sell_price = p['open'] if p['isBuy'] is False else 0
+            realized_pnl = 0
+            unrealized_pnl = pnl
+            timestamp = pd.Timestamp(datetime.strptime(p['time'],
+                                                       '%m%d%Y%H%M%S'),
+                                     tz=self.calendar.tz)
+            quantity = quantity if p['isBuy'] is True else -quantity
+        
+        position = Position(asset, quantity,side,instrument_id,
                             product_type,average_price,margin,
                             timestamp,timestamp,buy_quantity,
                             buy_price,sell_quantity,sell_price,
                             pnl,realized_pnl,unrealized_pnl,
                             last_price)
+        
         return (asset, position)
+    
+    def _create_pos_dict(self, position_details):
+        self._open_positions = {}
+        for p in position_details:
+            asset, position = self._position_from_dict(p, closed = False)
+            pos = self._open_positions.get(asset, None)
+            if pos:
+                self._open_positions[asset].add_to_position(position)
+            else:
+                self._open_positions[asset] = position
         
     def _order_from_dict(self, o):
         # pd.Timestamp(datetime.strptime('12142018032919','%m%d%Y%H%M%S'))
