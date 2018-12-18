@@ -27,7 +27,7 @@ from fxcmpy.fxcmpy import ServerError
 
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.execution.broker import AbstractBrokerAPI
-from blueshift.utils.brokers.fxcm.kiteauth import (FXCMAuth, FXCMPy)
+from blueshift.utils.brokers.fxcm.fxcmauth import (FXCMAuth, FXCMPy)
 from blueshift.utils.cutils import check_input
 from blueshift.utils.exceptions import (AuthenticationError,
                                         ExceptionHandling,
@@ -73,7 +73,7 @@ class FXCMBroker(AbstractBrokerAPI):
         Implements the broker interface functions.
     '''
     def __init__(self, 
-                 name:str="kite", 
+                 name:str="fxcm", 
                  broker_type:BrokerType=BrokerType.RESTBROKER, 
                  calendar:TradingCalendar=None,
                  **kwargs):
@@ -214,7 +214,7 @@ class FXCMBroker(AbstractBrokerAPI):
             # open positions are processed afresh each time
             position_details = self._api.get_open_positions(kind='list')
             if position_details:
-                self._open_positions = self._create_pos_dict(position_details)
+                self._create_pos_dict(position_details)
             
             return self._open_positions
         except (ValueError, TypeError, ServerError) as e:
@@ -263,7 +263,7 @@ class FXCMBroker(AbstractBrokerAPI):
                         self._open_orders.pop(order_id)
             
             return {**self._open_orders, **self._closed_orders}
-        except KiteException as e:
+        except (ValueError, TypeError, ServerError) as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
@@ -381,7 +381,7 @@ class FXCMBroker(AbstractBrokerAPI):
                                    validity,
                                    disclosed_quantity)
             return order_id
-        except KiteException as e:
+        except (ValueError, TypeError, ServerError) as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
@@ -413,7 +413,7 @@ class FXCMBroker(AbstractBrokerAPI):
             order_id = self._api.cancel_order(variety,order_id,
                                    parent_order_id)
             return order_id
-        except KiteException as e:
+        except (ValueError, TypeError, ServerError) as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
@@ -445,9 +445,9 @@ class FXCMBroker(AbstractBrokerAPI):
         product_type = ProductType.DELIVERY
         average_price = 0
         margin = p['usedMargin']
+        side = -1
         
         if closed:
-            side = -1
             buy_quantity = sell_quantity = quantity
             buy_price = p['open'] if p['isBuy'] is True else p['close']
             sell_price = p['open'] if p['isBuy'] is False else p['close']
@@ -459,7 +459,6 @@ class FXCMBroker(AbstractBrokerAPI):
             quantity = 0
             self._processed_positions.append(instrument_id)
         else:
-            side = OrderSide.BUY if p['isBuy'] is True else OrderSide.SELL
             buy_quantity = quantity if p['isBuy'] is True else 0
             buy_price = p['open'] if p['isBuy'] is True else 0
             sell_quantity = quantity if p['isBuy'] is False else 0
@@ -493,15 +492,15 @@ class FXCMBroker(AbstractBrokerAPI):
     def _order_from_dict(self, o):
         # pd.Timestamp(datetime.strptime('12142018032919','%m%d%Y%H%M%S'))
         order_dict = {}
-        asset = self._asset_finder.lookup_symbol(o.get_currency())
+        asset = self._asset_finder.lookup_symbol(o['currency'])
         
-        order_dict['oid'] = o.get_orderId()
-        order_dict['broker_order_id'] =order_dict['oid']
+        order_dict['oid'] = o['orderId']
+        order_dict['broker_order_id'] = order_dict['oid']
         order_dict['exchange_order_id'] = order_dict['oid']
-        order_dict['parent_order_id'] = o.get_ocoBulkId()
+        order_dict['parent_order_id'] = o['ocoBulkId']
         order_dict['asset'] = asset
         order_dict['user'] = 'algo'
-        order_dict['placed_by'] = o.get_accountId()
+        order_dict['placed_by'] = o['accountId']
         order_dict['product_type'] = ProductType.DELIVERY
         order_dict['order_flag'] = OrderFlag.NORMAL
         
