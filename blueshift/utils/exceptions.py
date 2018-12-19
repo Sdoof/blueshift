@@ -171,6 +171,13 @@ class NotValidCalendar(UserError):
     msg = "name supplied is not a valid registered calendar"
     handling = ExceptionHandling.TERMINATE
     
+class UnsupportedOrder(UserError):
+    '''
+        Not a valid order - order type, size etc not supported.
+    '''
+    msg = "Unsupported Order Type"
+    handling = ExceptionHandling.TERMINATE
+    
 # Internal Errors
 class StateMachineError(InternalError):
     '''

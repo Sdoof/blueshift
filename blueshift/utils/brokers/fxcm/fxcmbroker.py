@@ -24,6 +24,7 @@ from datetime import datetime
 from requests.exceptions import RequestException
 
 from fxcmpy.fxcmpy import ServerError
+from fxcmpy.fxcmpy_order import fxcmpy_order
 
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.execution.broker import AbstractBrokerAPI
@@ -31,6 +32,7 @@ from blueshift.utils.brokers.fxcm.fxcmauth import (FXCMAuth, FXCMPy)
 from blueshift.utils.cutils import check_input
 from blueshift.utils.exceptions import (AuthenticationError,
                                         ExceptionHandling,
+                                        UnsupportedOrder,
                                         BrokerAPIError)
 from blueshift.blotter._accounts import ForexAccount
 from blueshift.trades._position import Position
@@ -57,14 +59,19 @@ order_flag_map = OnetoOne({'NORMAL':OrderFlag.NORMAL,
                     'AMO':OrderFlag.AMO})
 order_side_map = OnetoOne({'BUY':OrderSide.BUY, 
                     'SELL':OrderSide.SELL})
-order_status_map = OnetoOne({'COMPLETE':OrderStatus.COMPLETE, 
-                    'OPEN':OrderStatus.OPEN,
-                    'REJECTED':OrderStatus.REJECTED,
-                    'CANCELLED':OrderStatus.CANCELLED})
+## fxcmpy.fxcmpy_order.status_values 
+order_status_map = {0: OrderStatus.OPEN, 1: OrderStatus.OPEN,
+                    2: OrderStatus.OPEN, 3: OrderStatus.CANCELLED,
+                    4: OrderStatus.OPEN, 5: OrderStatus.OPEN,
+                    6: OrderStatus.OPEN, 7: OrderStatus.OPEN,
+                    8: OrderStatus.OPEN, 9: OrderStatus.COMPLETE,
+                    10: OrderStatus.OPEN}
 order_type_map = OnetoOne({'MARKET':OrderType.MARKET,
                   'LIMIT':OrderType.LIMIT,
                   'STOPLOSS':OrderType.STOPLOSS,
                   'STOPLOSS_MARKET':OrderType.STOPLOSS_MARKET})
+
+fxcm_status_values = OnetoOne(fxcmpy_order.status_values)
 
 @singleton
 @blueprint
@@ -188,10 +195,12 @@ class FXCMBroker(AbstractBrokerAPI):
                 self._account =  last_version
                 return self._account.to_dict()
             else:
+                self._account =  last_version
                 msg = str(e)
                 handling = ExceptionHandling.WARN
                 raise BrokerAPIError(msg=msg, handling=handling)
         except RequestException as e:
+            self._account =  last_version
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
@@ -202,8 +211,8 @@ class FXCMBroker(AbstractBrokerAPI):
         '''
             Fetch the positions
         '''
-        
         try:
+            last_version = self._open_positions
             # check if there is a new addition to closed position
             position_details = self._api.get_closed_positions(kind='list')
             for p in position_details:
@@ -218,10 +227,12 @@ class FXCMBroker(AbstractBrokerAPI):
             
             return self._open_positions
         except (ValueError, TypeError, ServerError) as e:
+            self._open_positions = last_version
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
         except RequestException as e:
+            self._open_positions = last_version
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
@@ -232,8 +243,29 @@ class FXCMBroker(AbstractBrokerAPI):
         '''
             Call the order method and return the open order dict.
         '''
-        _ = self.orders
-        return self._open_orders
+        try:
+            last_version = self._open_orders
+            self._open_orders = {}
+            orders = self._api.get_orders(kind='list')
+            for order in orders:
+                order_id, order = self._order_from_dict(order)
+                self._open_orders[order['orderId']] = order
+            
+            return self._open_orders
+        except (ValueError, TypeError, ServerError) as e:
+            if isinstance(e, ServerError):
+                self._open_orders =  last_version
+                return self._open_orders
+            else:
+                self._open_orders =  last_version
+                msg = str(e)
+                handling = ExceptionHandling.WARN
+                raise BrokerAPIError(msg=msg, handling=handling)
+        except RequestException as e:
+            self._open_orders =  last_version
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
     
     @property
     @api_rate_limit
@@ -242,35 +274,7 @@ class FXCMBroker(AbstractBrokerAPI):
             Fetch a list of orders from the broker and update
             internal dicts. Returns both open and closed orders.
         '''
-        try:
-            orders = self._api.orders()
-            if orders is None:
-                return {**self._open_orders, **self._closed_orders}
-            
-            for o in orders:
-                # we assume no further updates on closed orders
-                if o['order_id'] in self._closed_orders:
-                    continue
-                
-                order_id, order = self._order_from_dict(o)
-                if order.status == OrderStatus.OPEN:
-                    self._open_orders[order_id] = order
-                else:
-                    # add to closed orders dict
-                    self._closed_orders[order_id] = order
-                    # pop from open order if it was there
-                    if order_id in self._open_orders:
-                        self._open_orders.pop(order_id)
-            
-            return {**self._open_orders, **self._closed_orders}
-        except (ValueError, TypeError, ServerError) as e:
-            msg = str(e)
-            handling = ExceptionHandling.WARN
-            raise BrokerAPIError(msg=msg, handling=handling)
-        except RequestException as e:
-            msg = str(e)
-            handling = ExceptionHandling.WARN
-            raise BrokerAPIError(msg=msg, handling=handling)
+        return self.open_orders
     
     @property
     def tz(self, *args, **kwargs):
@@ -280,8 +284,8 @@ class FXCMBroker(AbstractBrokerAPI):
         '''
             Fetch the order by id.
         '''
-        orders = self.orders
-        return orders.get(order_id, None)
+        order = self._api.get_order(order_id)
+        return self._order_from_dict(self._fxcm_order_to_dict(order))
     
     @api_rate_limit
     def place_order(self, order):
@@ -297,10 +301,9 @@ class FXCMBroker(AbstractBrokerAPI):
             
         is_buy = False if order.side > 0 else True
         order_type = order.order_type
-        price = order.price
+        
+        price = order.price # limit price
         validity = order.order_validity
-        stoploss_price = order.stoploss_price
-        trigger_price = order.trigger_price
         # TODO: we track algo by adding a specifc account id
         # generalize this. Must have broker support to implement.
         tag = order.tag
@@ -308,22 +311,22 @@ class FXCMBroker(AbstractBrokerAPI):
         
         validity = order_validity_map.teg(validity, 'DAY')
         
-        #TODO: assumption price cannot be negative
-        tick_size = asset.tick_size
+        #TODO: assumption price cannot be negative - validate.
         price = price if price > 0 else 0
-        trigger_price = trigger_price if trigger_price > 0 else 0
-        stoploss_price = stoploss_price if stoploss_price > 0 else 0
         
         lots = quantity/asset.mult
         try:
-            if price > 0 and order_type > 0:
-                
-                order_id = self._api.create_entry_order(
-                        symbol = tradingsymbol, is_buy = is_buy, amount =lots, 
-                        time_in_force = validity, order_type="Entry", 
-                        is_in_pips = False, limit=trigger_price, 
-                        stop=stoploss_price, 
-                        rate = price, account_id=tag)
+            if order_type  > 1:
+                raise UnsupportedOrder(msg="Unsupported order type")
+            
+            if price > 0:
+                order_id = self._create_entry_order(symbol=tradingsymbol, 
+                                                    is_buy=is_buy, 
+                                                    amount=lots, 
+                                                    time_in_force=validity,
+                                                    limit=price, 
+                                                    is_in_pips=False, 
+                                                    account_id=tag)
             else:
                 if is_buy > 0:
                     # we buy!
@@ -332,15 +335,14 @@ class FXCMBroker(AbstractBrokerAPI):
                 else:
                     # we sell!
                     order_obj = self._api.create_market_sell_order(
-                            tradingsymbol, lots, account_id=tag)
+                            tradingsymbol, lots, account_id=tag) 
+                order_id = order_obj.get_orderId()
+            
+            return order_id
         except (ValueError, TypeError, ServerError) as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
-        else:
-            order_id, order =  self._order_from_dict(order_obj)
-            
-            return order_id
     
     @api_rate_limit
     def update_order(self, order_param, *args, **kwargs):
@@ -349,37 +351,16 @@ class FXCMBroker(AbstractBrokerAPI):
         '''
         if isinstance(order_param, Order):
             order_id = order_param.oid
-            variety = order_param.order_flag
-            parent_order_id = order_param.parent_order_id
         else:
             order_id = order_param
-            order = self._open_orders.get(order_id,None)
-            if order:
-                variety = order_param.order_flag
-                parent_order_id = order_param.parent_order_id
-            else:
-                variety = OrderFlag.NORMAL
-                parent_order_id = None
                 
+        order = self.order(order_id)
         quantity = kwargs.pop("quantity",None)
         price = kwargs.pop("price",None)
-        order_type = kwargs.pop("order_type",None)
-        trigger_price = kwargs.pop("trigger_price",None)
-        validity = kwargs.pop("validity",None)
-        disclosed_quantity = kwargs.pop("disclosed_quantity",None)
+        amount = quantity/
         
         try:
-            variety = order_flag_map.teg(variety,"regular")
-            order_type = order_type_map.teg(order_type,"MARKET")
-            validity = order_validity_map.teg(validity, 'DAY')
-            order_id = self._api.modify_order(variety,order_id,
-                                   parent_order_id,
-                                   quantity,
-                                   price,
-                                   order_type,
-                                   trigger_price,
-                                   validity,
-                                   disclosed_quantity)
+            self._api.change_order(order_id, quantity, price)
             return order_id
         except (ValueError, TypeError, ServerError) as e:
             msg = str(e)
@@ -397,21 +378,10 @@ class FXCMBroker(AbstractBrokerAPI):
         '''
         if isinstance(order_param, Order):
             order_id = order_param.oid
-            variety = order_param.order_flag
-            parent_order_id = order_param.parent_order_id
         else:
             order_id = order_param
-            order = self._open_orders.get(order_id,None)
-            if order:
-                variety = order_param.order_flag
-                parent_order_id = order_param.parent_order_id
-            else:
-                variety = OrderFlag.NORMAL
-                parent_order_id = None
         try:
-            variety = order_flag_map.get(variety,"regular")
-            order_id = self._api.cancel_order(variety,order_id,
-                                   parent_order_id)
+            self._api.delete_order(order_id)
             return order_id
         except (ValueError, TypeError, ServerError) as e:
             msg = str(e)
@@ -424,9 +394,9 @@ class FXCMBroker(AbstractBrokerAPI):
     
     def fund_transfer(self, amount):
         '''
-            We do not implement fund transfer for Zerodha.
+            We do not implement fund transfer for FXCM.
         '''
-        msg = "Please go to Zerodha website for fund transfer"
+        msg = "Please go to FXCM website for fund transfer"
         handling = ExceptionHandling.WARN
         raise BrokerAPIError(msg=msg, handling=handling)
     
@@ -444,7 +414,6 @@ class FXCMBroker(AbstractBrokerAPI):
         last_price = p['close']
         product_type = ProductType.DELIVERY
         average_price = 0
-        margin = p['usedMargin']
         side = -1
         
         if closed:
@@ -455,8 +424,9 @@ class FXCMBroker(AbstractBrokerAPI):
             realized_pnl = pnl
             timestamp = pd.Timestamp(datetime.strptime(p['closeTime'],
                                                        '%m%d%Y%H%M%S'),
-                                     tz=self.calendar.tz)
+                                     tz=self.tz)
             quantity = 0
+            margin = 0
             self._processed_positions.append(instrument_id)
         else:
             buy_quantity = quantity if p['isBuy'] is True else 0
@@ -467,8 +437,9 @@ class FXCMBroker(AbstractBrokerAPI):
             unrealized_pnl = pnl
             timestamp = pd.Timestamp(datetime.strptime(p['time'],
                                                        '%m%d%Y%H%M%S'),
-                                     tz=self.calendar.tz)
+                                     tz=self.tz)
             quantity = quantity if p['isBuy'] is True else -quantity
+            margin = p['usedMargin']
         
         position = Position(asset, quantity,side,instrument_id,
                             product_type,average_price,margin,
@@ -506,50 +477,127 @@ class FXCMBroker(AbstractBrokerAPI):
         
         # FXCM is the liquidity provide, so filled is either all or nothing
         # TODO: check this assumption
-        order_dict['quantity'] = o.get_amount()*1000
+        order_dict['quantity'] = o['amountK']*1000
         order_dict['filled'] = 0
         order_dict['pending'] = order_dict['quantity']
         order_dict['disclosed'] = 0
-        order_dict['price'] = o.get_limitRate()
-        order_dict['trigger_price'] = 0
-        order_dict['stoploss_price'] = o.get_stopRate()
         
-        order_type = 0
-        if o.get_isLimitOrder():
-            order_type = order_type | 1
-        if o.get_isStopOrder():
-            order_type = order_type | 2
-        order_dict['order_type'] = order_type
+        ''' Entry Orders are by definition limit orders. The stoploss
+        and limit rates mimick a bracket order with defined stoploss and
+        take profit target respectively. We do not have native support
+        for these in Blueshift yet.'''
+        order_dict['order_type'] = OrderType.LIMIT
+        order_dict['price'] = o['buy'] if o['isBuy'] is True else o['sell']
+        # TODO: hack, the stops and the limits are NOT handled properly here.
+        order_dict['trigger_price'] = o['limitRate']
+        order_dict['stoploss_price'] = o['stopRate']
         
-        order_dict['side'] = OrderSide.BUY if o.get_isBuy() is True else\
+        order_dict['side'] = OrderSide.BUY if o['isBuy'] is True else\
                                                             OrderSide.SELL
-        order_dict['average_price'] = o.get_buy() if o.get_isBuy() is True \
-                                                            else o.get_sell() 
+        # TODO: assumes order is zero fill. Validate.
+        order_dict['average_price'] = 0
         
         order_dict['order_validity'] = order_validity_map.get(
-                o.get_timeInForce(),OrderValidity.DAY)
+                o['timeInForce'],OrderValidity.DAY)
         
-        status = o.get_status()
-        if status in ['Waiting', 'In Process', 'Requoted', 'Pending', 'Activated']:
-            order_dict['status'] = OrderStatus.OPEN
-        elif status in ['Executing', 'Executed']:
-            order_dict['status'] = OrderStatus.COMPLETE
-        elif status in ['Canceled']:
-            order_dict['status'] = OrderStatus.CANCELLED
-        elif status in ['Margin Call', 'Equity Stop']:
-            order_dict['status'] = OrderStatus.REJECTED
-        else:
-            raise BrokerAPIError(msg="Unknown order status")
+        
+        order_dict['status'] = order_status_map[o['status']]
+        
             
         order_dict['status_message'] = ''
-        timestamp = pd.Timestamp(o.get_time(), tz=self.calendar.tz)
-        order_dict['exchange_timestamp'] = timestamp
+        timestamp = datetime.strptime(o['time'], '%m%d%Y%H%M%S%f')
+        order_dict['exchange_timestamp'] = pd.Timestamp(timestamp, 
+                  tz=self.tz)
         # TODO: figure out the timestamp
         order_dict['timestamp'] = timestamp
-        order_dict['tag'] = o.get_accountId()
+        order_dict['tag'] = o['accountId']
 
         order = Order.from_dict(order_dict)        
         
         return order.oid, order
         
+    def _create_entry_order(self, symbol, is_buy, amount, time_in_force,
+                           limit=0, is_in_pips=False, account_id=None):
+        '''
+            Implements FXCM entry_order without the pesky `limit` thingy.
+        '''
+        if account_id is None:
+            account_id = self._api.default_account
+        else:
+            try:
+                account_id = int(account_id)
+            except:
+                raise TypeError('account_id must be an integer.')
+                
+        if account_id not in self._api.account_ids:
+            raise ValueError('Unknown account id %s.' % account_id)
+            
+        try:
+            amount = int(amount)
+        except:
+            raise TypeError('Order amount must be an integer.')
+            
+        if symbol not in self._api.instruments:
+            raise ValueError('Unknown symbol %s.' % symbol)
+            
+        try:
+            limit = float(limit)
+        except:
+            raise TypeError('rate must be a number.')
+            
+        order_type="Entry"
+        
+        if time_in_force not in ['GTC', 'DAY', 'GTD', 'IOC', 'FOK'] :
+            msg = "time_in_force must be 'GTC', 'DAY', 'IOC', 'FOK', or 'GTD'."
+            raise ValueError(msg)
+            
+        if is_in_pips is True:
+            is_in_pips = 'true'
+        elif is_in_pips is False:
+            is_in_pips = 'false'
+        else:
+            raise ValueError('is_in_pips must be True or False.')
+            
+        if is_buy is True:
+            is_buy = 'true'
+        elif is_buy is False:
+            is_buy = 'false'
+        else:
+            raise ValueError('is_buy must be True or False.')
+            
+        params = {
+                  'account_id': account_id,
+                  'symbol': symbol,
+                  'is_buy': is_buy,
+                  'rate': limit,
+                  'amount': amount,
+                  'order_type': order_type,
+                  'is_in_pips': is_in_pips,
+                  'time_in_force': time_in_force
+                 }
+        data = self._api.__handle_request__(method='trading/create_entry_order',
+                               params=params, protocol='post')
+        
+        if 'data' in data and 'orderId' in data['data']:
+            order_id = int(data['data']['orderId'])
+            return order_id
+        
+        raise BrokerAPIError(msg='Missing orderId in servers answer.')
+        return 0
+        
+    def _fxcm_order_to_dict(self, order):
+        if not isinstance(order, fxcmpy_order):
+            return {}
+        
+        order_dict = {}
+        base_dict = order.__dict__
+        attributes = order.parameter
+        for attrib in attributes:
+            order_dict[attrib] = base_dict["__"+str(attrib)+"__"]
+        
+        if 'time' in order_dict:
+            order_dict['time'] = order_dict['time'].strftime('%m%d%Y%H%M%S%f')
+            
+        if 'status' in order_dict:
+            order_dict['status'] = fxcm_status_values.teg(order_dict['status'])
         
