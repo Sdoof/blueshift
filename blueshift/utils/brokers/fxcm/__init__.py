@@ -17,3 +17,36 @@ Created on Tue Dec 11 09:33:50 2018
 @author: prodipta
 """
 
+from .fxcmauth import FXCMAuth
+from .fxcmassets import FXCMAssetFinder
+from .fxcmdata import FXCMRestData
+from .fxcmbroker import FXCMBroker
+from blueshift.utils.types import Broker
+from blueshift.execution.clock import RealtimeClock
+
+def make_broker_pack(*args, **kwargs):
+    name = kwargs.pop("name","fxcm")
+    frequency = kwargs.get("frequency",1)
+    auth = FXCMAuth(name = name, *args, **kwargs)
+    auth.login(*args, **kwargs)
+    asset_finder = FXCMAssetFinder(auth=auth, *args, **kwargs)
+    data_portal = FXCMRestData(name=name, auth=auth, *args, **kwargs)
+    broker = FXCMBroker(name=name, auth = auth, asset_finder=asset_finder)
+    clock = RealtimeClock(auth._trading_calendar,frequency)
+    
+    return auth, asset_finder, data_portal, broker, clock
+
+def FXCM(*args, **kwargs):
+    auth, asset_finder, data_portal, broker, clock =\
+            make_broker_pack(*args, **kwargs)
+    modes = broker._mode_supports
+    FXCM = Broker(auth, asset_finder, data_portal, broker, clock, modes)
+    
+    return FXCM
+
+__all__ = [FXCMAuth,
+           FXCMAssetFinder,
+           FXCMRestData,
+           FXCMBroker,
+           FXCM,
+           RealtimeClock]

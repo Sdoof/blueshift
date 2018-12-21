@@ -173,19 +173,19 @@ cdef class Position:
         return p
     
     cpdef add_to_position(self, Position pos):
-        if pos.side == OrderSide.BUY:
+        if pos.buy_quantity > 0:
             self.buy_price = self.buy_quantity*self.buy_price + \
                                 pos.buy_quantity*pos.buy_price
             self.buy_quantity = self.buy_quantity + pos.buy_quantity
             self.buy_price = self.buy_price / self.buy_quantity
-            self.quantity = self.quantity + pos.quantity
-        else:
+        
+        if pos.sell_quantity > 0:
             self.sell_price = self.sell_quantity*self.sell_price + \
                                 pos.sell_quantity*pos.sell_price
             self.sell_quantity = self.sell_quantity + pos.sell_quantity
             self.sell_price = self.sell_price / self.sell_quantity
-            self.quantity = self.quantity + pos.quantity
         
+        self.quantity = self.quantity + pos.quantity
         self.last_price = pos.last_price
         self.value = self.quantity*self.last_price
         self.timestamp = pos.timestamp

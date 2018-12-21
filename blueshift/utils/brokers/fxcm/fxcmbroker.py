@@ -20,6 +20,7 @@ Created on Wed Dec 12 14:16:49 2018
 import pandas as pd
 from enum import Enum
 from datetime import datetime
+from collections import namedtuple
 
 from requests.exceptions import RequestException
 
@@ -72,6 +73,8 @@ order_type_map = OnetoOne({'MARKET':OrderType.MARKET,
                   'STOPLOSS_MARKET':OrderType.STOPLOSS_MARKET})
 
 fxcm_status_values = OnetoOne(fxcmpy_order.status_values)
+
+FXCMPosition = namedtuple("FXCMPosition",["asset","amount"])
 
 @singleton
 @blueprint
@@ -129,6 +132,7 @@ class FXCMBroker(AbstractBrokerAPI):
         self._open_positions = {}
         self._closed_positions = []
         self._processed_positions = []
+        self._trading_cache = {}
         
         self._account = ForexAccount(self._name,0.01)
     
@@ -239,6 +243,12 @@ class FXCMBroker(AbstractBrokerAPI):
     
     @property
     @api_rate_limit
+    def trades(self):
+        _ = self.positions
+        return self._trading_cache
+    
+    @property
+    @api_rate_limit
     def open_orders(self):
         '''
             Call the order method and return the open order dict.
@@ -249,7 +259,7 @@ class FXCMBroker(AbstractBrokerAPI):
             orders = self._api.get_orders(kind='list')
             for order in orders:
                 order_id, order = self._order_from_dict(order)
-                self._open_orders[order['orderId']] = order
+                self._open_orders[order.oid] = order
             
             return self._open_orders
         except (ValueError, TypeError, ServerError) as e:
@@ -284,8 +294,15 @@ class FXCMBroker(AbstractBrokerAPI):
         '''
             Fetch the order by id.
         '''
-        order = self._api.get_order(order_id)
-        return self._order_from_dict(self._fxcm_order_to_dict(order))
+        try:
+            order = self._api.get_order(order_id)
+            oid, order = self._order_from_dict(self._fxcm_order_to_dict(
+                    order))
+            return order
+        except ValueError as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
     
     @api_rate_limit
     def place_order(self, order):
@@ -314,7 +331,7 @@ class FXCMBroker(AbstractBrokerAPI):
         #TODO: assumption price cannot be negative - validate.
         price = price if price > 0 else 0
         
-        lots = quantity/asset.mult
+        lots = int(quantity/asset.mult)
         try:
             if order_type  > 1:
                 raise UnsupportedOrder(msg="Unsupported order type")
@@ -353,14 +370,13 @@ class FXCMBroker(AbstractBrokerAPI):
             order_id = order_param.oid
         else:
             order_id = order_param
-                
-        order = self.order(order_id)
-        quantity = kwargs.pop("quantity",None)
-        price = kwargs.pop("price",None)
-        amount = quantity/
         
         try:
-            self._api.change_order(order_id, quantity, price)
+            order = self.order(order_id)
+            quantity = kwargs.pop("quantity",order.quantity)
+            price = kwargs.pop("price",order.price)
+            lots = int(quantity/order.asset.mult)
+            self._api.change_order(order_id, lots, price)
             return order_id
         except (ValueError, TypeError, ServerError) as e:
             msg = str(e)
@@ -383,6 +399,65 @@ class FXCMBroker(AbstractBrokerAPI):
         try:
             self._api.delete_order(order_id)
             return order_id
+        except (ValueError, TypeError, ServerError) as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
+        except RequestException as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
+            
+    @api_rate_limit
+    def close_position(self, trade_id,  amount, time_in_force='DAY', 
+                       rate=None):
+        '''
+            Implement close_trade.
+        '''
+        try:
+            trade_id = str(trade_id)
+            if str(trade_id) in self._trading_cache:
+                position = self._trading_cache[trade_id]
+            else:
+                _ = self.positions
+                if trade_id not in self._trading_cache:
+                    raise UnsupportedOrder(msg="Trade not found")
+                position = self._trading_cache[trade_id]
+                
+            mult = position.asset.mult
+            amount = int(amount/mult)
+            self._api.close_trade(trade_id, amount, 
+                                  order_type='AtMarket',
+                                  time_in_force=time_in_force,
+                                  rate=rate)
+        except (ValueError, TypeError, ServerError) as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
+        except RequestException as e:
+            msg = str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
+    
+    @api_rate_limit
+    def square_off(self, symbols=None, time_in_force='GTC', 
+                   account_id=None):
+        '''
+            Do close_all or close_all_for_symbol if symbols are 
+            supplied. This will sqaure off all positions for a 
+            particular FX pair or all positions.
+        '''
+        try:
+            if symbols:
+                for sym in symbols:
+                    self._api.close_all_for_symbol(
+                            sym, order_type='AtMarket',
+                            time_in_force=time_in_force,
+                            account_id = account_id)
+            else:
+                self._api.close_all(order_type='AtMarket',
+                                    time_in_force=time_in_force,
+                                    account_id=account_id)
         except (ValueError, TypeError, ServerError) as e:
             msg = str(e)
             handling = ExceptionHandling.WARN
@@ -452,8 +527,11 @@ class FXCMBroker(AbstractBrokerAPI):
     
     def _create_pos_dict(self, position_details):
         self._open_positions = {}
+        self._trading_cache = {}
         for p in position_details:
             asset, position = self._position_from_dict(p, closed = False)
+            self._trading_cache[position.instrument_id] =\
+                    FXCMPosition(position.asset, position.quantity)
             pos = self._open_positions.get(asset, None)
             if pos:
                 self._open_positions[asset].add_to_position(position)
@@ -601,3 +679,4 @@ class FXCMBroker(AbstractBrokerAPI):
         if 'status' in order_dict:
             order_dict['status'] = fxcm_status_values.teg(order_dict['status'])
         
+        return order_dict
