@@ -174,7 +174,7 @@ class FXCMBroker(AbstractBrokerAPI):
             return {'default_account':default_account,
                     'account_ids':accounts}
         except AttributeError as e:
-            msg = str(e)
+            msg = "in broker.profile: " + str(e)
             handling = ExceptionHandling.LOG
             raise BrokerAPIError(msg=msg, handling=handling)
         
@@ -200,12 +200,12 @@ class FXCMBroker(AbstractBrokerAPI):
                 return self._account.to_dict()
             else:
                 self._account =  last_version
-                msg = str(e)
+                msg = "in broker.account: " + str(e)
                 handling = ExceptionHandling.WARN
                 raise BrokerAPIError(msg=msg, handling=handling)
         except RequestException as e:
             self._account =  last_version
-            msg = str(e)
+            msg = "in broker.account: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
     
@@ -232,7 +232,7 @@ class FXCMBroker(AbstractBrokerAPI):
             return self._open_positions
         except (ValueError, TypeError, ServerError) as e:
             self._open_positions = last_version
-            msg = str(e)
+            msg = "in broker.positions: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
         except RequestException as e:
@@ -268,12 +268,12 @@ class FXCMBroker(AbstractBrokerAPI):
                 return self._open_orders
             else:
                 self._open_orders =  last_version
-                msg = str(e)
+                msg = "in broker.open_orders: " + str(e)
                 handling = ExceptionHandling.WARN
                 raise BrokerAPIError(msg=msg, handling=handling)
         except RequestException as e:
             self._open_orders =  last_version
-            msg = str(e)
+            msg = "in broker.open_orders: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
     
@@ -300,7 +300,7 @@ class FXCMBroker(AbstractBrokerAPI):
                     order))
             return order
         except ValueError as e:
-            msg = str(e)
+            msg = "in broker.order: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
     
@@ -357,7 +357,11 @@ class FXCMBroker(AbstractBrokerAPI):
             
             return order_id
         except (ValueError, TypeError, ServerError) as e:
-            msg = str(e)
+            msg = "in broker.place_order: " + str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
+        except RequestException as e:
+            msg = "in broker.place_order: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
     
@@ -379,11 +383,11 @@ class FXCMBroker(AbstractBrokerAPI):
             self._api.change_order(order_id, lots, price)
             return order_id
         except (ValueError, TypeError, ServerError) as e:
-            msg = str(e)
+            msg = "in broker.update_order: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
         except RequestException as e:
-            msg = str(e)
+            msg = "in broker.update_order: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
     
@@ -400,11 +404,11 @@ class FXCMBroker(AbstractBrokerAPI):
             self._api.delete_order(order_id)
             return order_id
         except (ValueError, TypeError, ServerError) as e:
-            msg = str(e)
+            msg = "in broker.cancel_order: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
         except RequestException as e:
-            msg = str(e)
+            msg = "in broker.cancel_order: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
             
@@ -431,11 +435,11 @@ class FXCMBroker(AbstractBrokerAPI):
                                   time_in_force=time_in_force,
                                   rate=rate)
         except (ValueError, TypeError, ServerError) as e:
-            msg = str(e)
+            msg = "in broker.close_position: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
         except RequestException as e:
-            msg = str(e)
+            msg = "in broker.close_position: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
     
@@ -459,11 +463,11 @@ class FXCMBroker(AbstractBrokerAPI):
                                     time_in_force=time_in_force,
                                     account_id=account_id)
         except (ValueError, TypeError, ServerError) as e:
-            msg = str(e)
+            msg = "in broker.square_off: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
         except RequestException as e:
-            msg = str(e)
+            msg = "in broker.square_off: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
     

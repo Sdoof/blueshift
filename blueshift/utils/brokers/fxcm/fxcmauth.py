@@ -49,7 +49,7 @@ class FXCMPy(APIRateLimitMixin, fxcmpyapi):
         proxy_port = kwargs.pop('proxy_port',None)
         proxy_type = kwargs.pop('proxy_type',None)
         log_file = kwargs.pop('log_file',None)
-        log_level = kwargs.pop('log_level','')
+        log_level = kwargs.pop('log_level','error')
         config_file = kwargs.pop('config_file','')
         
         try:

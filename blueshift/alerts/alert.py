@@ -17,6 +17,7 @@ Created on Tue Nov 13 13:27:49 2018
 @author: prodipta
 """
 from os import close, getpid, execl
+from os import _exit as os_exit
 from sys import argv as sys_argv
 from sys import exit as sys_exit
 from sys import executable as sys_executable
@@ -149,6 +150,7 @@ class BlueShiftAlertManager(object):
         self.logger.error(shutdown_msg,'BlueShift')
         self.run_callbacks()
         sys_exit(1)
+        os_exit(1)
     
     def run_callbacks(self, *args, **kwargs):
         for callback in self.callbacks:
@@ -170,6 +172,7 @@ class BlueShiftAlertManager(object):
         python = sys_executable
         execl(python, python, *sys_argv)
         sys_exit(1)
+        os_exit(1)
         
     def set_up_publisher(self, topic):
         addr, port = get_config_channel('msg_addr').split(':')

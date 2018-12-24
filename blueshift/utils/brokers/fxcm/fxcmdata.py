@@ -97,7 +97,7 @@ class FXCMRestData(RESTDataPortal):
         data = []
         try:
             for asset in assets:
-                df = self._current_one(asset, fields)
+                df = self._get_candles(asset, fields)
                 if len(assets) == 1 and len(fields) == 1:
                     return df.iloc[0,0]
                 elif len(assets) == 1:
@@ -108,18 +108,65 @@ class FXCMRestData(RESTDataPortal):
             data.index = assets
             return data
         except (ValueError, TypeError, ServerError) as e:
-            msg = str(e)
+            msg = "in data.current: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
         except RequestException as e:
-            msg = str(e)
+            msg = "in data.current: " + str(e)
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
             
+    def history(self, assets, fields, nbar, frequency):
+        '''
+            Fetch the historical bar for the given assets and fields.
+            Minute data max length is 10K, we use the same cap for 
+            daily data as well.
+        '''
+        print("inside history")
+        if not isinstance(assets, list):
+            assets = [assets]
+        if not isinstance(fields, list):
+            fields = [fields]
+        
+        # prune the list if we exceed max instruments
+        if len(assets) > self._api._max_instruments:
+            assets = assets[:self._api._max_instruments]
+            
+        # check and map the data frequency
+        frequency = frequency.lower()
+        if frequency not in ['1m','1d']:
+            raise UnsupportedFrequency(msg=frequency)
+        period = 'm1' if frequency == '1m' else 'D1'
+            
+        # cap the max period length
+        nbar = int(nbar)
+        if nbar > 10000:
+            nbar = 10000
+        
+        data = {}
+        print(f"got {nbar}, {period}")
+        try:
+            for asset in assets:
+                df = self._get_candles(asset, fields, nbar=nbar, 
+                                       period=period)
+                print(df)
+                if len(assets) == 1: 
+                    return df             
+                data[asset] = df
+                    
+            return pd.concat(data)
+        except (ValueError, TypeError, ServerError) as e:
+            msg = "in data.history: " + str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
+        except RequestException as e:
+            msg = "in data.history: " + str(e)
+            handling = ExceptionHandling.WARN
+            raise BrokerAPIError(msg=msg, handling=handling)
     
     @api_rate_limit
-    def _current_one(self, asset, fields):
-        df = self._api.get_candles(asset.symbol, period='m1', number=1)
+    def _get_candles(self, asset, fields, nbar=1, period='m1'):
+        df = self._api.get_candles(asset.symbol, period=period, number=nbar)
         return self._compute_ohlc(df, fields)
     
     @classmethod        
@@ -140,8 +187,5 @@ class FXCMRestData(RESTDataPortal):
             except KeyError:
                 continue
         return pd.DataFrame(ohlc, index=px.index)
-        
-    def history(self, assets, fields, nbar, frequency):
-        pass
         
         

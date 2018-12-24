@@ -21,6 +21,7 @@ does the background object building and defines run_algo.
 """
 from os.path import isabs, join, isfile, expanduser, basename, dirname
 from os import environ as os_environ
+from os import _exit as os_exit
 from sys import exit as sys_exit
 import pandas as pd
 import click
@@ -100,6 +101,7 @@ class BlueShiftEnvironment(object):
         except BlueShiftException as e:
             click.secho(str(e), fg="red")
             sys_exit(1)
+            os_exit(1)
         
     def delete_environment(self, *args, **kwargs):
         pass
@@ -259,6 +261,7 @@ def run_algo(name, output, show_progress=False, publish=False,
     if not trading_environment:
         click.secho("failed to create a trading environment", fg="red")
         sys_exit(1)
+        os_exit(1)
         
     blueshit_run_set_name(name)
     alert_manager = get_alert_manager()
@@ -311,3 +314,4 @@ def run_algo(name, output, show_progress=False, publish=False,
         '''
         click.secho(f"illegal mode supplied.", fg="red")
         sys_exit(1)
+        os_exit(1)

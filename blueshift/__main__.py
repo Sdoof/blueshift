@@ -22,6 +22,7 @@ Main entry point
 import click
 from sys import exit as sys_exit
 from os import path as os_path
+from os import _exit as os_exit
 from os import environ as os_environ
 from os import mkdir
 import json
@@ -142,6 +143,7 @@ def config(ctx, root, timezone, broker, broker_id, broker_key,
     except BlueShiftException as e:
         click.secho(str(e), fg="red")
         sys_exit(1)
+        os_exit(1)
     
 
 @main.command(context_settings=CONTEXT_SETTINGS)
@@ -242,7 +244,7 @@ def run(ctx, start_date, end_date, initial_capital,
     except BlueShiftException as e:
         click.secho(str(e), fg="red")
         sys_exit(1)
-
+        os_exit(1)
 
 if __name__ == "__main__":
     main()

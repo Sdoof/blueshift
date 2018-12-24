@@ -28,6 +28,7 @@ def make_broker_pack(*args, **kwargs):
     name = kwargs.pop("name","fxcm")
     frequency = kwargs.get("frequency",1)
     auth = FXCMAuth(name = name, *args, **kwargs)
+    print(auth._trading_calendar)
     auth.login(*args, **kwargs)
     asset_finder = FXCMAssetFinder(auth=auth, *args, **kwargs)
     data_portal = FXCMRestData(name=name, auth=auth, *args, **kwargs)

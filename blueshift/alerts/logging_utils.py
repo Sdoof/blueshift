@@ -100,7 +100,7 @@ class BlueShiftLogger(object):
             if handler:
                 self.logger.addHandler(handler)
                 
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(logging.WARN)
         
         tz = kwargs.get('tz', None)
         if tz:
@@ -114,7 +114,18 @@ class BlueShiftLogger(object):
     def __repr__(self):
         return self.__str__()
     
-    def info(self, msg, module=None, *args, **kwargs):
+    def debug(self, msg, module="Unknown", *args, **kwargs):
+        msg="in "+module+":"+msg
+        
+        mode = kwargs.pop('mode', None)
+        if mode == MODE.BACKTEST:
+            asctime = str(kwargs.pop('timestamp'))
+        else:
+            asctime = str(pd.Timestamp.now(tz=self.tz))
+            
+        self.logger.debug(msg, extra={'myasctime':asctime})
+    
+    def info(self, msg, module="Unknown", *args, **kwargs):
         msg="in "+module+":"+msg
         
         mode = kwargs.pop('mode', None)
@@ -125,7 +136,7 @@ class BlueShiftLogger(object):
             
         self.logger.info(msg, extra={'myasctime':asctime})
         
-    def warning(self, msg, module=None, *args, **kwargs):
+    def warning(self, msg, module="Unknown", *args, **kwargs):
         msg="in "+module+":"+msg
         
         mode = kwargs.pop('mode', None)
@@ -136,10 +147,10 @@ class BlueShiftLogger(object):
             
         self.logger.warn(msg, extra={'myasctime':asctime})
         
-    def warn(self, msg, module=None, *args, **kwargs):
+    def warn(self, msg, module="Unknown", *args, **kwargs):
         self.warning(msg, module, *args, **kwargs)
         
-    def error(self, msg, module=None, *args, **kwargs):
+    def error(self, msg, module="Unknown", *args, **kwargs):
         msg="in "+module+":"+msg
         
         mode = kwargs.pop('mode', None)

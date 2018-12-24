@@ -54,10 +54,10 @@ class RESTDataPortal(DataPortal):
     def asset_finder(self):
         return self._asset_finder
     
-    def current(assets, fields):
+    def current(self, assets, fields):
         raise NotImplementedError
         
-    def history(assets, fields):
+    def history(self, assets, fields, nbar, frequency):
         raise NotImplementedError
         
     def __str__(self):

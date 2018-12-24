@@ -120,12 +120,12 @@ class FXCMAssetFinder(BrokerAssetFinder):
         sym = sym.split(":")[0]
         
         if sym not in self._instruments_list:
-            raise SymbolNotFound(f"no instruments with symbol {sym}")
+            raise SymbolNotFound(msg=f"no instruments with symbol {sym}")
         
         base, quote = tuple(sym.split('/'))
         
         if not base or not quote:
-            raise ValidationError(f"Invalid symbol {sym} for Forex.")
+            raise ValidationError(msg=f"Invalid symbol {sym} for Forex.")
         
         # TODO: hardcoded assumptions here on ticksize, generalize this.
         # NOTE: actual tick size is the inverse of this number!!
