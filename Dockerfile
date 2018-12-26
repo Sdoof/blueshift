@@ -21,11 +21,25 @@ RUN set -ex \
     && apk add --no-cache --virtual .build-deps  \
 		libffi-dev openssl-dev build-base python3-dev\
 		py3-pip \
+        libblas-dev liblapack-dev libatlas-base-dev \
 	&& pip install cython && pip install numpy && pip install setuptools-scm \
+    # install talib
+    && wget -O talib.tar.gz "http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz" \
+    && mkdir -p /usr/src/talib \
+    && tar -xzC /usr/src/talib --strip-components=1 -f talib.tar.gz \
+    && rm talib.tar.gz \
+    && cd /usr/src/talib \
+    && ./configure \
+        --prefix=/usr \
+    && make && make install \
+    # install blueshift and deps and some interesting packages
+    && cd ${BLUESHIFT_DIR} \
     && pip install -r requirements.txt \
+    && pip install scipy && pip install scikit-learn && pip install ta-lib \
     && pip install blueshift-${BLUESHIFT_VERSION}.tar.gz \
     # cleanup
     && apk del .build-deps \
+    && rm -rf /usr/src/talib \
     && rm -f requirements.txt && rm -f blueshift-${BLUESHIFT_VERSION}.tar.gz
 
 # set up user

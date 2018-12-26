@@ -37,7 +37,7 @@ _default_config =\
   },
   # user workspace details - for persistance and record keeping
   "user_workspace": {
-    "root": "C:/Users/academy.academy-72/Documents/blueshift",
+    "root": "~/.blueshift",
     "performance": "performance",
     "orders": "orders",
     "objects": "objects",
@@ -133,9 +133,9 @@ def ensure_directory(path):
 def blueshift_root(environ=None):
     config = get_config()
     if config:
-        root = config.user_space['root']
+        root = os_path.expanduser(config.user_space['root'])
     elif environ:
-        root = environ.get("BLUESHIFT_ROOT", None)
+        root = os_path.expanduser(environ.get("BLUESHIFT_ROOT", None))
     else:
         root = os_path.expanduser('~/.blueshift')
     
