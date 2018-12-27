@@ -122,7 +122,6 @@ class FXCMRestData(RESTDataPortal):
             Minute data max length is 10K, we use the same cap for 
             daily data as well.
         '''
-        print("inside history")
         if not isinstance(assets, list):
             assets = [assets]
         if not isinstance(fields, list):
@@ -144,12 +143,10 @@ class FXCMRestData(RESTDataPortal):
             nbar = 10000
         
         data = {}
-        print(f"got {nbar}, {period}")
         try:
             for asset in assets:
                 df = self._get_candles(asset, fields, nbar=nbar, 
                                        period=period)
-                print(df)
                 if len(assets) == 1: 
                     return df             
                 data[asset] = df

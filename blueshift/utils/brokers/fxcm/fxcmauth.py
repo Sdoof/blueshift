@@ -17,6 +17,7 @@ Created on Tue Dec 11 15:19:00 2018
 @author: prodipta
 """
 import json
+from requests.exceptions import RequestException
 
 from fxcmpy import fxcmpy as fxcmpyapi
 import fxcmpy
@@ -59,6 +60,11 @@ class FXCMPy(APIRateLimitMixin, fxcmpyapi):
         except ServerError:
             msg = "access token missing"
             handling = ExceptionHandling.TERMINATE
+            raise AuthenticationError(msg=msg, handling=handling)
+            
+        except RequestException as e:
+            msg = "in broker.auth: " + str(e)
+            handling = ExceptionHandling.WARN
             raise AuthenticationError(msg=msg, handling=handling)
             
         logger = get_logger()

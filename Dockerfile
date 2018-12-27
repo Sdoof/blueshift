@@ -17,11 +17,11 @@ WORKDIR ${BLUESHIFT_DIR}
 # install build-deps
 RUN set -ex \
     && apk update \
-    && apk add --no-cache make cmake gcc g++ gfortran libffi openssl linux-headers \
+    && apk add --no-cache make cmake gcc g++ gfortran libffi openssl linux-headers openblas  lapack\
     && apk add --no-cache --virtual .build-deps  \
 		libffi-dev openssl-dev build-base python3-dev\
 		py3-pip \
-        libblas-dev liblapack-dev libatlas-base-dev \
+        lapack-dev \
 	&& pip install cython && pip install numpy && pip install setuptools-scm \
     # install talib
     && wget -O talib.tar.gz "http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz" \
@@ -41,6 +41,12 @@ RUN set -ex \
     && apk del .build-deps \
     && rm -rf /usr/src/talib \
     && rm -f requirements.txt && rm -f blueshift-${BLUESHIFT_VERSION}.tar.gz
+
+# fix the fxcmpy thread issue
+RUN set -ex \
+    && export fxcmpy=/usr/local/lib/python3.6/site-packages/fxcmpy/fxcmpy.py \
+    && export lineno=`grep -n $fxcmpy -e "Thread(target=self.__connect__)" | cut -f1 -d:` \
+    && sed -i "${lineno} a \ \ \ \ \ \ \ \ self.socket_thread.daemon = True" $fxcmpy
 
 # set up user
 RUN addgroup -S ${BLUESHIFT_USER} && adduser -S ${BLUESHIFT_USER} -G ${BLUESHIFT_USER}
