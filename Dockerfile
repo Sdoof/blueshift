@@ -40,7 +40,8 @@ RUN set -ex \
     # cleanup
     && apk del .build-deps \
     && rm -rf /usr/src/talib \
-    && rm -f requirements.txt && rm -f blueshift-${BLUESHIFT_VERSION}.tar.gz
+    && rm -f requirements.txt && rm -f blueshift-${BLUESHIFT_VERSION}.tar.gz \
+    && rm -rf /root/.cache/pip/*
 
 # fix the fxcmpy thread issue
 RUN set -ex \
@@ -49,8 +50,10 @@ RUN set -ex \
     && sed -i "${lineno} a \ \ \ \ \ \ \ \ self.socket_thread.daemon = True" $fxcmpy
 
 # set up user
-RUN addgroup -S ${BLUESHIFT_USER} && adduser -S ${BLUESHIFT_USER} -G ${BLUESHIFT_USER}
-USER blueshift
+RUN set -ex\ 
+    && addgroup -S ${BLUESHIFT_USER} && adduser -S ${BLUESHIFT_USER} -G ${BLUESHIFT_USER} \
+    && chown -R ${BLUESHIFT_USER}:${BLUESHIFT_USER} ${BLUESHIFT_DIR}
+USER ${BLUESHIFT_USER}
 
 # initialize blueshift
 RUN set -ex \
