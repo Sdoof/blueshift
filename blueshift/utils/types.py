@@ -27,6 +27,12 @@ from enum import Enum, unique
 NANO_SECOND = 1000000000
 
 '''
+    Check non-string iterable
+'''
+def listlike(obj):
+    return hasattr(obj, '__iter__') and not isinstance(obj, str)
+
+'''
     Sentinel for a generic function.
 '''
 def noop(*args, **kwargs):
