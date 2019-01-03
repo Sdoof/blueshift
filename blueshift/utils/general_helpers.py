@@ -21,6 +21,10 @@ from sys import getsizeof as sys_getsizeof
 from collections import OrderedDict
 from os import path as os_path
 from blueshift.utils.ctx_mgr import AddPythonPath
+from blueshift.utils.types import NANO_SECOND
+
+def datetime_time_to_nanos(dt):
+    return (dt.hour*60 + dt.minute)*60*NANO_SECOND
 
 def get_size(obj, seen=None):
     """Recursively finds size of objects"""
