@@ -263,14 +263,19 @@ class TimeRule(object):
                 raise ScheduleFunctionError(msg="failed to create task schedules")
             
     def _trigger_dts_calc(self, start_dt, end_dt):
+        # bump the dates to ensure we capture month start and end
         start_dt_use = start_dt - MonthBegin()
         end_dt_use = end_dt + MonthEnd()
         sessions = self._trading_calendar.sessions(start_dt_use, end_dt_use)
         mkt_open = self._trading_calendar.open_time
         mkt_close = self._trading_calendar.close_time
         dt_dates = self._dt_func(sessions)
+        # we make sure the date ranges does not fall outside the start 
+        # and end dates.
         dt_dates = [dt for dt in dt_dates if dt >= start_dt.value and\
                     dt <= end_dt.value]
+        # we cannot do the same for times, for e.g. for 24 hour calendar
+        # it becomes meaningless. open may be > close.
         dt_times = self._time_func(mkt_open, mkt_close)
         
         return [dt1 + dt2 for dt1 in dt_dates for dt2 in dt_times]
@@ -362,8 +367,8 @@ class Scheduler(object):
         bisect_right to retrieve all pending tasks for a given nano. The
         event trigger method returns early in case the task queue is empty
         or the task with the nearest future nano is higher than the current
-        nano. Else it remove and process all hits and re-insert them after
-        updating the next call nano.
+        nano. Else it removes and processes all hits and re-insert them 
+        after updating the next call nano.
     '''
     def __init__(self):
         self._events = []
@@ -392,7 +397,7 @@ class Scheduler(object):
             e.callback(context, data)
     
     def __str__(self):
-        return "Blueshift task scheduler"
+        return "Blueshift tasks scheduler"
     
     def __repr__(self):
         return self.__str__()
