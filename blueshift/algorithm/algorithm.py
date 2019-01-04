@@ -49,11 +49,14 @@ from blueshift.utils.exceptions import (
         InitializationError,
         ValidationError,
         CommandShutdownException,
+        ScheduleFunctionError,
         BlueShiftException)
 
 from blueshift.utils.decorators import blueprint
 from blueshift.utils.ctx_mgr import (ShowProgressBar,
                                      MessageBrokerCtxManager)
+from blueshift.utils.scheduler import (TimeRule, TimeEvent, Scheduler,
+                                       date_rules, time_rules)
     
 
 @blueprint
@@ -191,6 +194,9 @@ class TradingAlgorithm(AlgoStateMachine):
         # setup the default logger
         self._logger = None
         self._set_logger()
+        
+        # set up the scheduler
+        self._scheduler = Scheduler()
 
     def __str__(self):
         return "Blueshift Algorithm [name:%s, broker:%s]" % (self.name,
@@ -252,6 +258,12 @@ class TradingAlgorithm(AlgoStateMachine):
                 msg = f"State Machine Error ({self.state}): in handle_data"
                 raise StateMachineError(msg=msg)
                 
+        # run scheduled tasks first
+        self._scheduler.trigger_events(self.context, 
+                                       self.context.data_portal, 
+                                       timestamp.value)
+        
+        # followed by user defined handle_data
         self._handle_data(self.context, self.context.data_portal)
     
     def after_trading_hours(self,timestamp):
@@ -615,6 +627,40 @@ class TradingAlgorithm(AlgoStateMachine):
         else:
             dt = pd.Timestamp.now(tz=self.context.trading_calendar.tz)
         return dt
+    
+    @api_method
+    def schedule_function(self, callback, date_rule=None, time_rule=None):
+        '''
+            Schedule a callable to executed by a set of date and time based
+            rules.
+        '''
+        if not date_rule and not time_rule:
+            return
+        
+        date_rule = date_rule or date_rules.every_day()
+        if not time_rule:
+            ScheduleFunctionError(msg="must specify a time rule")
+            
+        if not hasattr(date_rule, 'date_rule'):
+            ScheduleFunctionError(msg="not a valid date rule")
+            
+        if not hasattr(time_rule, 'time_rule'):
+            ScheduleFunctionError(msg="not a valid time rule")
+        
+        if self.mode == MODE.BACKTEST:
+            start_dt = pd.Timestamp(self.context.clock.start_nano, 
+                                    tz=self.context.trading_calendar.tz)
+            end_dt = pd.Timestamp(self.context.clock.end_nano, 
+                                    tz=self.context.trading_calendar.tz)
+            rule = TimeRule(date_rule, time_rule, start_dt=start_dt,
+                            end_dt=end_dt,
+                            trading_calendar = self.context.trading_calendar)
+        else:
+            rule = TimeRule(date_rule, time_rule, 
+                            trading_calendar = self.context.trading_calendar)
+        
+        e = TimeEvent(rule, callback)
+        self._scheduler.add_event(e)
         
     @api_method
     def symbol(self,symbol_str:str):

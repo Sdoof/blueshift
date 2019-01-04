@@ -32,6 +32,8 @@ from blueshift.utils.calendars import (get_calendar,
                                        register_calendar_alias,
                                        deregister_calendar_alias)
 
+from blueshift.utils.scheduler import date_rules, time_rules
+
 __all__ = [get_broker,
            register_broker,
            deregister_broker,
@@ -41,4 +43,6 @@ __all__ = [get_broker,
            register_calendar,
            deregister_calendar,
            register_calendar_alias,
-           deregister_calendar_alias]
+           deregister_calendar_alias,
+           date_rules,
+           time_rules]

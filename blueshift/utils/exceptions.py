@@ -178,6 +178,13 @@ class UnsupportedOrder(UserError):
     msg = "Unsupported Order Type"
     handling = ExceptionHandling.TERMINATE
     
+class ScheduleFunctionError(UserError):
+    '''
+        Not a valid broker, broker dispatch failed.
+    '''
+    msg = "name supplied is not a valid registered calendar"
+    handling = ExceptionHandling.TERMINATE
+    
 # Internal Errors
 class StateMachineError(InternalError):
     '''
