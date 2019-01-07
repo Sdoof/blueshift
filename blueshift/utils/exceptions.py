@@ -180,9 +180,16 @@ class UnsupportedOrder(UserError):
     
 class ScheduleFunctionError(UserError):
     '''
+        Not a valid scheduler inputs or related issues.
+    '''
+    msg = "Schedule function error"
+    handling = ExceptionHandling.TERMINATE
+    
+class TradingControlError(UserError):
+    '''
         Not a valid broker, broker dispatch failed.
     '''
-    msg = "name supplied is not a valid registered calendar"
+    msg = "Trading control error"
     handling = ExceptionHandling.TERMINATE
     
 # Internal Errors

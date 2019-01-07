@@ -50,13 +50,16 @@ from blueshift.utils.exceptions import (
         ValidationError,
         CommandShutdownException,
         ScheduleFunctionError,
+        TradingControlError,
         BlueShiftException)
 
 from blueshift.utils.decorators import blueprint
 from blueshift.utils.ctx_mgr import (ShowProgressBar,
                                      MessageBrokerCtxManager)
 from blueshift.utils.scheduler import (TimeRule, TimeEvent, Scheduler,
-                                       date_rules, time_rules)
+                                       date_rules)
+
+from blueshift.execution.controls import TradingControl
     
 
 @blueprint
@@ -197,6 +200,10 @@ class TradingAlgorithm(AlgoStateMachine):
         
         # set up the scheduler
         self._scheduler = Scheduler()
+        
+        # set up the trading controllers list
+        self._trading_controls = []
+        self.__freeze_trading = False
 
     def __str__(self):
         return "Blueshift Algorithm [name:%s, broker:%s]" % (self.name,
@@ -612,6 +619,16 @@ class TradingAlgorithm(AlgoStateMachine):
         if asset_finder:
             asset_finder.refresh_data(*args, **kwargs)
         self.log_warning("Relaoded asset database.")
+        
+    @command_method
+    def stop_trading(self, *args, **kwargs):
+        self._freeze_trading()
+        self.log_warning("All trading stopped. All orders will be ignored.")
+    
+    @command_method
+    def resume_trading(self, *args, **kwargs):
+        self._unfreeze_trading()
+        self.log_warning("Trading resumed. Orders will be sent to broker.")
     
     '''
         All API functions related to algorithm objects should go in this
@@ -629,6 +646,17 @@ class TradingAlgorithm(AlgoStateMachine):
         return dt
     
     @api_method
+    def register_trading_controls(self, control):
+        '''
+            Register a trading control instance to check before each
+            order is created.
+        '''
+        if not isinstance(control, TradingControl):
+            raise TradingControlError(msg="invalid control type.")
+        
+        self._trading_controls.append(control)
+    
+    @api_method
     def schedule_function(self, callback, date_rule=None, time_rule=None):
         '''
             Schedule a callable to executed by a set of date and time based
@@ -639,13 +667,16 @@ class TradingAlgorithm(AlgoStateMachine):
         
         date_rule = date_rule or date_rules.every_day()
         if not time_rule:
-            ScheduleFunctionError(msg="must specify a time rule")
+            ScheduleFunctionError(msg="must specify a time rule.")
             
         if not hasattr(date_rule, 'date_rule'):
-            ScheduleFunctionError(msg="not a valid date rule")
+            ScheduleFunctionError(msg="not a valid date rule.")
             
         if not hasattr(time_rule, 'time_rule'):
-            ScheduleFunctionError(msg="not a valid time rule")
+            ScheduleFunctionError(msg="not a valid time rule.")
+        
+        if not callable(callback):
+            ScheduleFunctionError(msg="callback must be a callable.")
         
         if self.mode == MODE.BACKTEST:
             start_dt = pd.Timestamp(self.context.clock.start_nano, 
@@ -707,6 +738,30 @@ class TradingAlgorithm(AlgoStateMachine):
                 _can_trade.append(exp_dt > dt)
                 
         return all(_can_trade)
+    
+    def _control_fail_handler(self, control, asset, dt, amount, context):
+        '''
+            Default control validation fail handler, logs a warning.
+        '''
+        msg = control.get_error_msg(asset, dt)
+        self.log_warning(msg)
+    
+    def _validate_trading_controls(self, asset, amount, dt):
+        '''
+            Validate all controls. Return false with the first fail.
+        '''
+        for control in self._trading_controls:
+            if not control.validate(asset, amount, dt, self.context, 
+                                    self._control_fail_handler):
+                return False
+        return True
+    
+
+    def _freeze_trading(self):
+        self.__freeze_trading = True
+        
+    def _unfreeze_trading(self):
+        self.__freeze_trading = False
         
     # TODO: cythonize the creation of order
     @api_method
@@ -716,6 +771,8 @@ class TradingAlgorithm(AlgoStateMachine):
             Place new order. This is the interface to underlying broker
             for ALL order related API functions.
         '''
+        if self.__freeze_trading:
+            return
         
         if not self.is_TRADING_BAR():
             msg = f"can't place order for {asset.symbol},"
@@ -741,6 +798,11 @@ class TradingAlgorithm(AlgoStateMachine):
         
         o = Order(abs(quantity),side,asset,order_type = order_type,
                   price=limit_price, stoploss_price=stop_price)
+        
+        checks_ok = self._validate_trading_controls(asset, quantity, 
+                                                    self.context.timestamp)
+        if not checks_ok:
+            return
         
         order_id = self.context.broker.place_order(o)
         return order_id
