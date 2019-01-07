@@ -18,6 +18,7 @@ Created on Mon Jan  7 13:11:51 2019
 """
 from abc import ABC, abstractmethod 
 
+from blueshift.trades._order_types import OrderSide
 from blueshift.utils.decorators import singleton
 from blueshift.utils.types import noop
 
@@ -72,7 +73,9 @@ class TCOrderQtyPerTrade(TradingControl):
         for asset in self._max_amount_dict:
             self._max_amount_dict[asset] = abs(self._max_amount_dict[asset])
     
-    def validate(self, asset, amount, dt, context, on_fail=noop):
+    def validate(self, order, dt, context, on_fail=noop):
+        amount = order.quantity
+        asset = order.asset
         max_allowed = self._max_amount_dict.get(asset, self._default_max)
         
         if abs(amount) < max_allowed:
@@ -110,7 +113,9 @@ class TCOrderValuePerTrade(TradingControl):
     def add_control(self, max_amount_dict):
         self._max_amount_dict = {**self._max_amount_dict, **max_amount_dict}
     
-    def validate(self, asset, amount, dt, context, on_fail=noop):
+    def validate(self, order, dt, context, on_fail=noop):
+        amount = order.quantity
+        asset = order.asset
         max_allowed = self._max_amount_dict.get(asset, self._default_max)
         price = context.data_portal.current(asset, 'close')
         value = abs(amount*price)
@@ -158,7 +163,10 @@ class TCOrderQtyPerDay(TradingControl):
         for asset in self._asset_quota:
             self._asset_quota[asset] = 0
     
-    def validate(self, asset, amount, dt, context, on_fail=noop):
+    def validate(self, order, dt, context, on_fail=noop):
+        amount = order.quantity
+        asset = order.asset
+        
         if self._current_dt != dt.date():
             self._reset_quota()
             self._current_dt = dt.date()
@@ -211,7 +219,10 @@ class TCOrderValuePerDay(TradingControl):
         for asset in self._asset_quota:
             self._asset_quota[asset] = 0
     
-    def validate(self, asset, amount, dt, context, on_fail=noop):
+    def validate(self, order, dt, context, on_fail=noop):
+        amount = order.quantity
+        asset = order.asset
+        
         if self._current_dt != dt.date():
             self._reset_quota()
             self._current_dt = dt.date()
@@ -260,7 +271,10 @@ class TCOrderNumPerDay(TradingControl):
     def _reset_quota(self):
         self._used_limit = 0
     
-    def validate(self, asset, amount, dt, context, on_fail=noop):
+    def validate(self, order, dt, context, on_fail=noop):
+        amount = order.quantity
+        asset = order.asset
+        
         if self._current_dt != dt.date():
             self._reset_quota()
             self._current_dt = dt.date()
@@ -298,7 +312,10 @@ class TCGrossLeverage(TradingControl):
     def add_control(self, max_leverage):
         self._max_leverage = max_leverage
     
-    def validate(self, asset, amount, dt, context, on_fail=noop):
+    def validate(self, order, dt, context, on_fail=noop):
+        amount = order.quantity
+        asset = order.asset
+        
         current_exposure = context.account.gross_exposure
         liquid_value = context.account.liquid_value
         trade_value = abs(context.data_portal.current(asset, 'close')*amount)
@@ -336,7 +353,9 @@ class TCGrossExposure(TradingControl):
     def add_control(self, max_exposure):
         self._max_exposure = max_exposure
     
-    def validate(self, asset, amount, dt, context, on_fail=noop):
+    def validate(self, order, dt, context, on_fail=noop):
+        amount = order.quantity
+        asset = order.asset
         current_exposure = context.account.gross_exposure
         trade_value = abs(context.data_portal.current(asset, 'close')*amount)
         estimated_exposure = current_exposure + trade_value
@@ -372,7 +391,10 @@ class TCLongOnly(TradingControl):
     def add_control(self, max_exposure):
         pass
     
-    def validate(self, asset, amount, dt, context, on_fail=noop):
+    def validate(self, order, dt, context, on_fail=noop):
+        side = 1 if order.side is OrderSide.BUY else -1
+        amount = order.quantity*side
+        asset = order.asset
         current_pos = context.portfolio.get(asset, 0)
         estimated_pos = current_pos + amount
         

@@ -746,12 +746,13 @@ class TradingAlgorithm(AlgoStateMachine):
         msg = control.get_error_msg(asset, dt)
         self.log_warning(msg)
     
-    def _validate_trading_controls(self, asset, amount, dt):
+    def _validate_trading_controls(self, order):
         '''
             Validate all controls. Return false with the first fail.
         '''
         for control in self._trading_controls:
-            if not control.validate(asset, amount, dt, self.context, 
+            if not control.validate(order, self.context.timestamp, 
+                                    self.context, 
                                     self._control_fail_handler):
                 return False
         return True
@@ -799,8 +800,7 @@ class TradingAlgorithm(AlgoStateMachine):
         o = Order(abs(quantity),side,asset,order_type = order_type,
                   price=limit_price, stoploss_price=stop_price)
         
-        checks_ok = self._validate_trading_controls(asset, quantity, 
-                                                    self.context.timestamp)
+        checks_ok = self._validate_trading_controls(o)
         if not checks_ok:
             return
         
