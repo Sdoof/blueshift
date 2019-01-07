@@ -57,7 +57,7 @@ CONTEXT_SETTINGS = dict(ignore_unknown_options=True,
     default='~/.blueshift/.blueshift_config.json',
     type=click.Path(),
     help='Blueshift config file. You can generate a config template'
-            'using the `config` command.'
+            ' using the `config` command.'
 )
 @click.pass_context
 def main(ctx, api_key, config_file):

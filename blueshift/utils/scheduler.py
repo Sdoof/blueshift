@@ -145,7 +145,7 @@ class time_rules(object):
     
     @classmethod
     def AfterOpen(cls, minutes=0, hours=0):
-        return cls.market_open(minutes=0, hours=0)
+        return cls.market_open(minutes, hours)
     
     @classmethod
     def market_close(cls, minutes=0, hours=0):
@@ -165,7 +165,7 @@ class time_rules(object):
     
     @classmethod
     def BeforeClose(cls, minutes=0, hours=0):
-        return cls.market_close(minutes=0, hours=0)
+        return cls.market_close(minutes, hours)
     
     @classmethod
     def every_nth_minute(cls, minutes=1):
