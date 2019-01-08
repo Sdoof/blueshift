@@ -348,7 +348,7 @@ class AlgoContext(object):
             value = float(value)
             self.__recored_vars.loc[pd.to_datetime(dt.date()),varname] =\
                     value
-        except TypeError:
+        except (TypeError, ValueError):
             msg = "recored variable names must be string-like "
             msg = msg + "and values float-like"
             raise RecordVarError(msg=msg)
