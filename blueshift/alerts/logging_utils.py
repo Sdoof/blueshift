@@ -144,7 +144,7 @@ class BlueShiftLogger(object):
             asctime = kwargs.pop('timestamp')
         else:
             asctime = str(pd.Timestamp.now(tz=self.tz))
-            
+        
         self.logger.warn(msg, extra={'myasctime':asctime})
         
     def warn(self, msg, module="Unknown", *args, **kwargs):

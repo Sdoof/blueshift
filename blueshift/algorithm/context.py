@@ -25,6 +25,7 @@ from blueshift.blotter._perf import (Performance,
                                      DAILY_METRICS)
 from blueshift.utils.exceptions import (InitializationError,
                                         ValidationError,
+                                        RecordVarError,
                                         ExceptionHandling)
 from blueshift.assets import AssetFinder
 from blueshift.execution.broker import AbstractBrokerAPI
@@ -51,6 +52,7 @@ class AlgoContext(object):
         # this will be used to tag orders where supported
         self._name = kwargs.get("name",blueshift_run_get_name())
         self.__timestamp = None
+        self.__recored_vars = pd.DataFrame()
         
         # get the broker object and mark initialize
         self.__broker_initialized = False
@@ -152,6 +154,9 @@ class AlgoContext(object):
     def clock(self):
         return self.__clock
     
+    @property
+    def recored_vars(self):
+        return self.__recored_vars
     
     def past_performance(self, lookback):
         idx, values = self.__performance.get_past_perfs(lookback)
@@ -328,3 +333,38 @@ class AlgoContext(object):
             Called at start of the day. No validation.
         '''
         pass
+    
+    def record_var(self, varname, value):
+        '''
+            Record individual variables. If called before timestamp is 
+            initialized, return silently.
+        '''
+        dt = self.__timestamp
+        if not dt:
+            return
+        
+        try:
+            varname = str(varname)
+            value = float(value)
+            self.__recored_vars.loc[pd.to_datetime(dt.date()),varname] =\
+                    value
+        except TypeError:
+            msg = "recored variable names must be string-like "
+            msg = msg + "and values float-like"
+            raise RecordVarError(msg=msg)
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            

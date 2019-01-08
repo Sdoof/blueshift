@@ -38,7 +38,7 @@ from blueshift.trades._order import Order
 from blueshift.trades._order_types import OrderSide
 from blueshift.algorithm.api_decorator import api_method, command_method
 from blueshift.api import get_broker
-from blueshift.utils.types import noop, MODE
+from blueshift.utils.types import noop, MODE, listlike
 from blueshift.algorithm.state_machine import AlgoStateMachine
 
 from blueshift.alerts import get_logger
@@ -59,7 +59,17 @@ from blueshift.utils.ctx_mgr import (ShowProgressBar,
 from blueshift.utils.scheduler import (TimeRule, TimeEvent, Scheduler,
                                        date_rules)
 
-from blueshift.execution.controls import TradingControl
+from blueshift.execution.controls import (TradingControl,
+                                          TCOrderQtyPerTrade,
+                                          TCOrderValuePerTrade,
+                                          TCOrderQtyPerDay,
+                                          TCOrderValuePerDay,
+                                          TCOrderNumPerDay,
+                                          TCLongOnly,
+                                          TCPositionQty,
+                                          TCPositionValue,
+                                          TCGrossLeverage,
+                                          TCGrossExposure)
     
 
 @blueprint
@@ -433,7 +443,7 @@ class TradingAlgorithm(AlgoStateMachine):
                 print(f"{t}:{bar}")
                 
                 if self.is_STOPPED():
-                    self.log_info("algorithm stopped, will exit.")
+                    self.log_info("algorithm stopped, will exit.",t)
                     raise CommandShutdownException(msg="shutting down.")
                 elif self.is_PAUSED():
                     continue
@@ -536,17 +546,29 @@ class TradingAlgorithm(AlgoStateMachine):
         if self._logger:
             self._logger.tz = self.context.trading_calendar.tz
         
-    def log_info(self, msg):
+    def log_info(self, msg, timestamp=None):
         if self._logger:
-            self._logger.info(msg,"algorithm")
+            if timestamp:
+                self._logger.info(msg,"algorithm", timestamp=timestamp,
+                                  mode=self.mode)
+            else:
+                self._logger.info(msg,"algorithm")
             
-    def log_warning(self, msg):
+    def log_warning(self, msg, timestamp=None):
         if self._logger:
-            self._logger.warning(msg,"algorithm")
+            if timestamp:
+                self._logger.warning(msg,"algorithm", timestamp=timestamp,
+                                     mode=self.mode)
+            else:
+                self._logger.warning(msg,"algorithm")
             
-    def log_error(self, msg):
+    def log_error(self, msg, timestamp=None):
         if self._logger:
-            self._logger.error(msg,"algorithm")
+            if timestamp:
+                self._logger.error(msg,"algorithm", timestamp=timestamp,
+                                   mode=self.mode)
+            else:
+                self._logger.error(msg,"algorithm")
     
     '''
         A list of methods for processing commands received on the command
@@ -657,6 +679,18 @@ class TradingAlgorithm(AlgoStateMachine):
         self._trading_controls.append(control)
     
     @api_method
+    def record(self, *args, **kwargs):
+        '''
+            Record a list of var-name, value pairs for each day.
+        '''
+        args_iter = iter(args)
+        var_dict = dict(zip(args_iter,args_iter))
+        var_dict = {**var_dict, **kwargs}
+        
+        for varname, value in var_dict.items():
+            self.context.record_var(varname, value)
+    
+    @api_method
     def schedule_function(self, callback, date_rule=None, time_rule=None):
         '''
             Schedule a callable to executed by a set of date and time based
@@ -744,7 +778,7 @@ class TradingAlgorithm(AlgoStateMachine):
             Default control validation fail handler, logs a warning.
         '''
         msg = control.get_error_msg(asset, dt)
-        self.log_warning(msg)
+        self.log_warning(msg, timestamp=self.context.timestamp)
     
     def _validate_trading_controls(self, order):
         '''
@@ -766,9 +800,129 @@ class TradingAlgorithm(AlgoStateMachine):
         
     # list of trading control APIs affecting order functions
     @api_method
-    def set_max_order_size(self, asset=None, max_shares=None, 
-                           max_notional=None):
-        pass
+    def set_max_order_size(self, assets=None, max_quantity=None, 
+                           max_notional=None, on_fail=None):
+        if not max_quantity and not max_notional:
+            msg = "must specify either max quantity or "
+            msg = msg + "max notional"
+            raise TradingControlError(msg=msg)
+        elif max_quantity and max_notional:
+            msg = "cannot have both controls:"
+            msg = msg + " max quantity and max notional"
+            raise TradingControlError(msg=msg)
+        elif max_quantity:
+            ctrl = 0
+            value = max_quantity
+        else:
+            ctrl = 1
+            value = max_notional
+        
+        limit_dict = {}
+        if isinstance(assets, dict):
+            limit_dict = assets
+            default = None
+        elif listlike(assets):
+            limit_dict = dict(zip(assets,[value]*len(assets)))
+            default = None
+        else:
+            default = value
+            
+        if ctrl == 0:
+            control = TCOrderQtyPerTrade(default, limit_dict, on_fail)
+        else:
+            control = TCOrderValuePerTrade(default, limit_dict, on_fail)
+            
+        self.register_trading_controls(control)
+        
+    @api_method
+    def set_max_daily_size(self, assets=None, max_quantity=None, 
+                           max_notional=None, on_fail=None):
+        if not max_quantity and not max_notional:
+            msg = "must specify either max quantity or "
+            msg = msg + "max notional"
+            raise TradingControlError(msg=msg)
+        elif max_quantity and max_notional:
+            msg = "cannot have both controls:"
+            msg = msg + " max quantity and max notional"
+            raise TradingControlError(msg=msg)
+        elif max_quantity:
+            ctrl = 0
+            limit = max_quantity
+        else:
+            ctrl = 1
+            limit = max_notional
+        
+        limit_dict = {}
+        if isinstance(assets, dict):
+            limit_dict = assets
+            default = None
+        elif listlike(assets):
+            limit_dict = dict(zip(assets,[limit]*len(assets)))
+            default = None
+        else:
+            default = limit
+            
+        if ctrl == 0:
+            control = TCOrderQtyPerDay(default, limit_dict, on_fail)
+        else:
+            control = TCOrderValuePerDay(default, limit_dict, on_fail)
+            
+        self.register_trading_controls(control)
+        
+    @api_method
+    def set_max_position_size(self, assets=None, max_quantity=None, 
+                              max_notional=None, on_fail=None):
+        if not max_quantity and not max_notional:
+            msg = "must specify either max quantity or "
+            msg = msg + "max notional"
+            raise TradingControlError(msg=msg)
+        elif max_quantity and max_notional:
+            msg = "cannot have both controls:"
+            msg = msg + " max quantity and max notional"
+            raise TradingControlError(msg=msg)
+        elif max_quantity:
+            ctrl = 0
+            limit = max_quantity
+        else:
+            ctrl = 1
+            limit = max_notional
+        
+        limit_dict = {}
+        if isinstance(assets, dict):
+            limit_dict = assets
+            default = None
+        elif listlike(assets):
+            limit_dict = dict(zip(assets,[limit]*len(assets)))
+            default = None
+        else:
+            default = limit
+            
+        if ctrl == 0:
+            control = TCPositionQty(default, limit_dict, on_fail)
+        else:
+            control = TCPositionValue(default, limit_dict, on_fail)
+            
+        self.register_trading_controls(control)
+        
+    @api_method
+    def set_max_order_count(self, max_count, on_fail=None):
+        control = TCOrderNumPerDay(max_count, on_fail)
+        self.register_trading_controls(control)
+        
+    @api_method
+    def set_long_only(self, on_fail=None):
+        control = TCLongOnly(on_fail)
+        self.register_trading_controls(control)
+        
+    @api_method
+    def set_max_leverage(self, max_leverage, on_fail=None):
+        control = TCGrossLeverage(max_leverage, on_fail)
+        self.register_trading_controls(control)
+        
+    @api_method
+    def set_max_exposure(self, max_exposure, on_fail=None):
+        control = TCGrossExposure(max_exposure, on_fail)
+        self.register_trading_controls(control)
     
     # TODO: cythonize the creation of order
     @api_method
@@ -784,7 +938,7 @@ class TradingAlgorithm(AlgoStateMachine):
         if not self.is_TRADING_BAR():
             msg = f"can't place order for {asset.symbol},"
             msg = msg + " market not open yet."
-            self.log_warning(msg)
+            self.log_warning(msg, timestamp=self.context.timestamp)
             return
         
         mult = asset.mult

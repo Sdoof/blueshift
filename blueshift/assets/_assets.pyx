@@ -314,6 +314,7 @@ cdef class Forex(Asset):
         self.ccy_pair = ccy_pair
         self.base_ccy = base_ccy
         self.quote_ccy = quote_ccy
+        self.ccy = quote_ccy
         self.asset_class = AssetClass.FOREX
         self.instrument_type = InstrumentType.SPOT
         

@@ -78,6 +78,9 @@ class TCOrderQtyPerTrade(TradingControl):
         asset = order.asset
         max_allowed = self._max_amount_dict.get(asset, self._default_max)
         
+        if not max_allowed:
+            return True
+        
         if abs(amount) < max_allowed:
             return True
         
@@ -117,6 +120,10 @@ class TCOrderValuePerTrade(TradingControl):
         amount = order.quantity
         asset = order.asset
         max_allowed = self._max_amount_dict.get(asset, self._default_max)
+        
+        if not max_allowed:
+            return True
+        
         price = context.data_portal.current(asset, 'close')
         value = abs(amount*price)
         
@@ -144,7 +151,7 @@ class TCOrderQtyPerDay(TradingControl):
     '''
         Class implementing max order quantity per asset per day.
     '''
-    def __init__(self, dt, default_max, max_amount_dict=None, 
+    def __init__(self, default_max, max_amount_dict=None, 
                  on_fail=None):
         # pylint: disable=bad-super-call
         super(self.__class__, self).__init__(on_fail=on_fail)
@@ -152,7 +159,7 @@ class TCOrderQtyPerDay(TradingControl):
         self._default_max = abs(default_max)
         self.add_control({})
         self._asset_quota = dict((asset,0) for asset in self._max_amount_dict)
-        self._current_dt = dt.date()
+        self._current_dt = None
         
     def add_control(self, max_amount_dict):
         self._max_amount_dict = {**self._max_amount_dict, **max_amount_dict}
@@ -172,6 +179,10 @@ class TCOrderQtyPerDay(TradingControl):
             self._current_dt = dt.date()
         
         max_allowed = self._max_amount_dict.get(asset, self._default_max)
+        
+        if not max_allowed:
+            return True
+        
         max_used = self._asset_quota.get(asset, 0)
         estimated = abs(amount)+max_used
         
@@ -192,7 +203,7 @@ class TCOrderQtyPerDay(TradingControl):
     def get_error_msg(self, asset, dt):
         msg = f"Failed per day trade amount control for {asset}"
         msg = msg + f", total amount {self._metric}"
-        msg = msg + " against limit {self._limit}, on {dt}"
+        msg = msg + f" against limit {self._limit}, on {dt}"
         return msg
     
 @singleton
@@ -200,7 +211,7 @@ class TCOrderValuePerDay(TradingControl):
     '''
         Class implementing max order value per asset per day.
     '''
-    def __init__(self, dt, default_max, max_amount_dict=None, 
+    def __init__(self, default_max, max_amount_dict=None, 
                  on_fail=None):
         # pylint: disable=bad-super-call
         super(self.__class__, self).__init__(on_fail=on_fail)
@@ -208,7 +219,7 @@ class TCOrderValuePerDay(TradingControl):
         self._default_max = abs(default_max)
         self.add_control({})
         self._asset_quota = dict((asset,0) for asset in self._max_amount_dict)
-        self._current_dt = dt.date()
+        self._current_dt = None
         
     def add_control(self, max_amount_dict):
         self._max_amount_dict = {**self._max_amount_dict, **max_amount_dict}
@@ -228,6 +239,10 @@ class TCOrderValuePerDay(TradingControl):
             self._current_dt = dt.date()
         
         max_allowed = self._max_amount_dict.get(asset, self._default_max)
+        
+        if not max_allowed:
+            return True
+        
         max_used = self._asset_quota.get(asset, 0)
         price = context.data_portal.current(asset, 'close')
         value = abs(amount*price)
@@ -250,7 +265,7 @@ class TCOrderValuePerDay(TradingControl):
     def get_error_msg(self, asset, dt):
         msg = f"Failed per day trade value control for {asset}"
         msg = msg + f", total value {self._metric}"
-        msg = msg + " against limit {self._limit}, on {dt}"
+        msg = msg + f" against limit {self._limit}, on {dt}"
         return msg
     
 @singleton
@@ -258,12 +273,12 @@ class TCOrderNumPerDay(TradingControl):
     '''
         Class implementing max order number for all assets per day.
     '''
-    def __init__(self, dt, max_num_orders, on_fail=None):
+    def __init__(self, max_num_orders, on_fail=None):
         # pylint: disable=bad-super-call
         super(self.__class__, self).__init__(on_fail=on_fail)
         self._max_num_orders = max_num_orders
         self._used_limit = 0
-        self._current_dt = dt.date()
+        self._current_dt = None
         
     def add_control(self, max_num_orders):
         self._max_num_orders = max_num_orders
@@ -296,7 +311,7 @@ class TCOrderNumPerDay(TradingControl):
     def get_error_msg(self, asset, dt):
         msg = f"Failed per day number of orders control"
         msg = msg + f", total orders {self._metric}"
-        msg = msg + " against limit {self._limit}, on {dt}"
+        msg = msg + f" against limit {self._limit}, on {dt}"
         return msg
     
 @singleton
@@ -325,7 +340,7 @@ class TCGrossLeverage(TradingControl):
         if estimated_leverage < self._max_leverage:
             return True
         
-        self._metric = self.estimated_leverage
+        self._metric = estimated_leverage
         self._limit = self._max_leverage
         
         if self._on_fail:
@@ -338,7 +353,7 @@ class TCGrossLeverage(TradingControl):
     def get_error_msg(self, asset, dt):
         msg = f"Failed per max leverage control"
         msg = msg + f", estimated post trade leverage {self._metric}"
-        msg = msg + " against limit {self._limit}, on {dt}"
+        msg = msg + f" against limit {self._limit}, on {dt}"
         return msg
     
 class TCGrossExposure(TradingControl):
@@ -363,7 +378,7 @@ class TCGrossExposure(TradingControl):
         if estimated_exposure < self._max_exposure:
             return True
         
-        self._metric = self.estimated_exposure
+        self._metric = estimated_exposure
         self._limit = self._max_exposure
         
         if self._on_fail:
@@ -376,7 +391,7 @@ class TCGrossExposure(TradingControl):
     def get_error_msg(self, asset, dt):
         msg = f"Failed per max exposure control"
         msg = msg + f", estimated post trade exposure {self._metric}"
-        msg = msg + " against limit {self._limit}, on {dt}"
+        msg = msg + f" against limit {self._limit}, on {dt}"
         return msg
     
     
@@ -392,16 +407,21 @@ class TCLongOnly(TradingControl):
         pass
     
     def validate(self, order, dt, context, on_fail=noop):
-        side = 1 if order.side is OrderSide.BUY else -1
+        side = 1 if order.side == OrderSide.BUY else -1
         amount = order.quantity*side
         asset = order.asset
-        current_pos = context.portfolio.get(asset, 0)
+        
+        current_pos = context.portfolio.get(asset, None)
+        if current_pos:
+            current_pos = current_pos.quantity
+        else:
+            current_pos = 0
         estimated_pos = current_pos + amount
         
         if estimated_pos >0:
             return True
         
-        self._metric = self.estimated_pos
+        self._metric = estimated_pos
         
         if self._on_fail:
             self._on_fail(self, asset, dt, amount, context)
@@ -413,9 +433,112 @@ class TCLongOnly(TradingControl):
     def get_error_msg(self, asset, dt):
         msg = f"Failed long-only control"
         msg = msg + f", estimated post trade position {self._metric}"
-        msg = msg + ", on {dt}"
+        msg = msg + f", on {dt}"
         return msg
     
+class TCPositionQty(TradingControl):
+    '''
+        Class implementing max position size.
+    '''
+    def __init__(self, default_max, max_amount_dict=None, on_fail=None):
+        # pylint: disable=bad-super-call
+        super(self.__class__, self).__init__(on_fail=on_fail)
+        self._max_amount_dict = max_amount_dict if max_amount_dict else {}
+        self._default_max = abs(default_max)
+        self.add_control({})
+        
+    def add_control(self, max_amount_dict):
+        self._max_amount_dict = {**self._max_amount_dict, **max_amount_dict}
+        for asset in self._max_amount_dict:
+            self._max_amount_dict[asset] = abs(self._max_amount_dict[asset])
+    
+    def validate(self, order, dt, context, on_fail=noop):
+        side = 1 if order.side == OrderSide.BUY else -1
+        amount = order.quantity*side
+        asset = order.asset
+        
+        max_allowed = self._max_amount_dict.get(asset, self._default_max)
+        if not max_allowed:
+            return True
+        
+        current_pos = context.portfolio.get(asset, None)
+        if current_pos:
+            current_pos = current_pos.quantity
+        else:
+            current_pos = 0
+        estimated_pos = abs(current_pos + amount)
+        
+        if estimated_pos < max_allowed:
+            return True
+        
+        self._metric = estimated_pos
+        self._limit = max_allowed
+        
+        if self._on_fail:
+            self._on_fail(self, asset, dt, amount, context)
+        else:
+            on_fail(self, asset, dt, amount, context)
+            
+        return False
+    
+    def get_error_msg(self, asset, dt):
+        msg = f"Failed max position size control for {asset}"
+        msg = msg + f", estimated post trade position {self._metric}"
+        msg = msg + f" against limit of {self._limit}, on {dt}"
+        return msg
+
+class TCPositionValue(TradingControl):
+    '''
+        Class implementing max position size.
+    '''
+    def __init__(self, default_max, max_amount_dict=None, on_fail=None):
+        # pylint: disable=bad-super-call
+        super(self.__class__, self).__init__(on_fail=on_fail)
+        self._max_amount_dict = max_amount_dict if max_amount_dict else {}
+        self._default_max = abs(default_max)
+        self.add_control({})
+        
+    def add_control(self, max_amount_dict):
+        self._max_amount_dict = {**self._max_amount_dict, **max_amount_dict}
+        for asset in self._max_amount_dict:
+            self._max_amount_dict[asset] = abs(self._max_amount_dict[asset])
+    
+    def validate(self, order, dt, context, on_fail=noop):
+        side = 1 if order.side == OrderSide.BUY else -1
+        amount = order.quantity*side
+        asset = order.asset
+        
+        max_allowed = self._max_amount_dict.get(asset, self._default_max)
+        if not max_allowed:
+            return True
+        
+        current_pos = context.portfolio.get(asset, None)
+        if current_pos:
+            current_pos = current_pos.quantity
+        else:
+            current_pos = 0
+        estimated_pos = abs(current_pos + amount)
+        price = context.data_portal.current(asset, 'close')
+        value = estimated_pos*price
+        
+        if value < max_allowed:
+            return True
+        
+        self._metric = value
+        self._limit = max_allowed
+        
+        if self._on_fail:
+            self._on_fail(self, asset, dt, amount, context)
+        else:
+            on_fail(self, asset, dt, amount, context)
+            
+        return False
+    
+    def get_error_msg(self, asset, dt):
+        msg = f"Failed max position size control for {asset}"
+        msg = msg + f", estimated post trade position {self._metric}"
+        msg = msg + f" against limit of {self._limit}, on {dt}"
+        return msg
     
     
     

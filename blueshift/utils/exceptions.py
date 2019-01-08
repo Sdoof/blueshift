@@ -187,9 +187,16 @@ class ScheduleFunctionError(UserError):
     
 class TradingControlError(UserError):
     '''
-        Not a valid broker, broker dispatch failed.
+        Not a trading control.
     '''
     msg = "Trading control error"
+    handling = ExceptionHandling.TERMINATE
+    
+class RecordVarError(UserError):
+    '''
+        Not a valid record var value.
+    '''
+    msg = "Record variable error"
     handling = ExceptionHandling.TERMINATE
     
 # Internal Errors
