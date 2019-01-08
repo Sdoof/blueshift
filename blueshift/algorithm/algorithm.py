@@ -764,6 +764,12 @@ class TradingAlgorithm(AlgoStateMachine):
     def _unfreeze_trading(self):
         self.__freeze_trading = False
         
+    # list of trading control APIs affecting order functions
+    @api_method
+    def set_max_order_size(self, asset=None, max_shares=None, 
+                           max_notional=None):
+        pass
+    
     # TODO: cythonize the creation of order
     @api_method
     def order(self, asset, quantity, 
