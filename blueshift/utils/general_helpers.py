@@ -18,7 +18,6 @@ Created on Wed Oct  3 17:28:53 2018
 """
 
 from sys import getsizeof as sys_getsizeof
-from collections import OrderedDict
 from os import path as os_path
 from blueshift.utils.ctx_mgr import AddPythonPath
 from blueshift.utils.types import NANO_SECOND
@@ -45,61 +44,6 @@ def get_size(obj, seen=None):
     elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
         size += sum([get_size(i, seen) for i in obj])
     return size
-
-
-class MaxSizedOrderedDict(OrderedDict):
-    '''
-        Extends OrderedDict to force a limit. Delete in FIFO when
-        this limit exceeds. Delete items in chunks to avoid keep 
-        hitting the limits after a given number of insertions
-    '''
-    MAX_ENTRIES = 1000000
-    CHUNK_SIZE = 1000
-    
-    def __init__(self, *args, **kwargs):
-        self.max_size = kwargs.pop("max_size",self.MAX_ENTRIES)
-        self.chunk_size = kwargs.pop("chunk_size",self.CHUNK_SIZE)
-        print(args)
-        print(kwargs)
-        super(MaxSizedOrderedDict,self).__init__(*args, **kwargs)
-        
-    def __setitem__(self, key, value):
-        OrderedDict.__setitem__(self, key, value)
-        self._ensure_size()
-        
-    def _ensure_size(self):
-        if self.max_size is None:
-            return
-        if self.max_size > len(self):
-            return
-        
-        for i in range(self.chunk_size):
-            self.popitem(last=False)
-    
-class OnetoOne(object):
-    '''
-        A data structure to enable a one-to-one mapping. This
-        stores two dict objects, so not mighty useful for large
-        dicts. Use with cautions.
-    '''
-    
-    def __init__(self, input_dict):
-        '''
-            Store a reverse of the dict. If there are repeated
-            keys when reverse, it will automatically be truncated.
-            Be careful.
-        '''
-        self.__dict = input_dict
-        self.__reversed_dict = dict((v,k) for k, v in \
-                                   self.__dict.items())
-        
-    def get(self,key,default=None):
-        return self.__dict.get(key,default)
-    
-    def teg(self, key, default=None):
-        return self.__reversed_dict.get(key, default)
-
-
 
 def exec_user_module(source, module, path):
     '''

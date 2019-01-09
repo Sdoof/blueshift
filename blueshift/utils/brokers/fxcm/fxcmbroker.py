@@ -45,8 +45,7 @@ from blueshift.trades._order_types import (ProductType,
                                            OrderType)
 from blueshift.trades._order import Order
 from blueshift.utils.decorators import api_rate_limit, singleton, blueprint
-from blueshift.utils.general_helpers import OnetoOne
-from blueshift.utils.types import BrokerType, MODE
+from blueshift.utils.types import BrokerType, MODE, OnetoOne
 
 class ResponseType(Enum):
     SUCCESS = "success"

@@ -46,7 +46,7 @@ from blueshift.api import (get_broker, get_calendar,
 from blueshift.utils.exceptions import (InitializationError, 
                                         BlueShiftException)
 from blueshift.utils.decorators import singleton, blueprint
-from blueshift.utils.general_helpers import OnetoOne
+from blueshift.utils.types import OnetoOne
 
 
 BROKER_TOKEN_EVNVAR = 'BLUESHIFT_BROKER_TOKEN'
