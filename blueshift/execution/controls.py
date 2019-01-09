@@ -541,6 +541,46 @@ class TCPositionValue(TradingControl):
         return msg
     
     
+class TCBlackList(TradingControl):
+    '''
+        Class implementing restricted list of assets.
+    '''
+    def __init__(self, assets, on_fail=None):
+        # pylint: disable=bad-super-call
+        super(self.__class__, self).__init__(on_fail=on_fail)
+        self._restricted_list = dict(zip(assets,[1]*len(assets)))
+        
+    def add_control(self, assets):
+        restricted_list = dict(zip(assets,[1]*len(assets)))
+        self._restricted_list = {**self._restricted_list, **restricted_list}
     
+    def validate(self, order, dt, context, on_fail=noop):
+        if order.asset in self._restricted_list:
+            return False
+        return True
     
+    def get_error_msg(self, asset, dt):
+        msg = f"Failed restricted list control for {asset} on {dt}"
+        return msg
     
+class TCWhiteList(TradingControl):
+    '''
+        Class implementing restricted list of assets.
+    '''
+    def __init__(self, assets, on_fail=None):
+        # pylint: disable=bad-super-call
+        super(self.__class__, self).__init__(on_fail=on_fail)
+        self._allowed_list = dict(zip(assets,[1]*len(assets)))
+        
+    def add_control(self, assets):
+        allowed_list = dict(zip(assets,[1]*len(assets)))
+        self._allowed_list = {**self._allowed_list, **allowed_list}
+    
+    def validate(self, order, dt, context, on_fail=noop):
+        if order.asset in self._allowed_list:
+            return True
+        return False
+    
+    def get_error_msg(self, asset, dt):
+        msg = f"Failed white list control for {asset} on {dt}"
+        return msg

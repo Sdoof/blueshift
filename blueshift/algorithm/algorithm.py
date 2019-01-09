@@ -69,8 +69,8 @@ from blueshift.execution.controls import (TradingControl,
                                           TCPositionQty,
                                           TCPositionValue,
                                           TCGrossLeverage,
-                                          TCGrossExposure)
-    
+                                          TCGrossExposure,
+                                          TCBlackList, TCWhiteList)
 
 @blueprint
 class TradingAlgorithm(AlgoStateMachine):
@@ -922,6 +922,20 @@ class TradingAlgorithm(AlgoStateMachine):
     @api_method
     def set_max_exposure(self, max_exposure, on_fail=None):
         control = TCGrossExposure(max_exposure, on_fail)
+        self.register_trading_controls(control)
+        
+    @api_method
+    def set_do_not_order_list(self, assets, on_fail=None):
+        if not listlike(assets):
+            assets = [assets]
+        control = TCBlackList(assets, on_fail)
+        self.register_trading_controls(control)
+        
+    @api_method
+    def set_allowed_list(self, assets, on_fail=None):
+        if not listlike(assets):
+            assets = [assets]
+        control = TCWhiteList(assets, on_fail)
         self.register_trading_controls(control)
     
     # TODO: cythonize the creation of order
