@@ -127,12 +127,13 @@ class FXCMBroker(AbstractBrokerAPI):
             handling = ExceptionHandling.TERMINATE
             raise AuthenticationError(msg=msg, handling=handling)
             
-        self._closed_orders = {}
-        self._open_orders = {}
-        self._open_positions = {}
-        self._closed_positions = []
-        self._processed_positions = []
-        self._trading_cache = {}
+        self._closed_orders = {}    # list of closed/ cancelled orders
+        self._open_orders = {}      # list of open orders
+        self._missing_orders = {}   # track missing orders to be updated
+        self._open_positions = {}   # track open positions
+        self._closed_positions = [] # closed poistions
+        self._processed_positions = [] # track positions already processed
+        self._trading_cache = {}    # cache to validate close order
         
         self._account = ForexAccount(self._name,0.01)
     
@@ -228,6 +229,15 @@ class FXCMBroker(AbstractBrokerAPI):
             position_details = self._api.get_open_positions(kind='list')
             if position_details:
                 self._create_pos_dict(position_details)
+            else:
+                self._open_positions = {}
+            # now we are left with orders which were cancelled, apparently.
+            for key in list(self._missing_orders.keys()):
+                self._missing_orders[key].partial_cancel()
+                self._closed_orders[key] = self._missing_orders.pop(key)
+                
+            # just to make sure!
+            self._missing_orders = {}
             
             return self._open_positions
         except (ValueError, TypeError, ServerError) as e:
@@ -260,6 +270,16 @@ class FXCMBroker(AbstractBrokerAPI):
             for order in orders:
                 order_id, order = self._order_from_dict(order)
                 self._open_orders[order.oid] = order
+            # cehck missing keys
+            missing = [k for k in last_version if k not in self._open_orders]
+            '''
+                these missing can either be cancelled, or converted to 
+                position. Save them to internal missing list to update
+                them later.
+            '''
+            if missing:
+                for m in missing:
+                    self._missing_orders[m] = last_version[m]
             
             return self._open_orders
         except (ValueError, TypeError, ServerError) as e:
@@ -284,7 +304,13 @@ class FXCMBroker(AbstractBrokerAPI):
             Fetch a list of orders from the broker and update
             internal dicts. Returns both open and closed orders.
         '''
-        return self.open_orders
+        open_orders = self.open_orders
+        # in case we have missing orders, we need to update them to either
+        # cancel or complete. Call position func to do that.
+        if self._missing_orders:
+            _ = self.positions
+        
+        return {**open_orders, **self._closed_orders}
     
     @property
     def tz(self, *args, **kwargs):
@@ -424,7 +450,7 @@ class FXCMBroker(AbstractBrokerAPI):
                 position = self._trading_cache[trade_id]
             else:
                 _ = self.positions
-                if trade_id not in self._trading_cache:
+                if str(trade_id) not in self._trading_cache:
                     raise UnsupportedOrder(msg="Trade not found")
                 position = self._trading_cache[trade_id]
                 
@@ -534,8 +560,12 @@ class FXCMBroker(AbstractBrokerAPI):
         self._trading_cache = {}
         for p in position_details:
             asset, position = self._position_from_dict(p, closed = False)
+            # update the trading cache to track close orders
             self._trading_cache[position.instrument_id] =\
                     FXCMPosition(position.asset, position.quantity)
+            # update open orders status
+            self._update_orders_from_position(position)
+            # combine individual positions to asset-keyed dict
             pos = self._open_positions.get(asset, None)
             if pos:
                 self._open_positions[asset].add_to_position(position)
@@ -547,9 +577,9 @@ class FXCMBroker(AbstractBrokerAPI):
         order_dict = {}
         asset = self._asset_finder.lookup_symbol(o['currency'])
         
-        order_dict['oid'] = o['orderId']
-        order_dict['broker_order_id'] = order_dict['oid']
-        order_dict['exchange_order_id'] = order_dict['oid']
+        order_dict['oid'] = o['tradeId']
+        order_dict['broker_order_id'] = o['orderId']
+        order_dict['exchange_order_id'] = o['orderId']
         order_dict['parent_order_id'] = o['ocoBulkId']
         order_dict['asset'] = asset
         order_dict['user'] = 'algo'
@@ -597,6 +627,31 @@ class FXCMBroker(AbstractBrokerAPI):
         order = Order.from_dict(order_dict)        
         
         return order.oid, order
+    
+    def _update_orders_from_position(self, pos):
+        '''
+            For FXCM an order is converted to a position, which are linked
+            by the trade ID. At each open position update, we check if one
+            of our open orders got filled. If yes we move it to closed 
+            orders dict. This must be called in the same cycle BEFORE we
+            update the open order list again.
+        '''
+        key = pos.instrument_id # where we store the Trade ID
+        
+        # search the open orders dict first, just in case it is not updated
+        if key in list(self._open_orders.keys()):
+            price = pos.buy_price + pos.sell_price # one of them is zero
+            self._open_orders[key].update_from_pos(pos, price)
+            if self._open_orders[key].status == OrderStatus.COMPLETE:
+                self._closed_orders[key] = self._open_orders.pop(key)
+            return
+        
+        # do the same for missing orders, if we updated the open order dict
+        if key in list(self._missing_orders.keys()):
+            price = pos.buy_price + pos.sell_price
+            self._missing_orders[key].update_from_pos(pos, price)
+            if self._missing_orders[key].status == OrderStatus.COMPLETE:
+                self._closed_orders[key] = self._missing_orders.pop(key)
         
     def _create_entry_order(self, symbol, is_buy, amount, time_in_force,
                            limit=0, is_in_pips=False, account_id=None):

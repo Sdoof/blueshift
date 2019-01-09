@@ -30,6 +30,7 @@ from blueshift.trades._order_types import (
         OrderStatus,
         OrderUpdateType)
 from _trade cimport Trade
+from _position cimport Position
 from blueshift.assets._assets cimport Asset
 import uuid
 
@@ -238,6 +239,7 @@ cdef class Order:
         '''
             Pass on a Trade object to update a full or partial execution
         '''
+        
         self.average_price = (self.filled*self.average_price + \
                 trade.quantity*trade.average_price)
         self.filled = self.filled + trade.quantity
@@ -299,6 +301,22 @@ cdef class Order:
             self.disclosed = kwargs['disclosed']
         
 
+    cpdef update_from_pos(self, Position pos, price):
+        '''
+            Pass on a position object to update a full or partial execution
+        '''
+        self.average_price = price
+        self.filled = abs(pos.quantity)
+        self.pending = self.quantity - self.filled
         
+        if self.pending > 0:
+            self.status = OrderStatus.OPEN
+            self.status_message = 'open'
+        else:
+            self.status = OrderStatus.COMPLETE
+            self.status_message = 'complete'
+            
+        self.exchange_timestamp = pos.timestamp
+        self.timestamp = pos.timestamp
         
         
