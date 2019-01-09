@@ -234,7 +234,8 @@ class FXCMBroker(AbstractBrokerAPI):
             # now we are left with orders which were cancelled, apparently.
             for key in list(self._missing_orders.keys()):
                 self._missing_orders[key].partial_cancel()
-                self._closed_orders[key] = self._missing_orders.pop(key)
+                oid = self._missing_orders[key].oid
+                self._closed_orders[oid] = self._missing_orders.pop(key)
                 
             # just to make sure!
             self._missing_orders = {}
@@ -268,8 +269,10 @@ class FXCMBroker(AbstractBrokerAPI):
             self._open_orders = {}
             orders = self._api.get_orders(kind='list')
             for order in orders:
+                # TODO: fixes some strange orders without currency field
+                if not order['currency']: continue
                 order_id, order = self._order_from_dict(order)
-                self._open_orders[order.oid] = order
+                self._open_orders[order_id] = order
             # cehck missing keys
             missing = [k for k in last_version if k not in self._open_orders]
             '''
@@ -277,9 +280,12 @@ class FXCMBroker(AbstractBrokerAPI):
                 position. Save them to internal missing list to update
                 them later.
             '''
-            if missing:
-                for m in missing:
-                    self._missing_orders[m] = last_version[m]
+            for m in missing:
+                # missing map is keyed to trade ID, unlike orders dicts
+                # also we store the trade ID in the broker_order_id field.
+                missing_order = last_version[m]
+                self._missing_orders[missing_order.broker_order_id] =\
+                                                            missing_order
             
             return self._open_orders
         except (ValueError, TypeError, ServerError) as e:
@@ -577,8 +583,8 @@ class FXCMBroker(AbstractBrokerAPI):
         order_dict = {}
         asset = self._asset_finder.lookup_symbol(o['currency'])
         
-        order_dict['oid'] = o['tradeId']
-        order_dict['broker_order_id'] = o['orderId']
+        order_dict['oid'] = o['orderId']
+        order_dict['broker_order_id'] = o['tradeId']
         order_dict['exchange_order_id'] = o['orderId']
         order_dict['parent_order_id'] = o['ocoBulkId']
         order_dict['asset'] = asset
@@ -637,21 +643,27 @@ class FXCMBroker(AbstractBrokerAPI):
             update the open order list again.
         '''
         key = pos.instrument_id # where we store the Trade ID
+        # make a mapping of trade_id to order_id in open_orders
+        mapping = dict([(self._open_orders[k].broker_order_id,
+                       k) for k in self._open_orders])
         
         # search the open orders dict first, just in case it is not updated
-        if key in list(self._open_orders.keys()):
+        if key in mapping:
             price = pos.buy_price + pos.sell_price # one of them is zero
-            self._open_orders[key].update_from_pos(pos, price)
-            if self._open_orders[key].status == OrderStatus.COMPLETE:
-                self._closed_orders[key] = self._open_orders.pop(key)
+            oid = mapping[key]
+            self._open_orders[oid].update_from_pos(pos, price)
+            if self._open_orders[oid].status == OrderStatus.COMPLETE:
+                self._closed_orders[oid] = self._open_orders.pop(oid)
             return
         
         # do the same for missing orders, if we updated the open order dict
+        # NOTE: we keep the missing map keyed to trade ID, not order ID
         if key in list(self._missing_orders.keys()):
             price = pos.buy_price + pos.sell_price
+            oid = self._missing_orders[key].oid
             self._missing_orders[key].update_from_pos(pos, price)
             if self._missing_orders[key].status == OrderStatus.COMPLETE:
-                self._closed_orders[key] = self._missing_orders.pop(key)
+                self._closed_orders[oid] = self._missing_orders.pop(key)
         
     def _create_entry_order(self, symbol, is_buy, amount, time_in_force,
                            limit=0, is_in_pips=False, account_id=None):
