@@ -23,7 +23,7 @@ from datetime import time
 from pandas.tseries.offsets import MonthBegin, MonthEnd
 
 from blueshift.utils.calendars.trading_calendar import make_consistent_tz
-from blueshift.utils.general_helpers import datetime_time_to_nanos
+from blueshift.utils.helpers import datetime_time_to_nanos
 from blueshift.utils.exceptions import ScheduleFunctionError
 from blueshift.utils.types import noop, NANO_SECOND
 

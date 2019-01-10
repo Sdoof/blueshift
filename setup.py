@@ -66,7 +66,7 @@ setup(
     long_description=long_description,
     entry_points={'console_scripts': ['blueshift = blueshift.__main__:main']},
     author='QuantInsti Quantitative Learnings',
-    author_email='blueshift-support@quantinsti.com',
+    author_email='blueshift-dev@quantinsti.com',
     packages=find_packages(include=['blueshift', 'blueshift.*']),
     ext_modules=cythonize(ext_modules),
     include_package_data=True,

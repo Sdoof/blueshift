@@ -185,7 +185,7 @@ class MaxSizedOrderedDict(OrderedDict):
         hitting the limits after a given number of insertions
     '''
     MAX_ENTRIES = 1000000
-    CHUNK_SIZE = 1000
+    CHUNK_SIZE = 1
     
     def __init__(self, *args, **kwargs):
         self.max_size = kwargs.pop("max_size",self.MAX_ENTRIES)

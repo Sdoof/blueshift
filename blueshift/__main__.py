@@ -32,7 +32,7 @@ from blueshift.utils.types import (HashKeyType,
                                    TimezoneType,
                                    DateType)
 from blueshift.utils.run import BlueShiftEnvironment, run_algo
-from blueshift.utils.general_helpers import list_to_args_kwargs
+from blueshift.utils.helpers import list_to_args_kwargs
 from blueshift.utils.exceptions import BlueShiftException
 
 CONTEXT_SETTINGS = dict(ignore_unknown_options=True,

@@ -25,7 +25,7 @@ from blueshift.utils.types import NANO_SECOND
 def datetime_time_to_nanos(dt):
     return (dt.hour*60 + dt.minute)*60*NANO_SECOND
 
-def get_size(obj, seen=None):
+def sizeof(obj, seen=None):
     """Recursively finds size of objects"""
     size = sys_getsizeof(obj)
     if seen is None:
@@ -37,12 +37,12 @@ def get_size(obj, seen=None):
     # self-referential objects
     seen.add(obj_id)
     if isinstance(obj, dict):
-        size += sum([get_size(v, seen) for v in obj.values()])
-        size += sum([get_size(k, seen) for k in obj.keys()])
+        size += sum([sizeof(v, seen) for v in obj.values()])
+        size += sum([sizeof(k, seen) for k in obj.keys()])
     elif hasattr(obj, '__dict__'):
-        size += get_size(obj.__dict__, seen)
+        size += sizeof(obj.__dict__, seen)
     elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
-        size += sum([get_size(i, seen) for i in obj])
+        size += sum([sizeof(i, seen) for i in obj])
     return size
 
 def exec_user_module(source, module, path):

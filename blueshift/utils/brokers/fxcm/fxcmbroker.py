@@ -16,6 +16,7 @@ Created on Wed Dec 12 14:16:49 2018
 
 @author: prodipta
 """
+#TODO: this is too hackey, convert this to a state-machine
 
 import pandas as pd
 from enum import Enum
@@ -226,10 +227,8 @@ class FXCMBroker(AbstractBrokerAPI):
                     
             # open positions are processed afresh each time
             position_details = self._api.get_open_positions(kind='list')
-            if position_details:
-                self._create_pos_dict(position_details)
-            else:
-                self._open_positions = {}
+            self._create_pos_dict(position_details)
+
             # now we are left with orders which were cancelled, apparently.
             for key in list(self._missing_orders.keys()):
                 self._missing_orders[key].partial_cancel()
@@ -493,6 +492,7 @@ class FXCMBroker(AbstractBrokerAPI):
                 self._api.close_all(order_type='AtMarket',
                                     time_in_force=time_in_force,
                                     account_id=account_id)
+
         except (ValueError, TypeError, ServerError) as e:
             msg = "in broker.square_off: " + str(e)
             handling = ExceptionHandling.WARN
