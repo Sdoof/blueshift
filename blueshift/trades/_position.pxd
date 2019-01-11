@@ -51,3 +51,5 @@ cdef class Position:
     cpdef add_to_position(self, Position pos)
     cpdef update(self, Trade trade, float margin)
     cpdef if_closed(self)
+    cpdef apply_split(self, float ratio)
+    cpdef apply_merger(self, Asset target, float ratio)

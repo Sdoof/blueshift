@@ -241,12 +241,27 @@ cdef class Position:
             return True
         return False
         
+    cpdef apply_split(self, float ratio):
+        amount = self.quantity*ratio
+        self.quantity = int(self.quantity*ratio)
+        remains = amount - self.quantity
+        self.buy_quantity = int(self.buy_quantity*ratio)
+        self.sell_quantity = int(self.sell_quantity*ratio)
+        self.buy_price = self.buy_price/ratio
+        self.sell_price = self.sell_price/ratio
+        self.last_price = self.last_price/ratio
+        cash = remains*self.last_price
+        return cash
         
+    cpdef apply_merger(self, Asset target, float ratio, float price):
+        self.asset = target
+        cash = self.apply_split(ratio)
         
-        
-        
-        
-        
+        return cash
+    
+    cpdef apply_demerger(self, Asset target, float ratio, float price):
+        #TODO: implement
+        pass
         
         
         

@@ -93,4 +93,13 @@ class AbstractBrokerAPI(ABC):
     @abstractmethod
     def fund_transfer(self, *args, **kwargs):
         raise NotImplementedError
+        
+    def get_trading_costs(self, *args, **kwargs):
+        fees = 0                # what the broker charges
+        tax_and_charges = 0     # taxes and exchange charges - third party
+        
+        return fees, tax_and_charges
+    
+    def get_trading_margins(self, *args, **kwargs):
+        return 0
     

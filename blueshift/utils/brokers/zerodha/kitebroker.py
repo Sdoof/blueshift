@@ -284,6 +284,10 @@ class KiteBroker(AbstractBrokerAPI):
         orders = self.orders
         return orders.get(order_id, None)
     
+    def get_trading_costs(self, order):
+        #TODO: implement this
+        return 0, 0
+    
     @api_rate_limit
     def place_order(self, order):
         '''

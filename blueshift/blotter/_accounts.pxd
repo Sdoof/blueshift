@@ -40,6 +40,7 @@ cdef class Account:
     cpdef update_account(self, float cash, float margin, 
                          dict positions)
     cdef update_from_positions(self, dict positions)
+    cpdef cashflow(self, float cash, float margin)
     
 cdef class BacktestAccount(Account):
     cpdef settle_trade(self, Trade t)

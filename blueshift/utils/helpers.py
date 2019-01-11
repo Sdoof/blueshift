@@ -135,6 +135,22 @@ def generate_kwargs(strkwargs):
         
     return kwargs
         
+def dict_diff(d1, d2):
+    '''
+        take difference of two dictions, treating the value as integer. it
+        will list all keys (union of keys) in a new dict with values as the
+        difference between the first and the second dict values, skipping
+        zeros and non-numbers.
+    '''
+    diff = {}
+    keys = set(d1.keys()).union(set(d2.keys()))
+    for key in keys:
+        try:
+            value = int(d1.get(key,0)) - int(d2.get(key,0))
+        except (ValueError, TypeError):
+            pass
+        else:
+            if value !=0:
+                diff[key] = value
     
-    
-    
+    return diff

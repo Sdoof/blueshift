@@ -103,8 +103,23 @@ cdef class Account:
         self.liquid_value = self.cash + self.margin
         
         self.update_from_positions(positions)
+        
+    cpdef cashflow(self, float cash, float margin):
+        # update cash and margins
+        self.cash = self.cash + cash
+        self.margin = self.margin + margin
+        self.liquid_value = self.cash + self.margin
+        
+        if self.liquid_value > 0:
+            self.gross_leverage = self.gross_exposure/self.liquid_value
+            self.net_leverage = self.net_exposure/self.liquid_value
+            
+        self.net = self.mtm + self.liquid_value
     
     cdef update_from_positions(self, dict positions):
+        if not positions:
+            return
+        
         net_exposure = 0
         gross_exposure = 0
         mtm = 0

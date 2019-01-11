@@ -334,6 +334,10 @@ class FXCMBroker(AbstractBrokerAPI):
             handling = ExceptionHandling.WARN
             raise BrokerAPIError(msg=msg, handling=handling)
     
+    def get_trading_costs(self, order):
+        #TODO: implement this
+        return 0, 0
+    
     @api_rate_limit
     def place_order(self, order):
         '''

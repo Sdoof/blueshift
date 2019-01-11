@@ -107,18 +107,32 @@ class Blotter(object):
         capital withdrawals etc.).
     '''
     MAX_TRANSACTIONS = 50000
+    POSITIONS_FILE = 'positions.json'
+    TRANSACTIONS_FILE = 'transactions.json'
+    PERFORMANCE_FILE = 'performance.json'
+    RISKS_FILE = 'risk_metrics.json'
     
-    def __init__(self, blotter_root, account_net, logger=None, 
-                 alert_manager=None):
-        self._orders = MaxSizedOrderedDict(max_size=self.MAX_TRANSACTIONS, 
-                                           chunk_size=1)
+    def __init__(self, blotter_root, account_net, starting_positions=None, 
+                 timestamp=None, alert_manager=None):
+        # initialize the start positions and historical records of 
+        # transactions. If a start position is suppplied, that will 
+        # overwrite the saved positions.
         self.blotter_root = blotter_root
+        self._transactions = None
+        self._current_pos = None
+        self._init_positions_transactions(starting_positions)
+        
+        # store for unprocessed orders from algo.
+        self._unprocessed_orders = {}
+        
+        self._current_date = pd.Timestamp(timestamp.date()) if timestamp \
+                                else pd.Timestamp(pd.Timestamp.now().date())
         self._last_reconciled = None
         self._last_saved = None
         self._needs_reconciliation = False
-        self._logger = logger
         
         self._commisions = 0
+        self._trading_charges = 0
         self._pnl = 0
         self._current_net = account_net
         self._account_view = {}
@@ -126,18 +140,43 @@ class Blotter(object):
         if alert_manager:
             alert_manager.register_callback(self.save)
         
-    def create(self, blotter_root):
-        pass
+    def _init_positions_transactions(self, positions):
+        txn_fname = os_path.join(self._blotter_root,self.TRANSACTIONS_FILE)
+        positions_fname = os_path.join(self._blotter_root,self.POSITIONS_FILE)
+        
+        if positions is not None:
+            self._current_pos = dict(positions)
+        elif os_path.exists(positions_fname):
+            with open(positions_fname) as fp:
+                self._current_pos = {**dict(json.load(fp)), 
+                                     **self._current_pos}
+        else:
+            self._current_pos = {}          # a clean slate
+            
+        if os_path.exists(txn_fname):
+            with open(txn_fname) as fp:
+                self._transactions = MaxSizedOrderedDict(
+                        json.load(fp), max_size=self.MAX_TRANSACTIONS,
+                        chunk_size=1)
+        else:
+            self._transactions = MaxSizedOrderedDict(
+                    max_size=self.MAX_TRANSACTIONS, chunk_size=1)
     
     def reset(self):
-        pass
+        self._transactions = MaxSizedOrderedDict(
+                    max_size=self.MAX_TRANSACTIONS, chunk_size=1)
+        self._current_pos = {}
+        self._unprocessed_orders = {}
+        
+        self._needs_reconciliation = False
     
     def save(self):
         pass
     
-    def add_transactions(self, order_id, order, commissions):
-        self._orders[order_id] = order
-        self._commisions = self._commisions + commissions
+    def add_transactions(self, order_id, order, fees, charges):
+        self._unprocessed_orders[order_id] = order
+        self._commisions = self._commisions + fees
+        self._trading_charges = self._trading_charges + charges
         self._needs_reconciliation = True
         
     def _compute_pnl(self, open_pos, closed_pos):
@@ -150,25 +189,30 @@ class Blotter(object):
             self._pnl = self._pnl + pos[key].pnl
     
     def _reconcile_orders(self, orders):
-        missing_orders = extra_orders = matching_orders = []
-        orders_list = list(self._orders.keys())
+        '''
+            process the un-processed orders list. If missing order add it
+            back to the un-processed list to check in the next run.
+        '''
+        missing_orders = extra_orders = []
+        
+        for order in self._unprocessed_orders:
+            if order.oid in orders:
+                self._transactions[order.oid] = order
+            else:
+                missing_orders.append[order]
         
         for key in orders:
-            if key in orders_list:
-                matching_orders.append(orders[key])
-                self._orders.pop(key)
-            else:
+            if key not in self._transactions:
                 extra_orders.append(orders[key])
         
-        missing_orders = self._orders
-        self._orders = {}
+        self._unprocessed_orders = missing_orders
         
         if missing_orders or extra_orders:
             matched = False
         else:
             matched = True
         
-        return matched, matching_orders, missing_orders, extra_orders
+        return matched, missing_orders, extra_orders
     
     def _positions_from_orders(self, orders):
         expected_pos = {}
