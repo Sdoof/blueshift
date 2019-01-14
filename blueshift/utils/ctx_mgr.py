@@ -105,4 +105,3 @@ class MessageBrokerCtxManager():
     def __exit__(self, *args):
         if self._enabled:
             self._message_broker.close()
-    

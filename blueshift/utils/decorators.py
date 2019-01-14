@@ -21,6 +21,7 @@ from functools import wraps
 from weakref import ref as weakref_ref
 import math
 import time
+import logging
 
 def api_rate_limit(f):
     '''
@@ -109,5 +110,3 @@ def api_retry(delays=[0,5,30,90,180,300], exception=Exception):
                         time.sleep(delay)
         return decorated
     return decorator
-
-

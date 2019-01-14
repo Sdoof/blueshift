@@ -72,6 +72,8 @@ from blueshift.execution.controls import (TradingControl,
                                           TCGrossExposure,
                                           TCBlackList, TCWhiteList)
 
+from blueshift.blotter.blotter import Blotter
+
 @blueprint
 class TradingAlgorithm(AlgoStateMachine):
     '''
@@ -211,9 +213,12 @@ class TradingAlgorithm(AlgoStateMachine):
         # set up the scheduler
         self._scheduler = Scheduler()
         
-        # set up the trading controllers list
+        # set up the trading controllers list and blotter
         self._trading_controls = []
         self.__freeze_trading = False
+        self._blotter = Blotter(
+                self.mode, self.context.asset_finder,
+                self.context.data_portal, self.context.broker)
 
     def __str__(self):
         return "Blueshift Algorithm [name:%s, broker:%s]" % (self.name,
@@ -238,6 +243,7 @@ class TradingAlgorithm(AlgoStateMachine):
             msg = f"State Machine Error ({self.state}): in initialize"
             raise StateMachineError(msg=msg)
         
+        self._blotter.reset(timestamp, self.context.account["net"])
         self._initialize(self.context)
     
     def before_trading_start(self,timestamp):
@@ -293,6 +299,7 @@ class TradingAlgorithm(AlgoStateMachine):
             msg = f"State Machine Error ({self.state}): in after_trading_hours"
             raise StateMachineError(msg=msg)
         
+        self._blotter.save()
         self._after_trading_hours(self.context, 
                                   self.context.data_portal)
     
@@ -741,7 +748,8 @@ class TradingAlgorithm(AlgoStateMachine):
             API function to resolve a list of symbols to a list of 
             asset.
         '''
-        return self.context.asset_finder.lookup_symbols(symbol_list)
+        return self.context.asset_finder.lookup_symbols(
+                symbol_list,self.context.timestamp)
     
     @api_method
     def sid(self, sec_id:int):
@@ -979,6 +987,13 @@ class TradingAlgorithm(AlgoStateMachine):
             return
         
         order_id = self.context.broker.place_order(o)
+        
+        if self.mode == MODE.LIVE:
+            msg = f"sent order {order_id}:{o.to_json()}"
+            self.log_info(msg, self.context.timestamp)
+            
+        self._blotter.add_transactions(order_id, o, 0, 0)
+        
         return order_id
 
     @api_method
@@ -1037,23 +1052,34 @@ class TradingAlgorithm(AlgoStateMachine):
         return self.order_target_value(asset,target,limit_price,stop_price,style)
     
     @api_method
-    def square_off(self):
+    def square_off(self, assets=None):
         '''
             API function to square off ALL open positions and cancel 
             all open orders. Typically useful for end-of-day closure for
             intraday strategies or for orderly shut-down.
         '''
         open_orders = self.get_open_orders()
-        for order_id in open_orders:
-            self.cancel_order(order_id)
+        if assets is None:
+            for order_id in open_orders:
+                self.cancel_order(order_id)
+        else:
+            symbols = []
+            if not listlike(assets):
+                assets = [assets]
+            for order_id in open_orders:
+                if open_orders[order_id].asset in assets:
+                    self.cancel_order(order_id)
+                    symbols.append(assets.symbol)
+        
+        if getattr(self.context.broker,"square_off", None):
+            self.context.broker.square_off(symbols)
+            return
         
         open_positions = self.get_open_positions()
-        order_ids = []
         for asset in open_positions:
-            order_id = self.order_target(asset,0)
-            order_ids.append(order_id)
+            self.order_target(asset,0)
             
-        return order_ids
+        return
     
     @api_method
     def cancel_order(self, order_param):
@@ -1067,7 +1093,13 @@ class TradingAlgorithm(AlgoStateMachine):
         order_id = order_param.oid if isinstance(order_param, Order)\
                         else order_param
         
-        return self.context.broker.cancel_order(order_id)
+        order_id = self.context.broker.cancel_order(order_id)
+    
+        if self.mode == MODE.LIVE:
+            msg = f"sent cancel order for {order_id}"
+            self.log_info(msg, self.context.timestamp)
+            
+        return order_id
         
     @api_method
     def get_order(self, order_id):

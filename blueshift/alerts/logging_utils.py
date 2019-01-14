@@ -100,7 +100,7 @@ class BlueShiftLogger(object):
             if handler:
                 self.logger.addHandler(handler)
                 
-        self.logger.setLevel(logging.WARN)
+        self.logger.setLevel(logging.INFO)
         
         tz = kwargs.get('tz', None)
         if tz:
