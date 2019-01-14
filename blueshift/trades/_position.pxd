@@ -47,9 +47,10 @@ cdef class Position:
     cdef readonly float margin
     cdef readonly int product_type
     cpdef to_dict(self)
+    cpdef to_json(self)
     cpdef __reduce__(self)
     cpdef add_to_position(self, Position pos)
     cpdef update(self, Trade trade, float margin)
     cpdef if_closed(self)
     cpdef apply_split(self, float ratio)
-    cpdef apply_merger(self, Asset target, float ratio)
+    cpdef apply_merger(self, Asset acquirer, float ratio, float cash_pct)

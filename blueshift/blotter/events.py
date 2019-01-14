@@ -56,9 +56,56 @@ class AccountEvent(ABC):
         broker object of the algorithm. The responsibility to handle these
         events are with the blotter object.
     """
+    def __init__(self, *args, **kwargs):
+        self._applied = False
+    
     @abstractmethod
-    def adjustment(self):
+    def apply(self):
         raise NotImplementedError
+        
+class RollOver(AccountEvent):
+    """
+        Roll-over applied to assets, typically Forex positions. This can 
+        also include any other interest accrued.
+    """
+    def __init__(self, asset, effective_dt, pct_long_cost):
+        """
+            pct_long_cost: rollover cost for a long position in percentage.
+        """
+        self._asset = asset
+        self._effective_dt = effective_dt
+        self._cost = pct_long_cost
+        super(RollOver, self).__init__()
+        
+    def apply(self, account, blotter):
+        if self._applied:
+            return
+        
+        if self._asset in blotter._positions:
+            cash = blotter._positions[self._asset].quantity*self._cost
+        account.cashflow(cash=cash, margin=0)
+        self._applied = True
+        
+class CapitalChange(AccountEvent):
+    """
+        Roll-over applied to assets, typically Forex positions. This can 
+        also include any other interest accrued.
+    """
+    def __init__(self, asset, effective_dt, amount):
+        """
+            pct_long_cost: rollover cost for a long position in percentage.
+        """
+        self._asset = asset
+        self._effective_dt = effective_dt
+        self._amount = amount
+        super(CapitalChange, self).__init__()
+        
+    def apply(self, account, blotter):
+        if self._applied:
+            return
+        
+        account.cashflow(cash=self._amount, margin=0)
+        self._applied = True
         
 class CorporateAction(AccountEvent):
     """
@@ -68,11 +115,29 @@ class CorporateAction(AccountEvent):
         self._asset = asset
         self._effective_dt = effective_dt
         self._announcement_dt = announcement_dt
+        super(CorporateAction, self).__init__()
         
     @abstractmethod
-    def adjustment(self):
+    def apply(self):
         raise NotImplementedError
         
+class StockDividend(AccountEvent):
+    """
+        Class for corporate actions
+    """
+    def __init__(self, asset, effective_dt, announcement_dt, div_ratio):
+        self.div_ratio = div_ratio
+        super(StockDividend, self).__init__(asset, effective_dt, announcement_dt)
+        
+    def apply(self, account, blotter):
+        if self._applied:
+            return
+        
+        if self._asset in blotter._positions:
+            cash = blotter._positions[self._asset].quantity*self.div_ratio
+        account.cashflow(cash=cash, margin=0)
+        self._applied = True
+
 class StockSplit(AccountEvent):
     """
         Class for corporate actions
@@ -81,35 +146,41 @@ class StockSplit(AccountEvent):
         self._split_ratio = split_ratio
         super(StockSplit, self).__init__(asset, effective_dt, announcement_dt)
         
-    @abstractmethod
-    def adjustment(self, account, blotter):
+    def apply(self, account, blotter):
+        if self._applied:
+            return
+        
         if self._asset in blotter._positions:
-            cash = blotter._positions.apply_split(self._split_ratio)
+            cash = blotter._positions[self._asset].apply_split(self._split_ratio)
         account.cashflow(cash=cash, margin=0)
+        self._applied = True
             
-class StockMergers(AccountEvent):
+class StockMerger(AccountEvent):
     """
         Class for corporate actions
     """
-    def __init__(self, asset, effective_dt, announcement_dt, target_asset,
-                 merger_ratio, target_price, merge=True):
-        self._merger_ratio = merger_ratio
-        self._target = target_asset
-        self._target_price = target_price
-        self._merge = merge
-        super(StockSplit, self).__init__(asset, effective_dt, announcement_dt)
+    def __init__(self, asset, effective_dt, announcement_dt, acquirer,
+                 exchange_ratio, offer_price=0, cash_pct = 0):
+        self._exchange_ratio = exchange_ratio
+        self._acquirer = acquirer
+        self._offer_price = offer_price
+        self._cash_pct = cash_pct
+        super(StockMerger, self).__init__(asset, effective_dt, announcement_dt)
         
-    @abstractmethod
-    def adjustment(self, account, blotter):
+    def apply(self, account, blotter):
+        if self._applied:
+            return
+        
         if self._asset in blotter._positions:
-            if self._merge:
-                cash = blotter._positions[self._asset].apply_merger(
-                        self._target, self._merger_ratio)
-                blotter._positions[self._target] = blotter._positions.pop(
-                        self._asset)
-                account.cashflow(cash=cash, margin=0)
-            else:
-                pos = blotter._positions[self._asset]
+            cash1 = blotter._positions[self._asset].quantity\
+                    *self._cash_pct*self._offer_price
+            
+            cash2 = blotter._positions[self._asset].apply_merger(
+                    self._acquirer, self._exchange_ratio, self._cash_pct)
+            blotter._positions[self._target] = blotter._positions.pop(
+                    self._asset)
+            account.cashflow(cash=cash1+cash2, margin=0)
+            self._applied = True
             
         
         

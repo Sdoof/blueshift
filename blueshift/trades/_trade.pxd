@@ -38,4 +38,5 @@ cdef class Trade:
     cdef readonly Asset asset
     cdef readonly int quantity
     cpdef to_dict(self)
+    cpdef to_json(self)
     cpdef __reduce__(self)

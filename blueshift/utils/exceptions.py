@@ -241,3 +241,10 @@ class BlueShiftPathException(InternalError):
     '''
     msg = "Unexpected Error in Blueshift:{msg}"
     handling = ExceptionHandling.TERMINATE
+    
+class DataWriteException(InternalError):
+    '''
+        Unexpected error about path handling.
+    '''
+    msg = "Failed to write data to disk:{msg}"
+    handling = ExceptionHandling.TERMINATE

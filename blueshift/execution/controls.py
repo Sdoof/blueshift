@@ -18,7 +18,6 @@ Created on Mon Jan  7 13:11:51 2019
 """
 from abc import ABC, abstractmethod 
 
-from blueshift.trades._order_types import OrderSide
 from blueshift.utils.decorators import singleton
 from blueshift.utils.types import noop
 
@@ -407,7 +406,7 @@ class TCLongOnly(TradingControl):
         pass
     
     def validate(self, order, dt, context, on_fail=noop):
-        side = 1 if order.side == OrderSide.BUY else -1
+        side = 1 if order.is_buy() else -1
         amount = order.quantity*side
         asset = order.asset
         
@@ -453,7 +452,7 @@ class TCPositionQty(TradingControl):
             self._max_amount_dict[asset] = abs(self._max_amount_dict[asset])
     
     def validate(self, order, dt, context, on_fail=noop):
-        side = 1 if order.side == OrderSide.BUY else -1
+        side = 1 if order.is_buy() else -1
         amount = order.quantity*side
         asset = order.asset
         
@@ -504,7 +503,7 @@ class TCPositionValue(TradingControl):
             self._max_amount_dict[asset] = abs(self._max_amount_dict[asset])
     
     def validate(self, order, dt, context, on_fail=noop):
-        side = 1 if order.side == OrderSide.BUY else -1
+        side = 1 if order.is_buy() else -1
         amount = order.quantity*side
         asset = order.asset
         

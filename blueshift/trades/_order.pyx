@@ -184,6 +184,35 @@ cdef class Order:
                 'timestamp':self.timestamp,
                 'tag':self.tag}
         
+    cpdef to_json(self):
+        return {
+                'oid':self.oid,
+                'hashed_oid':self.hashed_oid,
+                'broker_order_id':self.broker_order_id,
+                'exchange_order_id':self.exchange_order_id,
+                'parent_order_id':self.parent_order_id,
+                'asset':self.asset.symbol,
+                'user':self.user,
+                'placed_by':self.placed_by,
+                'product_type':self.product_type,
+                'order_flag':self.order_flag,
+                'order_type':self.order_type,
+                'order_validity':self.order_validity,
+                'quantity':self.quantity,
+                'filled':self.filled,
+                'pending':self.pending,
+                'disclosed':self.disclosed,
+                'price':self.price,
+                'average_price':self.average_price,
+                'trigger_price':self.trigger_price,
+                'stoploss_price':self.stoploss_price,
+                'side':self.side,
+                'status':self.status,
+                'status_message':self.status_message,
+                'exchange_timestamp':str(self.exchange_timestamp),
+                'timestamp':str(self.timestamp),
+                'tag':self.tag}
+        
     cpdef __reduce__(self):
         return(self.__class__,( self.oid,
                                 self.hashed_oid,
@@ -215,6 +244,8 @@ cdef class Order:
         
     @classmethod
     def from_dict(cls, data):
+        """ from an existing order, remove the unnecessary fields"""
+        data.pop('hashed_oid', None)
         return cls(**data)
 
         
@@ -319,4 +350,8 @@ cdef class Order:
         self.exchange_timestamp = pos.timestamp
         self.timestamp = pos.timestamp
         
-        
+    cpdef is_open(self):
+        return self.status == OrderStatus.OPEN
+    
+    cpdef is_buy(self):
+        return self.side == OrderSide.BUY

@@ -19,11 +19,42 @@ Created on Wed Oct  3 17:28:53 2018
 
 from sys import getsizeof as sys_getsizeof
 from os import path as os_path
+import pandas as pd
+from collections import OrderedDict
+
+from blueshift.trades._position import Position
+from blueshift.trades._order import Order
 from blueshift.utils.ctx_mgr import AddPythonPath
 from blueshift.utils.types import NANO_SECOND
 
 def datetime_time_to_nanos(dt):
     return (dt.hour*60 + dt.minute)*60*NANO_SECOND
+
+def read_positions_from_dict(positions_dict, asset_finder):
+    """read from a dict keyed by asset symbol """
+    current_pos = {}
+    for sym in positions_dict:
+        asset = asset_finder.lookup_symbol(sym)
+        pos = positions_dict[sym]
+        pos['asset'] = asset
+        pos['timestamp'] = pd.Timestamp(pos['timestamp'])
+        position = Position.from_dict(positions_dict[sym])
+        current_pos[asset] = position
+        
+    return current_pos
+
+def read_transactions_from_dict(txns_dict, asset_finder, 
+                                key_transform=lambda x:x):
+    """ read from a timestamped ordered dict of transactions"""
+    txns = OrderedDict()
+    for key in txns_dict:
+        values = txns_dict[key]
+        transactions = []
+        for value in values:
+            value['asset'] = asset_finder.lookup_symbol(value['asset'])
+            transactions.append(Order.from_dict(value))
+        txns[key_transform(key)] = transactions
+    return txns
 
 def sizeof(obj, seen=None):
     """Recursively finds size of objects"""

@@ -36,8 +36,8 @@ import hashlib
 
 cdef class Position:
     '''
-        Trade object definition. A trade belongs to an order that 
-        generated the trade(s)
+        Position object definition. A position is cumulative consequence of
+        a series of orders on the same asset.
     '''
     
     def __init__(self,
@@ -141,6 +141,25 @@ cdef class Position:
                 'product_type':self.product_type
                 }
         
+    cpdef to_json(self):
+        return {'pid':self.pid,                
+                'instrument_id':self.instrument_id,
+                'asset':self.asset.symbol,
+                'quantity':self.quantity,
+                'buy_quantity':self.buy_quantity,
+                'buy_price':self.buy_price,
+                'sell_quantity':self.sell_quantity,
+                'sell_price':self.sell_price,
+                'pnl':self.pnl,
+                'realized_pnl':self.realized_pnl,
+                'unrealized_pnl':self.unrealized_pnl,
+                'last_price':self.last_price,
+                'margin':self.margin,
+                'timestamp':str(self.timestamp),
+                'value':self.value,
+                'product_type':self.product_type
+                }
+        
     cpdef __reduce__(self):
         return(self.__class__,( self.pid,
                                 self.instrument_id,
@@ -161,7 +180,17 @@ cdef class Position:
                                 ))
         
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, dict data):
+        """
+            we are building from an existing positions. Side, price etc
+            are not relevant.
+        """
+        data['side'] = -1
+        data['average_price'] = 0
+        data['margin'] = 0
+        data['exchange_timestamp'] = data['timestamp']
+        data.pop('pid',None)
+        data.pop('value',None)
         return cls(**data)
     
     @classmethod
@@ -253,15 +282,13 @@ cdef class Position:
         cash = remains*self.last_price
         return cash
         
-    cpdef apply_merger(self, Asset target, float ratio, float price):
-        self.asset = target
-        cash = self.apply_split(ratio)
+    cpdef apply_merger(self, Asset acquirer, float ratio, float cash_pct):
+        dirty_qty = self.quantity*cash_pct
+        self.quantity = int(dirty_qty)
+        cash1 = (dirty_qty - self.quantity)*self.last_price
+        cash2 = self.apply_split(ratio)
         
-        return cash
-    
-    cpdef apply_demerger(self, Asset target, float ratio, float price):
-        #TODO: implement
-        pass
+        return cash1+cash2
         
         
         

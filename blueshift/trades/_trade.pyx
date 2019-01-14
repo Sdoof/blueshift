@@ -110,6 +110,24 @@ cdef class Trade:
                 'timestamp':self.timestamp,
                 'quantity':self.quantity}
         
+    cpdef to_json(self):
+        return {'tid':self.tid,
+                'hashed_tid':self.hashed_tid,
+                'oid':self.oid,
+                'broker_order_id':self.broker_order_id,
+                'exchange_order_id':self.exchange_order_id,
+                'instrument_id':self.instrument_id,
+                'asset':self.asset.symbol,
+                'side':self.side,
+                'product_type':self.product_type,
+                'average_price':self.average_price,
+                'cash_flow':self.cash_flow,
+                'margin':self.margin,
+                'commission':self.commission,
+                'exchange_timestamp':str(self.exchange_timestamp),
+                'timestamp':str(self.timestamp),
+                'quantity':self.quantity}
+        
     cpdef __reduce__(self):
         return(self.__class__,( self.tid,
                                 self.hashed_tid,
