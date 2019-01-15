@@ -36,3 +36,21 @@ cpdef check_input(object f, dict env):
             if truth:
                 return
             raise ValidationError(msg.format(var,f.__name__))
+
+cpdef cdict_diff(dict d1, dict d2):
+    '''
+        take difference of two dictions, treating the value as integer. it
+        will list all keys (union of keys) in a new dict with values as the
+        difference between the first and the second dict values, skipping
+        zeros.
+    '''
+    cdef int value
+    cdef dict diff = {}
+    
+    keys = set(d1.keys()).union(set(d2.keys()))
+    for key in keys:
+        value = int(d1.get(key,0)) - int(d2.get(key,0))
+        if value != 0:
+            diff[key] = value
+    
+    return diff

@@ -29,81 +29,190 @@ from blueshift.utils.exceptions import (InitializationError,
                                         ValidationError,
                                         ExceptionHandling,
                                         DataWriteException)
-from blueshift.utils.helpers import (read_positions_from_dict, dict_diff,
-                                     read_transactions_from_dict)
-
+from blueshift.utils.helpers import (read_positions_from_dict,
+                                     read_transactions_from_dict,
+                                     read_orders)
+from blueshift.utils.cutils import cdict_diff
 from blueshift.configs.defaults import (blueshift_saved_orders_path,
-                                        blueshift_save_perfs_path,
-                                        blueshift_saved_objs_path)
+                                        blueshift_save_perfs_path)
+from blueshift.trades._position import Position
 
-class ReconciliationReport(object):
-    '''
-        class to persiste a reconciliation report. This starts with an
-        initial snapshot of the existing account balances and positions.
-        All the orders triggered by the algo is logged with (entered in)
-        the blotter. When reconciliation is called, the blotter checks the
-        changes (implied and actual) and saves the report.
-    '''
-    def __init__(self, timestamp, matched_pos, unexplained_pos, account_view,
-                 matching_orders, missing_orders, extra_orders, root):
-        self._timestamp = timestamp
-        self._matched_pos = matched_pos
-        self._unexplained_pos = unexplained_pos
-        self._account_view = account_view
-        self._matching_orders = matching_orders
-        self._missing_orders = missing_orders
-        self._extra_orders = extra_orders
-        self._root = root
-        
-    def get_save_path(self, algo_name=None):
-        algo_name = str(algo_name) if algo_name else ''
-        str_ts = str(self._timestamp).replace('-','')
-        str_ts = str_ts.replace(':','_').replace(' ','-')
-        versioned_fname = 'reconciliation_'+ algo_name + str_ts
-        versioned_fname = os_path.join(self._root, versioned_fname + ".json")
-        current_fname = 'reconciliation_'+ algo_name
-        current_fname = os_path.join(self._root, current_fname + ".json")
-        
-        return current_fname, versioned_fname
+
+@singleton
+class TransactionsTracker(object):
+    """ class to track and save historical transactions record. """
+    MAX_TRANSACTIONS = 50000
+    TRANSACTIONS_FILE = 'transactions.json'
+    OPEN_ORDERS_FILE = 'open_orders.json'
     
-    def write(self, algo_name=None):
-        reconciliation = assets = {}
+    def __init__(self, blotter_root=None):
+        self._create(blotter_root)
         
-        reconciliation['timestamp'] = self._last_reconciled
+    def _create(self, blotter_root):
+        self._blotter_root = blotter_root
+        self._txn_fname = os_path.expanduser(os_path.realpath(
+                os_path.join(self._blotter_root,self.TRANSACTIONS_FILE)))
+        self._oo_fname = os_path.expanduser(os_path.realpath(
+                os_path.join(self._blotter_root,self.OPEN_ORDERS_FILE)))
         
-        for pos in self._matched_pos:
-            reconciliation['matching_positions'][str(pos)]=\
-                            self._matched_pos[pos].to_dict()
-            assets.append(pos)
-                            
-        for pos in self._unexplained_pos:
-            reconciliation['matching_positions'][str(pos)]=\
-                            self._unexplained_pos[pos]
-            assets.append(pos)
+        self._transactions = OrderedDict()
+        self._open_orders = {}
+        self._unprocessed_orders = {}
+        self._known_orders = set()
+        
+        self._last_reconciled = None
+        self._last_saved = None
+        self._needs_reconciliation = False
+    
+    @classmethod
+    def _prefix_fn(cls, timestamp=None):
+        if timestamp is None:
+            return ''
+        return str(pd.Timestamp(timestamp.date())).replace(' ', '_').\
+                                                    replace(':','-')
+    
+    def _save_transactions_list(self, timestamp=None):
+        txns_write = OrderedDict()
+        open_orders = {}
+        
+        def skip_ts(ts, timestamp):
+            if timestamp is None:
+                return False
+            if ts.date() == timestamp.date():
+                return False
+            else:
+                return True
+        
+        # process the closed transactions. Filter for date if timestapm
+        # is provided, else save all.
+        for ts in self._transactions:
+            if skip_ts(ts, timestamp):
+                continue
+            txns = self._transactions[ts]
+            txns_list = []
+            for txn in txns:
+                txns_list.append(txn.to_json())
+            txns_write[str(ts)] = txns_list
+        # process the open orders, if any
+        for order_id in self._open_orders:
+            open_orders[str(order_id)] = self._open_orders[order_id].to_json()
+        try:
+            if txns_write:
+                # dated output if timestamp is provided, else all.
+                fname = self._prefix_fn(timestamp) + self._txn_fname
+                with open(fname, 'w') as fp:
+                    json.dump(txns_write, fp)
+                fname = self._oo_fname
+                with open(fname, 'w') as fp:
+                    json.dump(open_orders, fp)
+        except (TypeError, OSError):
+            msg = f"failed to write blotter data to {self._pos_fname}"
+            handling = ExceptionHandling.WARN
+            raise DataWriteException(msg=msg, handling=handling)
             
-        assets = set(assets)
-        for asset in assets:
-            reconciliation[str(asset)]=asset.to_dict()
-                            
-        for i in range(len(self._matching_orders)):
-            self._matching_orders[i] = self._matching_orders[i].to_dict()    
-        reconciliation['matching_orders'] = self._matching_orders
+        self._last_saved = timestamp if timestamp is not None else\
+                            pd.Timestamp.now()
+            
+    def _read_transactions_list(self, asset_finder, timestamp=None):
+        transactions = MaxSizedOrderedDict(
+                max_size=self.MAX_TRANSACTIONS, chunk_size=1)
         
-        for i in range(len(self._missing_orders)):
-            self._missing_orders[i] = self._missing_orders[i].to_dict()    
-        reconciliation['missing_orders'] = self._missing_orders
+        fname = self._prefix_fn(timestamp) + self._txn_fname
+        if os_path.exists(fname):
+            # expected transactions keyed to date-time
+            try:
+                with open(self._txn_fname) as fp:
+                    txns_dict = dict(json.load(fp))
+                txns, ids = read_transactions_from_dict(
+                        txns_dict, asset_finder, pd.Timestamp)
+                
+                transactions = MaxSizedOrderedDict(
+                        txns, max_size=self.MAX_TRANSACTIONS, chunk_size=1)
+                self._known_orders.union(ids)
+                
+            except (TypeError, KeyError, BlueShiftException):
+                raise InitializationError(msg="illegal transactions data.")
         
-        for i in range(len(self._extra_orders)):
-            self._extra_orders[i] = self._extra_orders[i].to_dict()    
-        reconciliation['extra_orders'] = self._extra_orders
+        self._transactions = transactions
         
-        # save versioned snapshot
-        current_fname, versioned_fname = self.get_save_path()
-        with open(versioned_fname,"w") as fp:
-            json.dump(reconciliation, fp)
-        # overwrite the current snapshot
-        with open(current_fname,"w") as fp:
-            json.dump(reconciliation, fp)
+        if os_path.exists(self._oo_fname):
+            with open(self._oo_fname) as fp:
+                open_orders = dict(json.load(fp))
+            self._open_orders, ids = read_orders(open_orders, asset_finder)
+            self._known_orders.union(ids)
+    
+    def add_transaction(self, order_id, order):
+        """ log a transaction with the tracker """
+        self._unprocessed_orders[order_id] = order
+        self._known_orders.add(order_id)
+        self._needs_reconciliation = True
+    
+    def reconcile_transactions(self, orders, timestamp=None):
+        """
+            process the un-processed orders list. If missing order add it
+            back to the un-processed list to check in the next run.
+        """
+        missing_orders = extra_orders = []
+        matched_orders = {}
+        unprocessed_orders = list(self._unprocessed_orders.keys())
+        
+        for order_id in unprocessed_orders:
+            if order_id in orders:
+                order = orders[order_id]
+                if not order.is_open():
+                    # they can no longer change resulting positions
+                    order_list = self._transactions.get(order.timestamp,[])
+                    order_list.append(order)
+                    self._transactions[order.timestamp] = order_list
+                    self._unprocessed_orders.pop(order_id)
+                    matched_orders[order_id] = order
+                else:
+                    # these still can as they get filled.
+                    self._open_orders[order_id] = order
+            else:
+                missing_orders.append[order]
+        
+        for key in orders:
+            if key not in self._known_orders:
+                extra_orders.append(orders[key])
+        
+        if missing_orders or extra_orders:
+            matched = False
+        else:
+            matched = True
+        
+        self._needs_reconciliation = False
+        self._last_reconciled = timestamp if timestamp is not None else\
+                                pd.Timestamp.now()
+        
+        return matched, missing_orders, extra_orders, matched_orders
+    
+    def update_positions_from_orders(self, orders, positions):
+        """ 
+            create a list of positions from orders - NOTE: they may not have
+            the correct price and pnl information.
+        """
+        # first loop through the matched orders
+        keys = list(orders.keys())
+        for key in keys:
+            order = orders.pop(key)
+            asset = order.asset
+            pos = Position.from_order(order)
+            if asset in positions:
+                positions[asset].add_to_position(pos)
+            else:
+                positions[asset] = pos
+        # now if there is any open orders, add to positions from them
+        for key in self._open_orders:
+            order = self._open_orders[key]
+            if order.filled > 0:
+                pos = Position.from_order(order)
+                if asset in positions:
+                    positions[asset].add_to_position(pos)
+                else:
+                    positions[asset] = pos
+                    
+        return positions
 
 @singleton
 class Blotter(object):
@@ -124,7 +233,7 @@ class Blotter(object):
     RISKS_FILE = 'risk_metrics.json'
     
     def __init__(self, mode, asset_finder, data_portal, broker_api,
-                 blotter_root=None, account_net=None, 
+                 logger=None, blotter_root=None, account_net=None, 
                  starting_positions={}, timestamp=None, alert_manager=None):
         # initialize the start positions and historical records of 
         # transactions. If a start position is suppplied, that will 
@@ -196,7 +305,7 @@ class Blotter(object):
             try:
                 with open(self._txn_fname) as fp:
                     txns_dict = dict(json.load(fp))
-                txns = read_transactions_from_dict(
+                txns, _ = read_transactions_from_dict(
                         txns_dict, self._asset_finder, pd.Timestamp)
                 
                 transactions = MaxSizedOrderedDict(
@@ -232,13 +341,13 @@ class Blotter(object):
         try:
             if pos_write:
                 with open(self._pos_fname, 'w') as fp:
-                    json.load(pos_write, fp)
+                    json.dump(pos_write, fp)
             
             if txns_write:
                 with open(self._txn_fname, 'w') as fp:
-                    json.load(txns_write, fp)
+                    json.dump(txns_write, fp)
         except (TypeError, OSError):
-            msg = f"failed to write blotter data to {pos_write}"
+            msg = f"failed to write blotter data to {self._pos_fname}"
             handling = ExceptionHandling.WARN
             raise DataWriteException(msg=msg, handling=handling)
     
@@ -248,6 +357,7 @@ class Blotter(object):
         orders = self._broker.orders
         
         if self._needs_reconciliation:
+            print("calling reconciliation")
             self._reconcile(positions, orders, account)
         self._save_position_transactions()
     
@@ -265,15 +375,24 @@ class Blotter(object):
             back to the un-processed list to check in the next run.
         """
         missing_orders = extra_orders = []
+        matched_orders = {}
         unprocessed_orders = list(self._unprocessed_orders.keys())
         
         for order_id in unprocessed_orders:
             if order_id in orders:
                 order = orders[order_id]
-                order_list = self._transactions.get(order.timestamp,[])
-                self._transactions[order.timestamp] = order_list.append(order)
                 if not order.is_open():
+                    order_list = self._transactions.get(order.timestamp,[])
+                    order_list.append(order)
+                    self._transactions[order.timestamp] = order_list
                     self._unprocessed_orders.pop(order_id)
+                    matched_orders[order_id] = order
+                else:
+                    # open orders treated separetely, they may have 
+                    # some fill, but adding them to transactions may 
+                    # lead to double-counting. We track open orders not
+                    # to 
+                    pass
             else:
                 missing_orders.append[order]
         
@@ -286,31 +405,27 @@ class Blotter(object):
         else:
             matched = True
         
-        return matched, missing_orders, extra_orders
+        return matched, missing_orders, extra_orders, matched_orders
     
-    def _positions_from_orders(self, orders):
-        expected_pos = {}
-        
-        for key in orders:
-            order = orders[key]
+    def _update_positions_from_orders(self, orders):
+        keys = list(orders.keys())
+        for key in keys:
+            order = orders.pop(key)
             asset = order.asset
-            side = 1 if order.is_buy() else -1
-            amount = order.filled*side
-            if asset in expected_pos:
-                expected_pos[asset] = expected_pos[asset] + amount
+            pos = Position.from_order(order)
+            if asset in self._current_pos:
+                self._current_pos[asset].add_to_position(pos)
             else:
-                expected_pos[asset] = amount
-                
-        return expected_pos
+                self._current_pos[asset] = pos
     
-    def _reconcile_positions(self, positions, expected_pos):
-        unexplained_pos = dict_diff(expected_pos, positions)
+    def _reconcile_positions(self, positions):
+        unexplained_pos = cdict_diff(self._current_pos, positions)
         if unexplained_pos:
             matched = False
         else:
             matched = True
         
-        return matched, expected_pos, unexplained_pos
+        return matched, unexplained_pos
     
     def _reconcile_account(self, account):
         net_value = (self._current_net + self._pnl)
@@ -323,40 +438,29 @@ class Blotter(object):
                               "net_difference": net_difference}
     
     def _reconcile(self, positions, orders, account, timestamp=None):
-        order_matched, missing_orders, extra_orders = \
+        order_matched, missing_orders, extra_orders, matched_orders = \
                         self._reconcile_orders(orders)
-        expected_pos = self._positions_from_orders(self._transactions)
-        pos_matched, matching_pos, unexplained_pos = \
-                        self._reconcile_positions(positions, expected_pos)
+        self._update_positions_from_orders(matched_orders)
+        pos_matched, unexplained_pos = \
+                        self._reconcile_positions(positions)
         self._reconcile_account(account)                                                    
         self._needs_reconciliation = False
+        
+        if not order_matched:
+            msg =f"Orders reconciliation failed. Missing: {missing_orders}."
+            msg = msg + f" Extra:{extra_orders}"
+            print(msg)
+        if not pos_matched:
+            msg =f"Positions reconciliation failed."
+            msg = msg + f" Unexplained:{unexplained_pos}"
+            print(msg)
+                    
         
         if not timestamp:
             timestamp = pd.Timestamp.now().value
             timestamp = pd.Timestamp(int(timestamp/NANO_SECOND)*NANO_SECOND)
             
         self._last_reconciled = timestamp
-    
-    def _write_report(self, algo_name=None, timestamp=None):            
-        report = ReconciliationReport(self._last_reconciled, 
-                                      self._matched_pos, 
-                                      self._unexplained_pos, 
-                                      self._account_view,
-                                      self._matching_orders, 
-                                      self._missing_orders, 
-                                      self._extra_orders, self._root)
-        report.write()
-        
-        if not timestamp:
-            timestamp = pd.Timestamp.now().value
-            timestamp = pd.Timestamp(int(timestamp/NANO_SECOND)*NANO_SECOND)
-        
-        self._last_saved = timestamp
-        
-    def reconcile_and_save(self, positions, orders, account, 
-                           algo_name=None, timestamp=None):
-        self._reconcile(self, positions, orders, account, timestamp)
-        self._write_report(algo_name, timestamp)
     
     
     def _compute_pnl(self, open_pos, closed_pos):

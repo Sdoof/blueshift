@@ -218,7 +218,8 @@ class TradingAlgorithm(AlgoStateMachine):
         self.__freeze_trading = False
         self._blotter = Blotter(
                 self.mode, self.context.asset_finder,
-                self.context.data_portal, self.context.broker)
+                self.context.data_portal, self.context.broker,
+                self._logger)
 
     def __str__(self):
         return "Blueshift Algorithm [name:%s, broker:%s]" % (self.name,

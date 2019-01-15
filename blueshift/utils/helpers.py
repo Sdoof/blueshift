@@ -45,16 +45,30 @@ def read_positions_from_dict(positions_dict, asset_finder):
 
 def read_transactions_from_dict(txns_dict, asset_finder, 
                                 key_transform=lambda x:x):
-    """ read from a timestamped ordered dict of transactions"""
+    """ read from a timestamped ordered dict of transactions """
     txns = OrderedDict()
+    order_ids = set()
     for key in txns_dict:
         values = txns_dict[key]
         transactions = []
         for value in values:
             value['asset'] = asset_finder.lookup_symbol(value['asset'])
             transactions.append(Order.from_dict(value))
+            order_ids.add(value['oid'])
         txns[key_transform(key)] = transactions
-    return txns
+    return txns, order_ids
+
+def read_orders(orders, asset_finder, key_transform=str):
+    """ read from a order_id keyed dictionary of orders """
+    out = {}
+    order_ids = set()
+    for key in orders:
+        order = orders[key]
+        order['asset'] = asset_finder.lookup_symbol(order['asset'])
+        out[key_transform(key)] = Order.from_dict(order)
+        order_ids.add(key)
+    
+    return out, order_ids
 
 def sizeof(obj, seen=None):
     """Recursively finds size of objects"""

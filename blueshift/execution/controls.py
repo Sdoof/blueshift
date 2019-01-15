@@ -80,7 +80,7 @@ class TCOrderQtyPerTrade(TradingControl):
         if not max_allowed:
             return True
         
-        if abs(amount) < max_allowed:
+        if abs(amount) <= max_allowed:
             return True
         
         self._metric = amount
@@ -185,7 +185,7 @@ class TCOrderQtyPerDay(TradingControl):
         max_used = self._asset_quota.get(asset, 0)
         estimated = abs(amount)+max_used
         
-        if  estimated < max_allowed:
+        if  estimated <= max_allowed:
             self._asset_quota[asset] = estimated
             return True
         
@@ -293,7 +293,7 @@ class TCOrderNumPerDay(TradingControl):
             self._reset_quota()
             self._current_dt = dt.date()
         
-        if  self._used_limit+1 < self._max_num_orders:
+        if  self._used_limit+1 <= self._max_num_orders:
             self._used_limit = self._used_limit+1
             return True
         
@@ -417,7 +417,7 @@ class TCLongOnly(TradingControl):
             current_pos = 0
         estimated_pos = current_pos + amount
         
-        if estimated_pos >0:
+        if estimated_pos >=0:
             return True
         
         self._metric = estimated_pos
@@ -467,7 +467,7 @@ class TCPositionQty(TradingControl):
             current_pos = 0
         estimated_pos = abs(current_pos + amount)
         
-        if estimated_pos < max_allowed:
+        if estimated_pos <= max_allowed:
             return True
         
         self._metric = estimated_pos

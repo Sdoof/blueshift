@@ -31,6 +31,7 @@ from blueshift.trades._order_types import (
         OrderUpdateType)
 from blueshift.trades._trade cimport Trade
 from blueshift.assets._assets cimport Asset
+from blueshift.trades._order cimport Order
 import uuid
 import hashlib
 
@@ -107,6 +108,9 @@ cdef class Position:
     
     def __hash__(self):
         return self.pid
+    
+    def __int__(self):
+        return self.quantity
     
     def __eq__(x,y):
         try:
@@ -199,6 +203,14 @@ cdef class Position:
                      t.side, t.instrument_id, t.product_type, 
                      t.average_price, margin, t.exchange_timestamp, 
                      t.timestamp)
+        return p
+    
+    @classmethod
+    def from_order(cls, Order o, float margin=0):
+        p = Position(o.asset, o.filled, 
+                     o.side, -1, o.product_type, 
+                     o.average_price, margin, o.exchange_timestamp, 
+                     o.timestamp)
         return p
     
     cpdef add_to_position(self, Position pos):

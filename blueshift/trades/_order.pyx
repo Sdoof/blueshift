@@ -44,32 +44,6 @@ cdef class Order:
         The `oid` is the field through which the platform tracks an 
         order (which can be different from broekr or exchange IDs).
     '''
-    cdef readonly object oid
-    cdef readonly int hashed_oid
-    cdef readonly object broker_order_id
-    cdef readonly object exchange_order_id
-    cdef readonly object parent_order_id
-    cdef readonly Asset asset
-    cdef readonly object user
-    cdef readonly object placed_by      # the algo ID!
-    cdef readonly int product_type
-    cdef readonly int order_flag
-    cdef readonly int order_type
-    cdef readonly int order_validity
-    cdef readonly int quantity
-    cdef readonly int filled
-    cdef readonly int pending
-    cdef readonly int disclosed
-    cdef readonly float price
-    cdef readonly float average_price
-    cdef readonly float trigger_price
-    cdef readonly float stoploss_price
-    cdef readonly int side
-    cdef readonly int status
-    cdef readonly object status_message
-    cdef readonly object exchange_timestamp
-    cdef readonly object timestamp
-    cdef readonly object tag
     
     def __init__(self,
                  int quantity,              # required
@@ -249,7 +223,7 @@ cdef class Order:
         return cls(**data)
 
         
-    cpdef update(self,int update_type, object kwargs):
+    cpdef update(self, int update_type, object kwargs):
         '''
             This method is called by the execution platform, based on the 
             type of updates to be done appropriate arguments must be passed.
