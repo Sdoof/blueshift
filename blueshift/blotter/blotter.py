@@ -63,6 +63,10 @@ class TransactionsTracker(object):
         self._last_reconciled = None
         self._last_saved = None
         self._needs_reconciliation = False
+        self._last_reconciliation_status = False
+        
+    def roll_period(self, timestamp):
+        pass
     
     @classmethod
     def _prefix_fn(cls, timestamp=None):
@@ -102,11 +106,12 @@ class TransactionsTracker(object):
                 fname = self._prefix_fn(timestamp) + self._txn_fname
                 with open(fname, 'w') as fp:
                     json.dump(txns_write, fp)
+            if open_orders:
                 fname = self._oo_fname
                 with open(fname, 'w') as fp:
                     json.dump(open_orders, fp)
         except (TypeError, OSError):
-            msg = f"failed to write blotter data to {self._pos_fname}"
+            msg = f"failed to write blotter data to {fname}"
             handling = ExceptionHandling.WARN
             raise DataWriteException(msg=msg, handling=handling)
             
@@ -185,6 +190,7 @@ class TransactionsTracker(object):
         self._last_reconciled = timestamp if timestamp is not None else\
                                 pd.Timestamp.now()
         
+        self._last_reconciliation_status = matched
         return matched, missing_orders, extra_orders, matched_orders
     
     def update_positions_from_orders(self, orders, positions):
@@ -226,9 +232,7 @@ class Blotter(object):
         as the account can also be affected by other means (manual trades or
         capital withdrawals etc.).
     '''
-    MAX_TRANSACTIONS = 50000
     POSITIONS_FILE = 'positions.json'
-    TRANSACTIONS_FILE = 'transactions.json'
     PERFORMANCE_FILE = 'performance.json'
     RISKS_FILE = 'risk_metrics.json'
     
@@ -244,8 +248,7 @@ class Blotter(object):
         self._asset_finder = asset_finder
         self._data_portal = data_portal
         self._broker = broker_api
-        self._txn_fname = os_path.expanduser(os_path.realpath(
-                os_path.join(self._blotter_root,self.TRANSACTIONS_FILE)))
+        self._txns_tracker = TransactionsTracker(self._blotter_root)
         self._pos_fname = os_path.expanduser(os_path.realpath(
                 os_path.join(self._blotter_root,self.POSITIONS_FILE)))
         
@@ -256,8 +259,6 @@ class Blotter(object):
         
     
     def reset(self, timestamp, account_net=None, starting_positions={}):
-        self._transactions = MaxSizedOrderedDict(
-                    max_size=self.MAX_TRANSACTIONS, chunk_size=1)
         self._current_pos = {}
         self._unprocessed_orders = {}
         self._known_orders = set()
@@ -278,17 +279,14 @@ class Blotter(object):
                         pd.Timestamp.now().date())
     
     def _init_positions_transactions(self, positions):
-        txns, pos = self._read_positions_transactions()
+        pos = self._read_positions_transactions()
         if positions:
             positions = {**pos, **positions}
         
-        self._transactions = txns
         self._current_pos = positions
             
-    def _read_positions_transactions(self):        
+    def _read_positions_transactions(self, timestamp=None):
         positions = {}
-        transactions = MaxSizedOrderedDict(
-                max_size=self.MAX_TRANSACTIONS, chunk_size=1)
         
         if os_path.exists(self._pos_fname):
             # expect jsonified data of positions keyed to assets.
@@ -300,56 +298,29 @@ class Blotter(object):
             except (TypeError, KeyError, BlueShiftException):
                 raise InitializationError(msg="illegal positions data.")
                 
-        if os_path.exists(self._txn_fname):
-            # expected transactions keyed to date-time
-            try:
-                with open(self._txn_fname) as fp:
-                    txns_dict = dict(json.load(fp))
-                txns, _ = read_transactions_from_dict(
-                        txns_dict, self._asset_finder, pd.Timestamp)
+        self._txns_tracker._read_transactions_list(
+                self._asset_finder, timestamp)
                 
-                transactions = MaxSizedOrderedDict(
-                        txns, max_size=self.MAX_TRANSACTIONS, chunk_size=1)
-                
-            except (TypeError, KeyError, BlueShiftException):
-                raise InitializationError(msg="illegal transactions data.")
-                
-        return transactions, positions
+        return positions
     
-    def _save_position_transactions(self, write_version=True):
+    def _save_position_transactions(self, timestamp=None):
         pos_write = {}
         try:
             for pos in self._current_pos:
                 pos_write[pos.symbol] = self._current_pos[pos].to_json()
         except (TypeError, KeyError, BlueShiftException):
             raise ValidationError(msg="corrupt positions data in blotter.")
-            
-        txns_write = OrderedDict()
-        try:
-            for ts in self._transactions:
-                txns = self._transactions[ts]
-                txns_list = []
-                for txn in txns:
-                    txns_list.append(txn.to_json())
-                txns_write[str(ts)] = txns_list
-        except (TypeError, KeyError, BlueShiftException) as e:
-            raise e
-            msg = "corrupt transactions data in blotter."
-            handling = ExceptionHandling.WARN
-            raise ValidationError(msg=msg, handling=handling)
-            
-        try:
-            if pos_write:
-                with open(self._pos_fname, 'w') as fp:
-                    json.dump(pos_write, fp)
-            
-            if txns_write:
-                with open(self._txn_fname, 'w') as fp:
-                    json.dump(txns_write, fp)
-        except (TypeError, OSError):
-            msg = f"failed to write blotter data to {self._pos_fname}"
-            handling = ExceptionHandling.WARN
-            raise DataWriteException(msg=msg, handling=handling)
+        else:            
+            try:
+                if pos_write:
+                    with open(self._pos_fname, 'w') as fp:
+                        json.dump(pos_write, fp)
+            except (TypeError, OSError):
+                msg = f"failed to write blotter data to {self._pos_fname}"
+                handling = ExceptionHandling.WARN
+                raise DataWriteException(msg=msg, handling=handling)
+                
+        self._txns_tracker._save_transactions_list(timestamp)
     
     def save(self):
         account = self._broker.account
@@ -363,60 +334,23 @@ class Blotter(object):
     
     def add_transactions(self, order_id, order, fees, charges):
         """ add entry to blotter to be verified"""
-        self._unprocessed_orders[order_id] = order
-        self._known_orders.add(order_id)
+        self._txns_tracker.add_transaction(order_id, order)
         self._commisions = self._commisions + fees
         self._trading_charges = self._trading_charges + charges
         self._needs_reconciliation = True
     
-    def _reconcile_orders(self, orders):
+    def _reconcile_orders(self, orders, timestamp=None):
         """
             process the un-processed orders list. If missing order add it
             back to the un-processed list to check in the next run.
         """
-        missing_orders = extra_orders = []
-        matched_orders = {}
-        unprocessed_orders = list(self._unprocessed_orders.keys())
         
-        for order_id in unprocessed_orders:
-            if order_id in orders:
-                order = orders[order_id]
-                if not order.is_open():
-                    order_list = self._transactions.get(order.timestamp,[])
-                    order_list.append(order)
-                    self._transactions[order.timestamp] = order_list
-                    self._unprocessed_orders.pop(order_id)
-                    matched_orders[order_id] = order
-                else:
-                    # open orders treated separetely, they may have 
-                    # some fill, but adding them to transactions may 
-                    # lead to double-counting. We track open orders not
-                    # to 
-                    pass
-            else:
-                missing_orders.append[order]
         
-        for key in orders:
-            if key not in self._known_orders:
-                extra_orders.append(orders[key])
-        
-        if missing_orders or extra_orders:
-            matched = False
-        else:
-            matched = True
-        
-        return matched, missing_orders, extra_orders, matched_orders
+        return self._txns_tracker.reconcile_transactions(orders, timestamp)
     
     def _update_positions_from_orders(self, orders):
-        keys = list(orders.keys())
-        for key in keys:
-            order = orders.pop(key)
-            asset = order.asset
-            pos = Position.from_order(order)
-            if asset in self._current_pos:
-                self._current_pos[asset].add_to_position(pos)
-            else:
-                self._current_pos[asset] = pos
+        self._current_pos = self._txns_tracker.update_positions_from_orders(
+                orders, self._current_pos)
     
     def _reconcile_positions(self, positions):
         unexplained_pos = cdict_diff(self._current_pos, positions)
