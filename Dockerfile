@@ -34,6 +34,8 @@ RUN set -ex \
     && make && make install \
     # install blueshift and deps and some interesting packages
     && cd ${BLUESHIFT_DIR} \
+    # twisted in kite seems to have problem without incremental first
+    && pip install --upgrade incremental \
     && pip install -r requirements.txt \
     && pip install scipy && pip install scikit-learn && pip install ta-lib \
     && pip install blueshift-${BLUESHIFT_VERSION}.tar.gz \
