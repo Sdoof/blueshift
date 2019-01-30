@@ -44,7 +44,7 @@ class BlueshiftBuildExt(_build_ext):
         self.include_dirs.append(numpy.get_include())
         _build_ext.run(self)
 
-print(f"working dir is {os.getcwd()}")
+
 ext_modules = [
         Extension('blueshift.assets._assets', ['blueshift/assets/_assets.pyx']),
         Extension('blueshift.blotter._accounts', ['blueshift/blotter/_accounts.pyx']),
