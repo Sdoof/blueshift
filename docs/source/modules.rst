@@ -1,3 +1,5 @@
+.. note:: for internal use only
+
 blueshift
 =========
 

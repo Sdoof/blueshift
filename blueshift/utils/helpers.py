@@ -199,3 +199,13 @@ def dict_diff(d1, d2):
                 diff[key] = value
     
     return diff
+
+def if_notebook():
+    """ check if the current platform is a notebook or similar """
+    import sys
+    return 'ipykernel' in sys.modules
+
+def if_ipython():
+    """ check if the current platform is running IPython """
+    import sys
+    return 'IPython' in sys.modules
