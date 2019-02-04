@@ -72,6 +72,7 @@ from blueshift.execution.controls import (TradingControl,
                                           TCGrossExposure,
                                           TCBlackList, TCWhiteList)
 
+from blueshift.alerts import get_alert_manager
 from blueshift.blotter.blotter import Blotter
 
 @blueprint
@@ -542,10 +543,13 @@ class TradingAlgorithm(AlgoStateMachine):
             self._loop.close()
         
     def run(self, alert_manager=None, publish=False, show_progress=False):
+        if alert_manager is None:
+            alert_manager = get_alert_manager()
+        
         if self.mode == MODE.LIVE:
             self.live_run(alert_manager, publish) # no progress bar for live
         elif self.mode == MODE.BACKTEST:
-            self.back_test_run(alert_manager, publish, show_progress)
+            return self.back_test_run(alert_manager, publish, show_progress)
         else:
             raise StateMachineError(msg="undefined mode")
             

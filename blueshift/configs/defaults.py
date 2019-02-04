@@ -19,6 +19,7 @@ Created on Fri Oct 19 08:43:56 2018
 from os import path as os_path
 from os import makedirs as os_makedirs
 import errno
+import uuid
 
 from blueshift.utils.exceptions import BlueShiftPathException
 from blueshift.configs.config import get_config
@@ -249,7 +250,7 @@ def get_config_name():
     if config:
         name = config.algo
     else:
-        name = _default_config["algo"]
+        name = str(uuid.uuid4())
         
     return name
 

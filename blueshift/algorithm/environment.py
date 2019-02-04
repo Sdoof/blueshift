@@ -12,13 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Created on Tue Nov 13 09:00:35 2018
+Created on Mon Feb  4 16:59:34 2019
 
 @author: prodipta
-
-does the background object building and defines run_algo.
-
 """
+
 from os.path import isabs, join, isfile, expanduser, basename, dirname
 from os import environ as os_environ
 from os import _exit as os_exit
@@ -31,20 +29,23 @@ from blueshift.configs import (BlueShiftConfig, register_config,
                                get_config_calendar_details,
                                blueshift_data_path,
                                get_config_broker_details,
-                               get_config_env_vars,
-                               blueshit_run_set_name)
+                               get_config_env_vars)
+
 from blueshift.alerts import (BlueShiftLogger, 
                               BlueShiftAlertManager,
                               register_logger,
-                              register_alert_manager, 
-                              get_alert_manager)
-from blueshift.algorithm import TradingAlgorithm
+                              register_alert_manager)
+
+
 from blueshift.utils.types import MODE
-from blueshift.api import (get_broker, get_calendar,
-                                     register_calendar,
-                                     register_broker)
+from blueshift.api import (get_broker, 
+                           get_calendar,
+                           register_calendar,
+                           register_broker)
+
 from blueshift.utils.exceptions import (InitializationError, 
                                         BlueShiftException)
+
 from blueshift.utils.decorators import singleton, blueprint
 from blueshift.utils.types import OnetoOne
 
@@ -61,7 +62,8 @@ class BlueShiftEnvironment(object):
     RUN_MODE_MAP = OnetoOne({'backtest':MODE.BACKTEST,
                              'live': MODE.LIVE})
     
-    def __init__(self):
+    def __init__(self, name, *args, **kwargs):
+        self.name = name
         self.trading_calendar = None
         self.broker_tuple = None
         self.algo_file = None
@@ -69,14 +71,16 @@ class BlueShiftEnvironment(object):
         self.env_vars = {}
         self._initialized = False
         
+        self._create(*args, **kwargs)
+        
     def __str__(self):
         mode = self.RUN_MODE_MAP.teg(self.mode)
-        return f"Blueshift Environment [mode:{mode}]"
+        return f"Blueshift Environment [name:{self.name}, mode:{mode}]"
     
     def __repr__(self):
         return self.__str__()
     
-    def create_environment(self, *args, **kwargs):
+    def _create(self, *args, **kwargs):
         '''
             Function to create a trading environment with all objects
             necessary to run the algo.
@@ -249,69 +253,3 @@ class BlueShiftEnvironment(object):
         if self.mode == MODE.LIVE:
             broker_token = self.broker_tuple.auth.auth_token
             self.env_vars["BLUESHIFT_BROKER_TOKEN"] = broker_token
-
-def run_algo(name, output, show_progress=False, publish=False, 
-             *args, **kwargs):
-    trading_environment = kwargs.pop("trading_environment", None)
-    
-    if not trading_environment:
-        trading_environment = BlueShiftEnvironment()
-        trading_environment.create_environment(*args, **kwargs)
-    
-    if not trading_environment:
-        click.secho("failed to create a trading environment", fg="red")
-        sys_exit(1)
-        os_exit(1)
-        
-    blueshit_run_set_name(name)
-    alert_manager = get_alert_manager()
-    broker = trading_environment.broker_tuple
-    mode = trading_environment.mode
-    algo_file = trading_environment.algo_file
-    algo = TradingAlgorithm(name=name, broker=broker, algo=algo_file, 
-                            mode=mode)
-    
-    broker_name = str(broker.broker._name)
-    tz = broker.clock.trading_calendar.tz
-    
-    if mode == MODE.BACKTEST:
-        '''
-            print initial messages and run the algo object backtest.
-        '''        
-        length = len(broker.clock.session_nanos)
-        click.secho(f"\nStarting backtest with {basename(algo_file)}", 
-                                              fg="yellow")
-        msg = f"algo: {name}, broker:{broker_name}, timezone:{tz}, total sessions:{length}\n"
-        click.echo(msg)
-        perfs = algo.back_test_run(alert_manager, publish,
-                                   show_progress)
-        
-        click.secho(f"backtest run complete", fg="green")
-        
-        if output:
-            perfs.to_csv(output)
-        
-        return perfs
-        
-        
-    elif mode == MODE.LIVE:
-        '''
-            For live run, there is no generator. We run the main 
-            async event loop inside the Algorithm object itself.
-            So all messaging has to be handled there. Here we just
-            call the main function and leave it alone to complete.
-        '''
-        click.secho("\nstarting LIVE", fg="yellow")
-        msg = "starting LIVE, algo:"+ basename(algo_file) +\
-                " with broker:" + broker_name + ", timezone:" + tz + "\n"
-        click.echo(msg)
-        algo.live_run(alert_manager=alert_manager,
-                      publish_packets=publish)
-        
-    else:
-        '''
-            Somehow we ended up with unknown mode.
-        '''
-        click.secho(f"illegal mode supplied.", fg="red")
-        sys_exit(1)
-        os_exit(1)

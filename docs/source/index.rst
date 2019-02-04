@@ -13,6 +13,7 @@ Some text here
    :caption: Contents:
 
    introduction
+   concepts
    modules
 
     

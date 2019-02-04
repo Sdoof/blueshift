@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Created on Mon Sep 24 20:46:28 2018
+Created on Mon Feb  4 16:57:29 2019
 
 @author: prodipta
 """
-from blueshift.utils.calendars import TradingCalendar
-from blueshift.utils.brokers.backtest import BackTest
+
 from blueshift.algorithm.algorithm import TradingAlgorithm
-from blueshift.algorithm.context import AlgoContext
+from blueshift.algorithm.environment import BlueshiftEnvironment
 
-__version__ = '0.0.1'
-
+__all__ = [TradingAlgorithm,
+           BlueshiftEnvironment]

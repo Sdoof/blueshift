@@ -108,7 +108,7 @@ html_static_path = ['_static']
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'Blueshiftdoc'
-
+html_logo = '_static/blueshift_logo.png'
 
 # -- Options for LaTeX output ------------------------------------------------
 
