@@ -17,10 +17,10 @@ Created on Mon Oct 29 16:36:33 2018
 @author: prodipta
 """
 
-from blueshift.utils.brokers.backtest import BackTest
-from blueshift.utils.brokers.zerodha import Zerodha
-from blueshift.utils.brokers.fxcm import FXCM
-from blueshift.utils.brokers.core import BrokerDispatch
+from blueshift.brokers.backtest import BackTest
+from blueshift.brokers.zerodha import Zerodha
+from blueshift.brokers.fxcm import FXCM
+from blueshift.brokers.core import BrokerDispatch
 from blueshift.utils.types import Broker
 
 _default_broker_factories = {

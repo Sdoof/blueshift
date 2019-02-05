@@ -22,7 +22,6 @@ from .alert import (BlueShiftAlertManager, register_alert_manager,
 from .logging_utils import register_logger, get_logger, BlueShiftLogger
 
 
-
 __all__ = [register_alert_manager,
            get_alert_manager,
            get_logger,

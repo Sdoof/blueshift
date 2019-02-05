@@ -75,7 +75,7 @@ class BlueShiftConfig(object):
         if not broker:
             broker = config["defaults"]["broker"]
         
-        self.algo = config['algo']
+        self.name = config['name']
         self.owner = config['owner']
         self.platform = config['platform']
         self.contact = config['contact']

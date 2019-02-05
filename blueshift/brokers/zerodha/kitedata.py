@@ -33,7 +33,7 @@ from blueshift.utils.exceptions import (AuthenticationError,
                                         UnsupportedFrequency)
 from blueshift.utils.decorators import api_rate_limit, singleton, blueprint
 
-from blueshift.utils.brokers.zerodha.kiteassets import KiteAssetFinder
+from blueshift.brokers.zerodha.kiteassets import KiteAssetFinder
 
 LRU_CACHE_SIZE = 512
 

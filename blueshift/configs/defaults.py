@@ -27,7 +27,7 @@ from blueshift.configs.config import get_config
 _default_config =\
 {
  # general section
-  "algo": "myalgo",
+  "name": "myalgo",
   "owner": "prodipta",
   "platform": "blueshift",
   "api_key": None,
@@ -113,8 +113,8 @@ _default_config =\
   "environment":{
     "BLUESHIFT_BROKER_TOKEN": None,
     "BLUESHIFT_API_KEY": None,
-    "BLUESHIFT_CONFIG_FILE": None,
-    "BLUESHIFT_ROOT": None
+    "BLUESHIFT_USER": None,
+    "BLUESHIFT_VERSION": "0.0.1"
   }
 }
     
@@ -248,9 +248,9 @@ def get_config_name():
     config = get_config()
     
     if config:
-        name = config.algo
+        name = config.name
     else:
-        name = str(uuid.uuid4())
+        name = "blueshift"
         
     return name
 
@@ -288,6 +288,7 @@ def get_config_broker_details():
     return brkr_dict
 
 def get_config_env_vars(var_name=None):
+    var = {}
     config = get_config()
     
     if config:
@@ -302,16 +303,4 @@ def get_config_env_vars(var_name=None):
             var = _default_config["environment"][var_name]
         
     return var
-
-def blueshit_run_set_name(name):
-    config = get_config()
-    if config:
-        config.algo = name
-    
-def blueshift_run_get_name():
-    config = get_config()
-    if config:
-        return config.algo
-
-    return "blueshift"
 

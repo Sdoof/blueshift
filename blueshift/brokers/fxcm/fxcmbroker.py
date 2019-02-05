@@ -30,7 +30,7 @@ from fxcmpy.fxcmpy_order import fxcmpy_order
 
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.execution.broker import AbstractBrokerAPI
-from blueshift.utils.brokers.fxcm.fxcmauth import (FXCMAuth, FXCMPy)
+from blueshift.brokers.fxcm.fxcmauth import (FXCMAuth, FXCMPy)
 from blueshift.utils.cutils import check_input
 from blueshift.utils.exceptions import (AuthenticationError,
                                         ExceptionHandling,

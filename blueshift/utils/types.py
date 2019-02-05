@@ -155,6 +155,12 @@ class BrokerType(Enum):
     RESTBROKER = 2
     TWSBROKER = 3
     
+class Platform(Enum):
+    """ platform types """
+    CONSOLE = 0
+    NOTEBOOK = 1
+    CONTAINER = 2
+    
 class OnetoOne(object):
     '''
         A data structure to enable a one-to-one mapping. This

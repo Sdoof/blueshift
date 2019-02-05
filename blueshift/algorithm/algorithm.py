@@ -37,7 +37,7 @@ from blueshift.execution.authentications import AbstractAuth
 from blueshift.trades._order import Order
 from blueshift.trades._order_types import OrderSide
 from blueshift.algorithm.api_decorator import api_method, command_method
-from blueshift.api import get_broker
+from blueshift.controls import get_broker
 from blueshift.utils.types import noop, MODE, listlike
 from blueshift.algorithm.state_machine import AlgoStateMachine
 

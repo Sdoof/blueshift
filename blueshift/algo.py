@@ -17,8 +17,10 @@ Created on Mon Feb  4 16:57:29 2019
 @author: prodipta
 """
 
-from blueshift.algorithm.algorithm import TradingAlgorithm
-from blueshift.algorithm.environment import BlueshiftEnvironment
+from blueshift.algorithm import TradingAlgorithm
+from blueshift.configs.environment import BlueShiftEnvironment
+from blueshift.utils.types import MODE
 
 __all__ = [TradingAlgorithm,
-           BlueshiftEnvironment]
+           BlueShiftEnvironment,
+           MODE]

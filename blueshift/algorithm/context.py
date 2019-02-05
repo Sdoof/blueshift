@@ -32,9 +32,9 @@ from blueshift.execution.broker import AbstractBrokerAPI
 from blueshift.data.dataportal import DataPortal
 from blueshift.execution._clock import TradingClock
 from blueshift.execution.authentications import AbstractAuth
-from blueshift.utils.brokers import Broker
+from blueshift.brokers import Broker
 from blueshift.utils.decorators import blueprint
-from blueshift.configs import blueshift_run_get_name
+from blueshift.configs.runtime import blueshift_run_get_name
 
 @blueprint
 class AlgoContext(object):

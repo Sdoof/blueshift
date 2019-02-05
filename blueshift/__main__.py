@@ -191,7 +191,7 @@ def config(ctx, root, timezone, broker, broker_id, broker_key,
     )
 @click.option(
     '--name',
-    default='myalgo',
+    #default='myalgo',
     help='Name of this run',
     )
 @click.option(
@@ -227,20 +227,15 @@ def run(ctx, start_date, end_date, initial_capital,
         
         configfile = os_path.expanduser(ctx.obj['config'])
         algo_file = algo_file
-        trading_environment = BlueShiftEnvironment()
-        trading_environment.create_environment(config_file=configfile,
-                                               algo_file=algo_file,
-                                               start_date=start_date,
-                                               end_date=end_date,
-                                               initial_capital=\
-                                                   initial_capital,
-                                               mode=run_mode,
-                                               broker=broker,
-                                               *args,**kwargs)
+        trading_environment = BlueShiftEnvironment(
+                name=name, config_file=configfile,algo_file=algo_file,
+                start_date=start_date, end_date=end_date,
+                initial_capital=initial_capital,mode=run_mode,
+                broker=broker,*args,**kwargs)
         
-        run_algo(name, output, show_progress, publish,
-                 trading_environment=trading_environment, 
-                 *args, **kwargs)
+        run_algo(
+                output, show_progress, publish, 
+                trading_environment=trading_environment, *args, **kwargs)
     except BlueShiftException as e:
         click.secho(str(e), fg="red")
         sys_exit(1)

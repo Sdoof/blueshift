@@ -21,11 +21,12 @@ from sys import getsizeof as sys_getsizeof
 from os import path as os_path
 import pandas as pd
 from collections import OrderedDict
+import click
 
 from blueshift.trades._position import Position
 from blueshift.trades._order import Order
 from blueshift.utils.ctx_mgr import AddPythonPath
-from blueshift.utils.types import NANO_SECOND
+from blueshift.utils.types import NANO_SECOND, Platform
 
 def datetime_time_to_nanos(dt):
     return (dt.hour*60 + dt.minute)*60*NANO_SECOND
@@ -209,3 +210,28 @@ def if_ipython():
     """ check if the current platform is running IPython """
     import sys
     return 'IPython' in sys.modules
+
+def if_docker():
+    """ check if the current platform is a docker container """
+    import os
+    return os.path.exists('/.dockerenv') or os.path.exists('/.dockerinit')
+
+def print_ansi_colour(msg, colour):
+    """ print with ansi colour escape codes """
+    colour_map = {"red":"31", "yellow":"33", "green":"32"}
+    code = colour_map.get(colour, None)
+    if code:
+        msg = "\033["+code+";1m"+msg+"\033[0m"
+        print(msg)
+    else:
+        print(msg)
+
+def print_msg(msg, _type, platform):
+    """ print with ansi colour escape codes based on platform """
+    type_map = {"error":"red", "warn":"yellow", "info":"green"}
+    fg = type_map.get(_type, None)
+    
+    if platform == Platform.NOTEBOOK:
+        print_ansi_colour(msg, type_map.get(_type, None))
+    else:
+        click.secho(msg, fg=fg)

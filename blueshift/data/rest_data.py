@@ -18,7 +18,7 @@ Created on Thu Oct 25 14:20:31 2018
 """
 from blueshift.data.dataportal import DataPortal
 from blueshift.utils.decorators import blueprint
-from blueshift.configs import blueshift_run_get_name
+from blueshift.configs.runtime import blueshift_run_get_name
 
 @blueprint
 class RESTDataPortal(DataPortal):

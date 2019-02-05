@@ -22,14 +22,14 @@ from os import environ as os_environ
 from os import _exit as os_exit
 from sys import exit as sys_exit
 import pandas as pd
-import click
+import uuid
 
-from blueshift.configs import (BlueShiftConfig, register_config,
-                               blueshift_source_path,
-                               get_config_calendar_details,
-                               blueshift_data_path,
-                               get_config_broker_details,
-                               get_config_env_vars)
+from blueshift.configs.config import BlueShiftConfig, register_config
+from blueshift.configs.defaults import (blueshift_source_path,
+                                       get_config_calendar_details,
+                                       blueshift_data_path,
+                                       get_config_broker_details,
+                                       get_config_env_vars)
 
 from blueshift.alerts import (BlueShiftLogger, 
                               BlueShiftAlertManager,
@@ -38,7 +38,7 @@ from blueshift.alerts import (BlueShiftLogger,
 
 
 from blueshift.utils.types import MODE
-from blueshift.api import (get_broker, 
+from blueshift.controls import (get_broker, 
                            get_calendar,
                            register_calendar,
                            register_broker)
@@ -48,9 +48,13 @@ from blueshift.utils.exceptions import (InitializationError,
 
 from blueshift.utils.decorators import singleton, blueprint
 from blueshift.utils.types import OnetoOne
+from blueshift.utils.helpers import if_notebook, if_docker, print_msg
+from blueshift.utils.types import Platform
 
 
 BROKER_TOKEN_EVNVAR = 'BLUESHIFT_BROKER_TOKEN'
+
+
 
 @singleton
 @blueprint
@@ -62,8 +66,9 @@ class BlueShiftEnvironment(object):
     RUN_MODE_MAP = OnetoOne({'backtest':MODE.BACKTEST,
                              'live': MODE.LIVE})
     
-    def __init__(self, name, *args, **kwargs):
-        self.name = name
+    def __init__(self, *args, **kwargs):
+        self.name = None
+        self.platform = None
         self.trading_calendar = None
         self.broker_tuple = None
         self.algo_file = None
@@ -85,6 +90,19 @@ class BlueShiftEnvironment(object):
             Function to create a trading environment with all objects
             necessary to run the algo.
         '''
+        name = kwargs.pop("name", None)
+        if name:
+            self.name = name
+        else:
+            self.name = str(uuid.uuid4())
+
+        if if_notebook():
+            self.platform = Platform.NOTEBOOK
+        elif if_docker():
+            self.platform = Platform.CONTAINER
+        else:
+            self.platform = Platform.CONSOLE
+        
         try:
             self.create_config(*args, **kwargs)
             self.extract_env_vars()
@@ -103,7 +121,7 @@ class BlueShiftEnvironment(object):
             self.create_broker(*args, **kwargs)
             self.save_env_vars()
         except BlueShiftException as e:
-            click.secho(str(e), fg="red")
+            print_msg(str(e), _type="error", platform=self.platform)
             sys_exit(1)
             os_exit(1)
         
@@ -136,7 +154,8 @@ class BlueShiftEnvironment(object):
             list in config. Then over-write if any supplied in the
             kwwargs.
         '''
-        for var in get_config_env_vars():
+        env_vars = get_config_env_vars()
+        for var in env_vars:
             self.env_vars[var] = os_environ.get(var, None)
         for var in self.env_vars:
             self.env_vars[var] = kwargs.pop(var, self.env_vars[var])
@@ -151,6 +170,8 @@ class BlueShiftEnvironment(object):
         '''
             create and register the alert manager.
         '''
+        if not "name" in kwargs:
+            kwargs["name"] = self.name
         logger = BlueShiftLogger(*args, **kwargs)
         register_logger(logger)
     
@@ -158,6 +179,9 @@ class BlueShiftEnvironment(object):
         '''
             create and register the alert manager.
         '''
+        if not "topic" in kwargs:
+            kwargs["topic"] = self.name
+        
         alert_manager = BlueShiftAlertManager()
         register_alert_manager(alert_manager)
     
@@ -236,7 +260,7 @@ class BlueShiftEnvironment(object):
     def create_broker(self, *args, **kwargs):
         '''
             Create the broker object based on name mapping to a 
-            particular broker module under utils/brokers/.
+            particular broker module under brokers.
         '''                    
         brkr_dict = get_config_broker_details()
         factory_name = brkr_dict.pop("factory")
@@ -250,6 +274,12 @@ class BlueShiftEnvironment(object):
         register_broker(name, factory_name, **brkr_dict)
         self.broker_tuple = get_broker(name)
         
-        if self.mode == MODE.LIVE:
-            broker_token = self.broker_tuple.auth.auth_token
-            self.env_vars["BLUESHIFT_BROKER_TOKEN"] = broker_token
+        if self.env_vars["BLUESHIFT_BROKER_TOKEN"]:
+            try:
+                # try to set the auth token if possible.
+                self.broker_tuple.auth.auth_token = \
+                    self.env_vars["BLUESHIFT_BROKER_TOKEN"]
+            except:
+                # not a token auth model. Return silently.
+                pass
+            

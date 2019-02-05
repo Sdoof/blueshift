@@ -26,8 +26,8 @@ from kiteconnect.exceptions import KiteException, NetworkException
 
 from blueshift.utils.calendars.trading_calendar import TradingCalendar
 from blueshift.execution.broker import AbstractBrokerAPI
-from blueshift.utils.brokers.zerodha.kiteauth import (KiteAuth,
-                                                      KiteConnect3)
+from blueshift.brokers.zerodha.kiteauth import (KiteAuth,
+                                                KiteConnect3)
 from blueshift.utils.cutils import check_input
 from blueshift.utils.exceptions import (AuthenticationError,
                                         ExceptionHandling,

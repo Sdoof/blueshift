@@ -28,7 +28,7 @@ from blueshift.assets._assets import create_asset_from_dict
 from blueshift.utils.cutils import check_input
 from blueshift.utils.exceptions import SymbolNotFound
 from blueshift.utils.decorators import blueprint
-from blueshift.configs import blueshift_data_path
+from blueshift.configs.defaults import blueshift_data_path
 
 # TODO: add instrument id in hash, also add search by instrument id
 

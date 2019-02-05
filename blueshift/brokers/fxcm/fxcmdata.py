@@ -33,7 +33,7 @@ from blueshift.utils.exceptions import (AuthenticationError,
                                         UnsupportedFrequency)
 from blueshift.utils.decorators import api_rate_limit, singleton, blueprint
 
-from blueshift.utils.brokers.fxcm.fxcmassets import FXCMAssetFinder
+from blueshift.brokers.fxcm.fxcmassets import FXCMAssetFinder
 
 LRU_CACHE_SIZE = 512
 

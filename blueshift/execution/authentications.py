@@ -23,7 +23,7 @@ from abc import ABC, abstractmethod
 
 from blueshift.utils.decorators import blueprint
 from blueshift.utils.types import AuthType
-from blueshift.configs import blueshift_run_get_name
+from blueshift.configs.runtime import blueshift_run_get_name
 
 
 class AbstractAuth(ABC):

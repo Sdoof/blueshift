@@ -30,10 +30,12 @@ from .defaults import (blueshift_root, blueshift_log_path,
                        get_config_channel,
                        get_config_calendar_details,
                        get_config_broker_details,
-                       get_config_env_vars,
-                       blueshit_run_set_name,
-                       blueshift_run_get_name)
+                       get_config_env_vars)
 
+from .runtime import (register_env,
+                      get_env,
+                      blueshit_run_set_name,
+                      blueshift_run_get_name)
 
 def generate_default_config(filename=None):
     if not filename:
@@ -64,6 +66,8 @@ __all__ = [generate_default_config,
            get_config_calendar_details,
            get_config_broker_details,
            get_config_env_vars,
+           ensure_directory,
+           register_env,
+           get_env,
            blueshit_run_set_name,
-           blueshift_run_get_name,
-           ensure_directory]
+           blueshift_run_get_name]

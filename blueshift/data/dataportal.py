@@ -20,7 +20,7 @@ from abc import ABC, abstractmethod, abstractproperty
 
 from blueshift.utils.decorators import blueprint
 from blueshift.utils.types import DataPortalFlag, OHLCV_FIELDS
-from blueshift.configs import blueshift_run_get_name
+from blueshift.configs.runtime import blueshift_run_get_name
 
 
 class DataPortal(ABC):

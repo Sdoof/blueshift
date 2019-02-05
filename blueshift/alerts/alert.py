@@ -32,8 +32,9 @@ from blueshift.utils.exceptions import (ExceptionHandling,
 from blueshift.utils.decorators import singleton, blueprint
 from blueshift.alerts.message_brokers import (ZeroMQPublisher,
                                               ZeroMQCmdPairServer)
-from blueshift.configs import (get_config_recovery, get_config_name,
+from blueshift.configs import (get_config_recovery,
                                get_config_channel)
+from blueshift.configs.runtime import blueshift_run_get_name
 
 
 @singleton
@@ -85,7 +86,7 @@ class BlueShiftAlertManager(object):
         
         self.set_error_handling()
         
-        topic = kwargs.get("topic",get_config_name())
+        topic = kwargs.get("topic", blueshift_run_get_name())
         self.set_up_publisher(topic)
         self.set_up_cmd_listener()
     

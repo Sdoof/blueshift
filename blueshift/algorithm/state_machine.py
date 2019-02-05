@@ -20,7 +20,7 @@ Created on Tue Nov 20 15:04:35 2018
 from transitions import Machine
 from blueshift.utils.decorators import blueprint
 from blueshift.utils.types import MODE, STATE
-from blueshift.configs import blueshift_run_get_name
+from blueshift.configs.runtime import blueshift_run_get_name
 
 
 @blueprint
