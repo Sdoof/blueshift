@@ -218,7 +218,7 @@ def if_docker():
 
 def print_ansi_colour(msg, colour):
     """ print with ansi colour escape codes """
-    colour_map = {"red":"31", "yellow":"33", "green":"32"}
+    colour_map = {"red":"31", "yellow":"33", "green":"32","magenta":"35"}
     code = colour_map.get(colour, None)
     if code:
         msg = "\033["+code+";1m"+msg+"\033[0m"
@@ -228,7 +228,7 @@ def print_ansi_colour(msg, colour):
 
 def print_msg(msg, _type, platform):
     """ print with ansi colour escape codes based on platform """
-    type_map = {"error":"red", "warn":"yellow", "info":"green"}
+    type_map = {"error":"red", "warn":"yellow", "info":"green","info2":"magenta"}
     fg = type_map.get(_type, None)
     
     if platform == Platform.NOTEBOOK:

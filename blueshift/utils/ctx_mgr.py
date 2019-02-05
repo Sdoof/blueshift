@@ -45,7 +45,7 @@ class AddPythonPath():
         path = sys_path.pop()
         if self.path != path:
             sys_path.append(path)
-            
+
 class CtxMgrWithHooks():
     '''
         A context manager with entry and exit hooks.
@@ -74,6 +74,10 @@ class ShowProgressBar():
         self.iter = iterable
         
     def __enter__(self):
+        from blueshift.utils.helpers import if_notebook
+        if if_notebook():
+            return self.iter
+        
         if self.show_progress:
             pg = ProgressBar(self.iter,**(self.kwargs), empty_char='-',
                              bar_template='%(label)s  [%(bar)s]  %(info)s',
