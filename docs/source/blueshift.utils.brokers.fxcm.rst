@@ -1,37 +1,37 @@
-blueshift.utils.brokers.fxcm package
+blueshift.brokers.fxcm package
 ====================================
 
 Submodules
 ----------
 
-blueshift.utils.brokers.fxcm.fxcmassets module
+blueshift.brokers.fxcm.fxcmassets module
 ----------------------------------------------
 
-.. automodule:: blueshift.utils.brokers.fxcm.fxcmassets
+.. automodule:: blueshift.brokers.fxcm.fxcmassets
     :members:
     :undoc-members:
     :show-inheritance:
 
-blueshift.utils.brokers.fxcm.fxcmauth module
+blueshift.brokers.fxcm.fxcmauth module
 --------------------------------------------
 
-.. automodule:: blueshift.utils.brokers.fxcm.fxcmauth
+.. automodule:: blueshift.brokers.fxcm.fxcmauth
     :members:
     :undoc-members:
     :show-inheritance:
 
-blueshift.utils.brokers.fxcm.fxcmbroker module
+blueshift.brokers.fxcm.fxcmbroker module
 ----------------------------------------------
 
-.. automodule:: blueshift.utils.brokers.fxcm.fxcmbroker
+.. automodule:: blueshift.brokers.fxcm.fxcmbroker
     :members:
     :undoc-members:
     :show-inheritance:
 
-blueshift.utils.brokers.fxcm.fxcmdata module
+blueshift.brokers.fxcm.fxcmdata module
 --------------------------------------------
 
-.. automodule:: blueshift.utils.brokers.fxcm.fxcmdata
+.. automodule:: blueshift.brokers.fxcm.fxcmdata
     :members:
     :undoc-members:
     :show-inheritance:
@@ -40,7 +40,7 @@ blueshift.utils.brokers.fxcm.fxcmdata module
 Module contents
 ---------------
 
-.. automodule:: blueshift.utils.brokers.fxcm
+.. automodule:: blueshift.brokers.fxcm
     :members:
     :undoc-members:
     :show-inheritance:

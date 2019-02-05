@@ -1,37 +1,37 @@
-blueshift.utils.brokers.zerodha package
+blueshift.brokers.zerodha package
 =======================================
 
 Submodules
 ----------
 
-blueshift.utils.brokers.zerodha.kiteassets module
+blueshift.brokers.zerodha.kiteassets module
 -------------------------------------------------
 
-.. automodule:: blueshift.utils.brokers.zerodha.kiteassets
+.. automodule:: blueshift.brokers.zerodha.kiteassets
     :members:
     :undoc-members:
     :show-inheritance:
 
-blueshift.utils.brokers.zerodha.kiteauth module
+blueshift.brokers.zerodha.kiteauth module
 -----------------------------------------------
 
-.. automodule:: blueshift.utils.brokers.zerodha.kiteauth
+.. automodule:: blueshift.brokers.zerodha.kiteauth
     :members:
     :undoc-members:
     :show-inheritance:
 
-blueshift.utils.brokers.zerodha.kitebroker module
+blueshift.brokers.zerodha.kitebroker module
 -------------------------------------------------
 
-.. automodule:: blueshift.utils.brokers.zerodha.kitebroker
+.. automodule:: blueshift.brokers.zerodha.kitebroker
     :members:
     :undoc-members:
     :show-inheritance:
 
-blueshift.utils.brokers.zerodha.kitedata module
+blueshift.brokers.zerodha.kitedata module
 -----------------------------------------------
 
-.. automodule:: blueshift.utils.brokers.zerodha.kitedata
+.. automodule:: blueshift.brokers.zerodha.kitedata
     :members:
     :undoc-members:
     :show-inheritance:
@@ -40,7 +40,7 @@ blueshift.utils.brokers.zerodha.kitedata module
 Module contents
 ---------------
 
-.. automodule:: blueshift.utils.brokers.zerodha
+.. automodule:: blueshift.brokers.zerodha
     :members:
     :undoc-members:
     :show-inheritance:

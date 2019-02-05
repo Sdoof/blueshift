@@ -1,4 +1,4 @@
-blueshift.utils.brokers package
+blueshift.brokers package
 ===============================
 
 Subpackages
@@ -6,17 +6,17 @@ Subpackages
 
 .. toctree::
 
-    blueshift.utils.brokers.backtest
-    blueshift.utils.brokers.fxcm
-    blueshift.utils.brokers.zerodha
+    blueshift.brokers.backtest
+    blueshift.brokers.fxcm
+    blueshift.brokers.zerodha
 
 Submodules
 ----------
 
-blueshift.utils.brokers.core module
+blueshift.brokers.core module
 -----------------------------------
 
-.. automodule:: blueshift.utils.brokers.core
+.. automodule:: blueshift.brokers.core
     :members:
     :undoc-members:
     :show-inheritance:
@@ -25,7 +25,7 @@ blueshift.utils.brokers.core module
 Module contents
 ---------------
 
-.. automodule:: blueshift.utils.brokers
+.. automodule:: blueshift.brokers
     :members:
     :undoc-members:
     :show-inheritance:
