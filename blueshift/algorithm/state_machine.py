@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Created on Tue Nov 20 15:04:35 2018
 
-@author: prodipta
 """
 
 from transitions import Machine
@@ -25,33 +23,39 @@ from blueshift.configs.runtime import blueshift_run_get_name
 
 @blueprint
 class AlgoStateMachine():
-    '''
+    """ 
         An implementation of state machine rules for an algorithm. States
         changes are triggered by two sets of events. One is the clock tick.
-        The second is any command from channel (only for live algos).
-    '''
+        The second is any command from channel (i.e. user interaction, 
+        only for live mode).
+        
+        Note:
+            Clock transitions: ignoring state altering commands, any 
+            backtest can move like dormant -> startup -> before trading 
+            start -> trading bar -> after trading hours -> dromant. 
+            For a live algo, if started on a trading hour, it will be 
+            dormant -> startup -> before trading start -> trading bar -> 
+            after trading hours -> heartbeat -> before trading -> trading 
+            bar -> after trading hours -> heartbeat and so on. If started 
+            on a non-trading hour, it can jump from initialize to heartbeat. 
+            So dormant -> initialize -> hearbeat -> before start -> heart 
+            beat -> trading bars -> after trading -> hearbeat and so on. 
+            On stop from any signal it goes to `stopped` state.
+            
+        Args:
+            name (str): A name for the state machine
+            
+            mode (int): Mode of the machine (live or backtest)
+    """
     
     states = [s for s, v in STATE.__members__.items()]
+    """ complete set of possible machine states. """
     
     def __init__(self, *args, **kwargs):
         self.name = kwargs.pop("name",blueshift_run_get_name())
         self.mode = kwargs.pop("mode", MODE.BACKTEST)
         self._paused = False
-        
-        '''
-            Clock transitions:
-            Ignoring state altering commands, any backtest can move like:
-            dormant -> startup -> before trading start -> trading bar ->
-            after trading hours -> dromant. For a live algo, if started on 
-            a trading hour, it will be dormant -> startup -> 
-            before trading start -> trading bar -> after trading hours -> 
-            heartbeat -> before trading -> trading bar -> after trading hours
-            -> heartbeat and so on. If started on a non-trading hour, it can
-            jump from initialize to heartbeat. So dormant -> initialize ->
-            hearbeat -> before start -> hear beat -> trading bars -> after
-            trading -> hearbeat and so on. On stop from any signal it goes
-            to `stopped` state.
-        '''
+
         transitions = [
         {'trigger':'fsm_initialize','source':'STARTUP','dest':'INITIALIZED'},
         {'trigger':'fsm_before_trading_start','source':'HEARTBEAT','dest':'BEFORE_TRADING_START'},
@@ -84,12 +88,15 @@ class AlgoStateMachine():
         
     
     def is_running(self):
+        """ returns True if we are in a running state """
         return not self._paused
     
     def set_pause(self):
+        """ set the machine state to pause """
         self._paused = True
         
     def reset_pause(self):
+        """ un-pause the state of the machine """
         self._paused = False
     
     

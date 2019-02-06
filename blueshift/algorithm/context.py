@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Created on Mon Oct 15 23:25:53 2018
 
-@author: prodipta
 """
 import numpy as np
 import pandas as pd
@@ -39,12 +37,23 @@ from blueshift.configs.runtime import blueshift_run_get_name
 @blueprint
 class AlgoContext(object):
     '''
-        The algorithm context acts as an interface to the input program
-        as well as a container for all necessary objects to run an algo.
-        The algorithm class implements just the logic of operations. 
-        Context encapsulates these objects. Primarily it tracks the data 
-        portal, broker api, algo clock, asset finder and authentication.
-        It also keeps track of portfolio (positions) and performance.
+        The algorithm context is initialized while the algorithm instance
+        is created by passing a set of keyword arguments. After the context
+        is created, the main algorithm can forget about these details and 
+        rely on the context to provide on as-needed basis. Context also 
+        tracks performance of the algorithm. 
+        
+        Note:
+            Once the context is initialized, its core attributes (i.e. 
+            non-user defined attributes) are not expected to change 
+            (private attributes) by user script. 
+            
+        Args:
+            name(str): Name of the current run
+            
+            broker(object): A tuple storing data about how to connect, 
+            fetch and send infor and orders to a broker, as well as 
+            calendar and clock to follow.
     '''
     
     def __init__(self, *args, **kwargs):
@@ -92,50 +101,65 @@ class AlgoContext(object):
     
     @property
     def name(self):
+        """ return the name of the current run. """
         return self._name
     
     @property
     def broker(self):
+        """ return the name of the current broker/ execution platform. """
         return self.__broker_api
     
     @property
     def auth(self):
+        """ return the authentication object. """
         return self.__auth
     
     @property
     def account(self):
+        """ return the current account object. See API documentation for 
+        details """
         return self.__account
     
     @property
     def orders(self):
+        """ return a list of all open and closed orders for the current 
+        session. See API documentation for details """
         return self.__broker_api.orders
     
     @property
     def open_orders(self):
+        """ return all orders currently open. See API documentation for 
+        details """
         return self.__broker_api.open_orders
     
     @property
     def portfolio(self):
+        """ return the current portfolio object. See API documentation for details """
         return self.__portfolio
     
     @property
     def performance(self):
+        """ return the current performance object. See API documentation for details """
         perf = self.__performance.get_last_perf()
         return {DAILY_METRICS[index[0]]:value for index, value in 
                 np.ndenumerate(perf)}
     
     @property
     def trading_calendar(self):
+        """ return the current calendar object. See API documentation for details """
         return self.__calendar
     
     @property
     def pnls(self):
+        """ return the current profit or loss numbers. See API documentation for details """
         pnl = self.__performance.get_last_pnl()
         return {BASE_METRICS[index[0]]:value for index, value in 
                 np.ndenumerate(pnl)}
         
     @property
     def timestamp(self):
+        """ return the current timestamp. Use API `get_datetime` instead of
+        directly using this attribute. """
         return self.__timestamp
     
     def set_timestamp(self, timestamp):
@@ -144,18 +168,23 @@ class AlgoContext(object):
     
     @property
     def asset_finder(self):
+        """ the asset finder object. """
         return self.__asset_finder
     
     @property
     def data_portal(self):
+        """ the data portal object. """
         return self.__data_portal
     
     @property
     def clock(self):
+        """ the algo clock object. """
         return self.__clock
     
     @property
     def recored_vars(self):
+        """ the recorded var object. This stores the values recored using the 
+        API function `record`. """
         return self.__recored_vars
     
     def past_performance(self, lookback):
