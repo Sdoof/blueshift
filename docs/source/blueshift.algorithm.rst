@@ -17,6 +17,7 @@ Submodules
 algorithm
 ++++++++++++++++++++++++++++++++++++
 .. py:module:: blueshift.algorithm.algorithm
+    :noindex:
 .. autoclass:: TradingAlgorithm
     :members:
     :undoc-members:
@@ -44,6 +45,7 @@ The API entry functions makes the current context available to the user
 script. Usually this is passed as the first argument ``context``.
 
 .. py:module:: blueshift.algorithm.context
+    :noindex:
 .. autoclass:: AlgoContext
     :members: name, broker, account, orders, open_orders, portfolio, performance, trading_calendar, pnls, timestamp, recored_vars
     :undoc-members:

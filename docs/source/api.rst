@@ -117,6 +117,34 @@ Trading API functions
 
 API functions to control trade and algorithm behaviours are follows
 
+General API functions
++++++++++++++++++++++
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.symbol
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.sid
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.symbols
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.schedule_function
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.get_datetime
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.record
+
+Order and Positions APIs
+++++++++++++++++++++++++
+
+
+Trade Control APIs
+++++++++++++++++++
+
 
 Command API functions
 ---------------------
@@ -150,4 +178,4 @@ and kwargs) over.
 .. automethod:: TradingAlgorithm.resume_trading
 
 The current implementation of the ``command channel`` is through ZeroMQ at 
-a configurable port. 
+a configurable port. See howto for an example.

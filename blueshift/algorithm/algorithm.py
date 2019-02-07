@@ -612,7 +612,21 @@ class TradingAlgorithm(AlgoStateMachine):
     
     @command_method
     def pause(self, *args, **kwargs):
-        """ command method to pause the algorithm. """
+        """ 
+            Command method to pause the algorithm. This command will NOT 
+            suspend the event loop execution. Rather, the event loop will 
+            continue processing any clock events and further commands, 
+            but will NOT do any dispatch to matching functions based on 
+            clock events. Effectively, the algorithm will suspend processing
+            any user functions or event handling.
+            
+            Arg:
+                None
+                
+            Returns:
+                None
+                
+        """
         try:
             self.fsm_pause()
             msg = "algorithm paused. No further processing till resumed."
@@ -625,7 +639,14 @@ class TradingAlgorithm(AlgoStateMachine):
     def resume(self, *args, **kwargs):
         """
             Resuming an algo trigger state changes starting with a call
-            to initialize.
+            to initialize, irrespective of at which state the `pause` was
+            triggered.
+            
+            Args:
+                None
+                
+            Returns:
+                None
         """
         try:
             self.fsm_resume()       # PAUSED ==> STARTUP
@@ -639,7 +660,18 @@ class TradingAlgorithm(AlgoStateMachine):
         
     @command_method
     def shutdown(self, *args, **kwargs):
-        """ shutdown the current algo. """
+        """
+            Shut down command will cause the main event loop to raise an
+            exception, which will cause the main program to shut-down 
+            gracefully, completing any I/O, completing a list of callbacks
+            registered with the ``alert_manager`` and then exit.
+            
+            Args:
+                None
+                
+            Returns:
+                None
+        """
         try:
             self.fsm_stop()
             self.log_warning("algorithm stopped.")
@@ -650,7 +682,21 @@ class TradingAlgorithm(AlgoStateMachine):
     
     @command_method
     def login(self, *args, **kwargs):
-        """ trigger a login on the broker authentication object. """
+        """
+            This triggers a login on the broker authentication object.
+            The processing depends on the particular implementation.
+            
+            Args:
+                ``args (list)``: a list of arguments to pass on to the 
+                ``login`` method of the authentication object.
+                
+                ``kwargs (dict)``: a keyword dict to pass on to the 
+                ``login`` method of the authentication object.
+                
+            Returns:
+                None. If implemented, this should complete a auth with the
+                broker platform.
+        """
         auth = self.context.auth
         if auth:
             auth.login(*args, **kwargs)
@@ -658,7 +704,22 @@ class TradingAlgorithm(AlgoStateMachine):
         
     @command_method
     def refresh_asset_db(self, *args, **kwargs):
-        """ trigger a refresh of the broker asset database. """
+        """
+            trigger a refresh of the broker asset database. The processing
+            depends on the particular implementation.
+            
+            Args:
+                ``args (list)``: a list of arguments to pass on to the 
+                ``refresh_data`` method of the authentication object.
+                
+                ``kwargs (dict)``: a keyword dict to pass on to the 
+                ``refresh_data`` method of the authentication object.
+                
+            Returns:
+                None. If implemented, this should complete a re-load of
+                asset data with the broker platform.
+        """
+        
         asset_finder = self.context.asset_finder
         if asset_finder:
             asset_finder.refresh_data(*args, **kwargs)
@@ -666,13 +727,33 @@ class TradingAlgorithm(AlgoStateMachine):
         
     @command_method
     def stop_trading(self, *args, **kwargs):
-        """ command method to stop trading. Other updates will continue. """
+        """
+            Command method to stop trading. Other updates will continue. 
+            Any ``order`` function will be ignored and skipped.
+            
+            Args:
+                None
+                
+            Returns:
+                None
+        """
+        
         self._freeze_trading()
         self.log_warning("All trading stopped. All orders will be ignored.")
     
     @command_method
     def resume_trading(self, *args, **kwargs):
-        """ command method to continue trading. """
+        """
+            Command method to resume trading. This will resume processing 
+            of orders, if stopped earlier.
+            
+            Args:
+                None
+                
+            Returns:
+                None
+        """
+
         self._unfreeze_trading()
         self.log_warning("Trading resumed. Orders will be sent to broker.")
     
@@ -750,7 +831,9 @@ class TradingAlgorithm(AlgoStateMachine):
             
             Args:
                 ``callback(function)``: A function to call at scheduled times.
+                
                 ``date_rule(object)``: Defines schedules in terms of dates.
+                
                 ``time_rule(object)``: Defines schedules in terms of time.
                 
             Returns:
@@ -850,7 +933,7 @@ class TradingAlgorithm(AlgoStateMachine):
                 ``assets(list)``: List of assets to check
                 
             Returns:
-                ``True`` if all assets in the list can be traded, else ``False``.
+                Bool. ``True`` if all assets in the list can be traded, else ``False``.
         """
         if not self.is_TRADING_BAR():
             return False
@@ -962,6 +1045,12 @@ class TradingAlgorithm(AlgoStateMachine):
     @api_method
     def set_max_daily_size(self, assets=None, max_quantity=None, 
                            max_notional=None, on_fail=None):
+        """
+            Set a limit on the order size - in terms of total daily size. 
+            
+            Note:                
+                See also :meth:`.set_max_order_size`
+        """
         if not max_quantity and not max_notional:
             msg = "must specify either max quantity or "
             msg = msg + "max notional"
@@ -997,6 +1086,14 @@ class TradingAlgorithm(AlgoStateMachine):
     @api_method
     def set_max_position_size(self, assets=None, max_quantity=None, 
                               max_notional=None, on_fail=None):
+        """
+            Set a limit on the position size (as opposed to order size). 
+            Any order that can exceed this position (at current prices) 
+            will be refused (and will raise a warning).
+            
+            Note:                
+                See also :meth:`.set_max_order_size`
+        """
         if not max_quantity and not max_notional:
             msg = "must specify either max quantity or "
             msg = msg + "max notional"
@@ -1031,26 +1128,64 @@ class TradingAlgorithm(AlgoStateMachine):
         
     @api_method
     def set_max_order_count(self, max_count, on_fail=None):
+        """
+            Set a limit on maximum number of orders generated in a day. 
+            Any order that can exceed this limit will be refused (and 
+            will raise a warning).
+            
+            Note:                
+                See also :meth:`.set_max_order_size`
+        """
         control = TCOrderNumPerDay(max_count, on_fail)
         self.register_trading_controls(control)
         
     @api_method
     def set_long_only(self, on_fail=None):
+        """
+            Set a flag for long only algorithm. Any selling order will 
+            be refused (and a warning raised), if we do not have existing
+            long position to deliver on the sale.
+            
+            Note:                
+                See also :meth:`.set_max_order_size`
+        """
         control = TCLongOnly(on_fail)
         self.register_trading_controls(control)
         
     @api_method
     def set_max_leverage(self, max_leverage, on_fail=None):
+        """
+            Set a limit on the account gross leverage. Any order that can 
+            potentially exceed this limit will be refused (with a warning).
+            
+            Note:                
+                See also :meth:`.set_max_order_size`
+        """
         control = TCGrossLeverage(max_leverage, on_fail)
         self.register_trading_controls(control)
         
     @api_method
     def set_max_exposure(self, max_exposure, on_fail=None):
+        """
+            Set a limit on the account gross exposure. Any order that 
+            can potentially exceed this limit will be refused (with a 
+            warning)
+            
+            Note:                
+                See also :meth:`.set_max_leverage`
+        """
         control = TCGrossExposure(max_exposure, on_fail)
         self.register_trading_controls(control)
         
     @api_method
     def set_do_not_order_list(self, assets, on_fail=None):
+        """
+            Defines a list of assets not to be ordered. Any order on 
+            these assets will be refused (with a warning).
+            
+            Note:                
+                See also :meth:`.set_max_order_size`
+        """
         if not listlike(assets):
             assets = [assets]
         control = TCBlackList(assets, on_fail)
@@ -1058,6 +1193,15 @@ class TradingAlgorithm(AlgoStateMachine):
         
     @api_method
     def set_allowed_list(self, assets, on_fail=None):
+        """
+            Defines a whitelist of assets not to be ordered. Any order 
+            outside these assets will be refused (with a warning). Usually,
+            the user script will use either this function or the blacklist
+            function ``set_do_not_order_list``, but not both.
+            
+            Note:                
+                See also :meth:`.set_do_not_order_list`
+        """
         if not listlike(assets):
             assets = [assets]
         control = TCWhiteList(assets, on_fail)
