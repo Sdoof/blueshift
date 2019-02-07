@@ -1213,7 +1213,41 @@ class TradingAlgorithm(AlgoStateMachine):
               limit_price=0, stop_price=0, style=None):
         """
             Place new order. This is the interface to underlying broker
-            for ALL order related API functions.
+            for ALL order related API functions. Order is processed only 
+            if the algo is NOT ``pased`` and trading is NOT set to stopped. 
+            Once a successful order is placed, we also blotter the order 
+            here for the first time.
+            
+            .. important:: at present only limit and market orders are supported. Stop loss specification will be ignored.
+            
+            The handling of limit and stop price specification is totally 
+            implementation depended. In case the broker supports limit 
+            orders, limit_price will be effective. In most current versions
+            of broker implementation, the stop_price is ignored.
+            
+            Note:
+                Always check if the return value is None or a valid order 
+                id. We return None for cases that allows early returns.
+                
+                See also :meth:`.stop_trading`, :meth:`.pause`
+            
+            Args:
+                ``asset (object)``: asset on which the order to be placed.
+                
+                ``quantity (int)``: amount (> 0 is buy, < 0 is sale).
+                
+                ``limit_price (float)``: A limit price specification
+                
+                ``stop_price (float)`` : Stop-loss price specification. 
+                Currently ignored.
+                
+                ``style (None)``: Ignored.
+                
+            Returns:
+                Str. And order ID as returned by the broker after a 
+                successful order is placed. Else returns None.
+                
+            .. danger:: No ordering function will check the capacity of the account to validate the order (e.g. cash, maring reuiqremetns etc.). You must check before placing any order.
         """
         if self.__freeze_trading:
             return
@@ -1261,7 +1295,33 @@ class TradingAlgorithm(AlgoStateMachine):
     def order_value(self, asset, value, 
               limit_price=0, stop_price=0, style=None):
         """
-            API function to order an asset worth a specified value.
+            Place new order sized to achieve a certain value, given the 
+            current price of the asset.
+            
+            Note:
+                Alywas good practice to be conservative as the current price
+                and the actual execution price can be quite different.
+                
+                See also :meth:`.order`
+            
+            Args:
+                ``asset (object)``: asset on which the order to be placed.
+                
+                ``value (float)``: value to buy/sell (negative means 
+                `short` position).
+                
+                ``limit_price (float)``: A limit price specification
+                
+                ``stop_price (float)`` : Stop-loss price specification. 
+                Currently ignored.
+                
+                ``style (None)``: Ignored.
+                
+            Returns:
+                Str. And order ID as returned by the broker after a 
+                successful order is placed. Else returns None.
+                
+            .. danger:: This will take in to account current price of the asset, not actual execution price. Be cautious.
         """
         last_price = self.context.data_portal.current(asset, "close")
         qty = int(value/last_price)
@@ -1271,8 +1331,33 @@ class TradingAlgorithm(AlgoStateMachine):
     def order_percent(self, asset, percent, 
               limit_price=0, stop_price=0, style=None):
         """
-            API function to order an asset worth a defined percentage 
-            of account net value.
+            Place new order sized at a certain percent of net account 
+            value, given the state.
+            
+            Note:
+                Alywas good practice to cancel any open orders before 
+                placing a percent order. See note below.
+                
+                See also :meth:`.order_value`
+            
+            Args:
+                ``asset (object)``: asset on which the order to be placed.
+                
+                ``percent (float)``: percentage (in decimal) of net account 
+                value (negative means `short` position).
+                
+                ``limit_price (float)``: A limit price specification
+                
+                ``stop_price (float)`` : Stop-loss price specification. 
+                Currently ignored.
+                
+                ``style (None)``: Ignored.
+                
+            Returns:
+                Str. And order ID as returned by the broker after a 
+                successful order is placed. Else returns None.
+                
+            .. danger:: This will take in to account current net value, but not the possible impact of open orders. Be cautious.
         """
         net = self.context.account["net"]
         value = net*percent
@@ -1282,8 +1367,32 @@ class TradingAlgorithm(AlgoStateMachine):
     def order_target(self, asset, target, 
               limit_price=0, stop_price=0, style=None):
         """
-            API function to order an asset to achieve a specified 
-            quantity value in the portfolio.
+            Place new order sized to achieve a position of certain 
+            quantity of the asset.
+            
+            Note:
+                Alywas good practice to cancel any open orders on this 
+                asset before placing a targetting order. See note below.
+                
+                See also :meth:`.order`
+            
+            Args:
+                ``asset (object)``: asset on which the order to be placed.
+                
+                ``target (int)``: position quantity to target (negative means `short` position).
+                
+                ``limit_price (float)``: A limit price specification
+                
+                ``stop_price (float)`` : Stop-loss price specification. 
+                Currently ignored.
+                
+                ``style (None)``: Ignored.
+                
+            Returns:
+                Str. And order ID as returned by the broker after a 
+                successful order is placed. Else returns None.
+                
+            .. danger:: This will take in to account current position, but not outstanding open orders. Be cautious.
         """
         pos = self.context.portfolio.get(asset, None)
         pos = pos.quantity if pos else 0
@@ -1294,8 +1403,32 @@ class TradingAlgorithm(AlgoStateMachine):
     def order_target_value(self, asset, target, 
               limit_price=0, stop_price=0, style=None):
         """
-            API function to order an asset to achieve a specified 
-            target value in the portfolio.
+            Place new order sized to achieve a position of certain value 
+            of the asset.
+            
+            Note:
+                Alywas good practice to cancel any open orders on this 
+                asset before placing a targetting order. See note below.
+                
+                See also :meth:`.order_value`
+            
+            Args:
+                ``asset (object)``: asset on which the order to be placed.
+                
+                ``target (float)``: position value to target (negative means `short` position).
+                
+                ``limit_price (float)``: A limit price specification
+                
+                ``stop_price (float)`` : Stop-loss price specification. 
+                Currently ignored.
+                
+                ``style (None)``: Ignored.
+                
+            Returns:
+                Str. And order ID as returned by the broker after a 
+                successful order is placed. Else returns None.
+                
+            .. danger:: This will take in to account current position, but not outstanding open orders. Be cautious.
         """
         last_price = self.context.data_portal.current(asset, "close")
         target = target/last_price
@@ -1305,8 +1438,32 @@ class TradingAlgorithm(AlgoStateMachine):
     def order_target_percent(self, asset, percent, 
               limit_price=0, stop_price=0, style=None):
         """
-            API function to order an asset to achieve a specified 
-            percent of account net worth.
+            Place new order sized to achieve a position of certain percent 
+            of the net account value.
+            
+            Note:
+                Alywas good practice to cancel any open orders on this 
+                asset before placing a targetting order. See note below.
+                
+                See also :meth:`.order_percent`
+            
+            Args:
+                ``asset (object)``: asset on which the order to be placed.
+                
+                ``percent (float)``: percentage (in decimal) to target (negative means `short` position).
+                
+                ``limit_price (float)``: A limit price specification
+                
+                ``stop_price (float)`` : Stop-loss price specification. 
+                Currently ignored.
+                
+                ``style (None)``: Ignored.
+                
+            Returns:
+                Str. And order ID as returned by the broker after a 
+                successful order is placed. Else returns None.
+                
+            .. danger:: This will take in to account current position, but not outstanding open orders. Be cautious.
         """
         net = self.context.account["net"]
         target = net*percent
@@ -1315,16 +1472,38 @@ class TradingAlgorithm(AlgoStateMachine):
     @api_method
     def square_off(self, assets=None):
         """
-            API function to square off ALL open positions and cancel 
+            Function to square off ALL open positions and cancel 
             all open orders. Typically useful for end-of-day closure for
             intraday strategies or for orderly shut-down.
+            
+            If ``assets`` is `None`, all existing open orders will be 
+            cancelled, and then all existing positions will be squared off.
+            If ``assets`` is a list or a single asset, only those positions
+            and orders will be affected.
+            
+            .. important:: This API will only work if the underlying broker implements a ``square_off`` method. Else it will return silently.
+            
+            Note:
+                It is good practice to check the positions after a while to
+                make sure the square off is complete, else retry.
+                
+                See also :meth:`.order`
+            
+            Args:
+                ``assets (list)``: A list of assets, or a single asset or None
+                
+            Returns:
+                None. The open orders resulting from this will be available
+                in the ``context``.
+                
+            .. danger:: This function only initiate sqaure off (only if the broker supports it). It does not and cannot ensure actual square-off. You have to check that else where. Be cautious.
         """
+        symbols = []
         open_orders = self.get_open_orders()
         if assets is None:
             for order_id in open_orders:
                 self.cancel_order(order_id)
         else:
-            symbols = []
             if not listlike(assets):
                 assets = [assets]
             for order_id in open_orders:
@@ -1345,7 +1524,22 @@ class TradingAlgorithm(AlgoStateMachine):
     @api_method
     def cancel_order(self, order_param):
         """
-            Cancel existing order if not already executed.
+            Function to cancel an open order.
+            
+            Note:
+                It is good practice to check if the order is open before 
+                issuing a cancel order request.
+                
+                See also :meth:`.get_open_orders`
+            
+            Args:
+                ``order_param (str or obj)``: An ``order`` object, or a valid 
+                order id to cancel.
+                
+            Returns:
+                Str. The order id of the cancel request, if successful.
+                
+            .. danger:: This function only initiate a cancel request. It does not and cannot ensure actual cancellation. Be cautious.
         """
         if not self.is_TRADING_BAR():
             msg = f"can't cancel order, market not open."
@@ -1365,7 +1559,19 @@ class TradingAlgorithm(AlgoStateMachine):
     @api_method
     def get_order(self, order_id):
         """
-            Get an order object by order_id.
+            Function to retrieve an order by order id.
+            
+            Note:
+                This function should not be used as a order history. See the 
+                note below. User must maintain own order history if required.
+            
+            Args:
+                ``order_id (str)``: A valid order id to retrieve.
+                
+            Returns:
+                Object. The order object, if successful.
+                
+            .. important:: Up to what history orders can be retrieve depends on broker implementation. Usually for most cases, only the closed orders placed in current session, plus all open orders are available.
         """
         return self.context.broker.order(order_id)
 
@@ -1373,6 +1579,15 @@ class TradingAlgorithm(AlgoStateMachine):
     def get_open_orders(self):
         """
             Get a dictionary of all open orders, keyed by their id.
+            
+            Note:
+                see also :meth:`.get_order`.
+                
+            Args:
+                None
+                
+            Returns:
+                Dict. A dictionary of order objects if successful.
         """
         return self.context.broker.open_orders
     
@@ -1380,6 +1595,15 @@ class TradingAlgorithm(AlgoStateMachine):
     def get_open_positions(self):
         """
             Get a dictionary of all open orders, keyed by their id.
+            
+            Note:
+                see also :meth:`.get_open_orders`.
+                
+            Args:
+                None
+                
+            Returns:
+                Dict. A dictionary of position objects if successful.
         """
         positions = self.context.broker.positions
         open_positions = {}

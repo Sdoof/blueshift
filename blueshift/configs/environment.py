@@ -50,6 +50,7 @@ from blueshift.utils.decorators import singleton, blueprint
 from blueshift.utils.types import OnetoOne
 from blueshift.utils.helpers import if_notebook, if_docker, print_msg
 from blueshift.utils.types import Platform
+from blueshift.configs.runtime import register_env
 
 
 BROKER_TOKEN_EVNVAR = 'BLUESHIFT_BROKER_TOKEN'
@@ -103,6 +104,7 @@ class BlueShiftEnvironment(object):
         else:
             self.platform = Platform.CONSOLE
         
+        register_env(self)
         try:
             self.create_config(*args, **kwargs)
             self.extract_env_vars()

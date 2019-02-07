@@ -24,14 +24,14 @@ class BlueShiftEnvWrapper():
         A wrapper object for Blueshift environment object to make 
         access to it global.
     '''
-    def __init__(self, config=None):
-        self.instance = config
+    def __init__(self, env=None):
+        self.instance = env
         
     def get_env(self):
         return self.instance
     
-    def register_env(self, config):
-        self.instance = config
+    def register_env(self, env):
+        self.instance = env
         
 global_env_wrapper = BlueShiftEnvWrapper()
 register_env = global_env_wrapper.register_env

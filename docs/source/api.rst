@@ -115,7 +115,9 @@ Below are a list of API functions available for querying asset and data.
 Trading API functions
 ---------------------
 
-API functions to control trade and algorithm behaviours are follows
+API functions to control trade and algorithm behaviours are as below: 
+This are implemented as members of :class:`blueshift.algorithm.algorithm.TradingAlgorithm`, 
+exposed to user at run time. They can be directly accessed as functions.
 
 General API functions
 +++++++++++++++++++++
@@ -141,10 +143,76 @@ General API functions
 Order and Positions APIs
 ++++++++++++++++++++++++
 
+A set of API functions to enable placing and modifying trades and related 
+functionalities.
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.order
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.order_percent
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.order_target
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.order_target_percent
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.order_target_value
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.order_value
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.cancel_order
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.get_open_orders
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.get_open_positions
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.get_order
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.can_trade
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.square_off
 
 Trade Control APIs
 ++++++++++++++++++
 
+A set of API functions to control trade risk and implements various limits.
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.set_allowed_list
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.set_do_not_order_list
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.set_long_only
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.set_max_daily_size
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.set_max_exposure
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.set_max_leverage
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.set_max_order_count
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.set_max_order_size
+
+.. py:module:: blueshift.algorithm.algorithm
+.. automethod:: TradingAlgorithm.set_max_position_size
 
 Command API functions
 ---------------------
