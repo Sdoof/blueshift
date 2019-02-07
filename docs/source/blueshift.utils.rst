@@ -6,7 +6,6 @@ Subpackages
 
 .. toctree::
 
-    blueshift.utils.brokers
     blueshift.utils.calendars
 
 Submodules

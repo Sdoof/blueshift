@@ -49,9 +49,9 @@ class AlgoContext(object):
             (private attributes) by user script. 
             
         Args:
-            name(str): Name of the current run
+            ``name(str)``: Name of the current run
             
-            broker(object): A tuple storing data about how to connect, 
+            ``broker(object)``: A tuple storing data about how to connect, 
             fetch and send infor and orders to a broker, as well as 
             calendar and clock to follow.
     '''
@@ -184,7 +184,7 @@ class AlgoContext(object):
     @property
     def recored_vars(self):
         """ the recorded var object. This stores the values recored using the 
-        API function `record`. """
+        API function ``record``. """
         return self.__recored_vars
     
     def past_performance(self, lookback):

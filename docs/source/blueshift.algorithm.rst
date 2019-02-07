@@ -1,3 +1,5 @@
+.. note:: for internal use only
+
 blueshift.algorithm package
 ===========================
 
@@ -8,16 +10,18 @@ major objectives:
     * Implement all the API interfaces needed from within the input user algo module/ script. 
     * Run and handle all interaction betweem the user module/ script and rest of the framework (like handling communications, managing errors and logs etc.).
 
+
 Submodules
 ----------
 
 algorithm
 ++++++++++++++++++++++++++++++++++++
-
-.. automodule:: blueshift.algorithm.algorithm
+.. py:module:: blueshift.algorithm.algorithm
+.. autoclass:: TradingAlgorithm
     :members:
     :undoc-members:
     :show-inheritance:
+    :noindex:
 
 context
 ++++++++++++++++++++++++++++++++++
@@ -31,14 +35,15 @@ event. The second purpose is to provide a transparent way to the user to
 interact with algo context and other related machinery behind it. For example
 the user script channels all it's query related to any non-data information
 to context. This includes querying about portfolio, positions, broker details
-calendar etc. (Data related query is transparently handled by `data_portal` 
+calendar etc. (Data related query is transparently handled by ``data_portal`` 
 object). The final utility is to provide a namespace to the user to store 
 any user variable required. It can simply be added and accessed as an 
 attribute to the context.
 
 The API entry functions makes the current context available to the user 
-script. Usually this is passed as the first argument `context`.
+script. Usually this is passed as the first argument ``context``.
 
+.. py:module:: blueshift.algorithm.context
 .. autoclass:: AlgoContext
     :members: name, broker, account, orders, open_orders, portfolio, performance, trading_calendar, pnls, timestamp, recored_vars
     :undoc-members:
@@ -57,12 +62,12 @@ trading clock as well as user interaction.
 The allowed states are:
 
     *  STARTUP: This is when the algorithm run comes in to existance.
-    * INITIALIZED: This is after the algorithm is `initialized`, i.e. the `initialize` method starts execution.
-    * BEFORE_TRADING_START: This is when the `before_trading_start` method starts execution.
+    * INITIALIZED: This is after the algorithm is initialized, i.e. the ``initialize`` method starts execution.
+    * BEFORE_TRADING_START: This is when the ``before_trading_start`` method starts execution.
     * TRADING_BAR: This is during the usual trading hours.
-    * AFTER_TRADING_HOURS: When the `after_trading_hours` method starts execution.
-    * HEARTBEAT: The state during `heartbeat` (non-market hours).
-    * PAUSED: The algo is issued a `pause` command.
+    * AFTER_TRADING_HOURS: When the ``after_trading_hours`` method starts execution.
+    * HEARTBEAT: The state during ``heartbeat`` (non-market hours).
+    * PAUSED: The algo is issued a ``pause`` command.
     * STOPPED: The algo is stopped.
     * DORMANT: An extra state for future use.
     

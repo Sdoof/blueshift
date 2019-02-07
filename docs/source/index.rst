@@ -14,6 +14,7 @@ Some text here
 
    introduction
    concepts
+   api
    modules
 
     

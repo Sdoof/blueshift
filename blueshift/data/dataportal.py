@@ -45,11 +45,54 @@ class DataPortal(ABC):
         raise NotImplementedError
     
     @abstractmethod
-    def current(assets, fields):
+    def current(self, assets, fields):
+        """ 
+            This method returns the current (latest available) price data 
+            for the specified assets.
+            
+            Args:
+                ``assets(list)``: A list of assets to fetch data for.
+                
+                ``fields(list)``: A list of fields to fetch data for Allowed
+                fields are in [`open`, `high`, `low`, `close`, `volume`, 
+                `last`].
+                
+            Returns:
+                A float in case of a single asset and field, a Pandas data 
+                ``Series`` in case of either multiple asset and single field 
+                (keyed by assets) or single assets and multiple field 
+                (keyed by fields). For both multiple assets and fields a 
+                Pandas ``DataFrame`` will be returned.
+        """
         raise NotImplementedError
         
     @abstractmethod
-    def history(assets, fields):
+    def history(self, assets, fields, bars, frequency):
+        """ 
+            This method returns historical price data for the specified 
+            assets for the range asked (or available from the source).
+            
+            Args:
+                ``assets(list)``: A list of assets to fetch data for.
+                
+                ``fields(list)``: A list of fields to fetch data for Allowed
+                fields are in [`open`, `high`, `low`, `close`, `volume`, 
+                `last`].
+                
+                ``bars(int)``: Numbre of bars to return data.
+                
+                ``frequency``: Frequency of data, can be either ``1m`` for 
+                (for minute bars), or ``1d`` (for daily bars).
+                
+            Returns:
+                A Pandas ``Series`` in case of a single asset and field, or a 
+                Pandas ``DataFrame`` for either single asset and multiple 
+                fields (date-time as index and fields as columns) or 
+                mutliple assets and single field (date-time as index and 
+                assets as columns). In case of both multiple assets and 
+                fields, a Pandas ``MultiIndex DataFrame`` will be returned,
+                with assets as second levels of index.
+        """
         raise NotImplementedError
         
 @blueprint

@@ -77,7 +77,7 @@ from blueshift.blotter.blotter import Blotter
 
 @blueprint
 class TradingAlgorithm(AlgoStateMachine):
-    '''
+    """
         The trading algorithm is responsible for 1. reading the input
         program, 2. collecting and running user functions in appropriate
         event functions, 3. handling commands and publishing performance
@@ -85,12 +85,12 @@ class TradingAlgorithm(AlgoStateMachine):
         backtest and live runs are different. Backtest in implemented as
         generator. Live loop is an async generator to make use of the 
         sleep time of the real clock.
-    '''
+    """
     
     def _make_bars_dispatch(self):
-        '''
+        """
             Dispatch dictionary for user defined functions.
-        '''
+        """
         self._USER_FUNC_DISPATCH = {
             BARS.ALGO_START:self.initialize,
             BARS.BEFORE_TRADING_START:self.before_trading_start,
@@ -101,9 +101,9 @@ class TradingAlgorithm(AlgoStateMachine):
         }
         
     def _make_broker_dispatch(self):
-        '''
+        """
             Dispatch dictionary for backtest broker processing.
-        '''
+        """
         self._BROKER_FUNC_DISPATCH = {
             BARS.ALGO_START:self.context.broker.algo_start,
             BARS.BEFORE_TRADING_START:self.context.broker.\
@@ -116,11 +116,11 @@ class TradingAlgorithm(AlgoStateMachine):
         }
 
     def __init__(self, *args, **kwargs):
-        '''
+        """
             Get the arguments and resolve them to a consistent 
             context object. Then read the user algo and extract the 
             API functions and create the dispatcher.
-        '''
+        """
         super(self.__class__, self).__init__(*args, **kwargs)
         
         self.namespace = {}
@@ -230,15 +230,15 @@ class TradingAlgorithm(AlgoStateMachine):
         return self.__str__()
     
     def _bar_noop(self, timestamp):
-        '''
+        """
             null operation for a bar function.
-        '''
+        """
         pass
     
     def initialize(self, timestamp):
-        '''
+        """
             Called at the start of the algo. Or at every resume command.
-        '''
+        """
         try:
             self.fsm_initialize()
         except MachineError:
@@ -249,9 +249,9 @@ class TradingAlgorithm(AlgoStateMachine):
         self._initialize(self.context)
     
     def before_trading_start(self,timestamp):
-        '''
+        """
             Called at the start of the session.
-        '''
+        """
         try:
             self.fsm_before_trading_start()
         except MachineError:
@@ -270,12 +270,12 @@ class TradingAlgorithm(AlgoStateMachine):
                 raise StateMachineError(msg=msg)
     
     def handle_data(self,timestamp):
-        '''
+        """
             Called at the start of each trading bar. We call the state
             machine function only for live mode here, and club with 
             before trading start for backtest mode. This a bit hacky but
             speeds things up.
-        '''
+        """
         if self.mode == MODE.LIVE:
             try:
                 self.fsm_handle_data()
@@ -292,9 +292,9 @@ class TradingAlgorithm(AlgoStateMachine):
         self._handle_data(self.context, self.context.data_portal)
     
     def after_trading_hours(self,timestamp):
-        '''
+        """
             Called at the end of the session.
-        '''
+        """
         try:
             self.fsm_after_trading_hours()
         except MachineError:
@@ -306,9 +306,9 @@ class TradingAlgorithm(AlgoStateMachine):
                                   self.context.data_portal)
     
     def analyze(self,timestamp):
-        '''
+        """
             Called at the end of the algo run.
-        '''
+        """
         try:
             self.fsm_analyze()
         except MachineError:
@@ -318,9 +318,9 @@ class TradingAlgorithm(AlgoStateMachine):
         self._analyze(self.context)
         
     def heartbeat(self, timestamp):
-        '''
+        """
             Called when we are not in a session.
-        '''
+        """
         try:
             self.fsm_heartbeat()
         except MachineError:
@@ -331,10 +331,10 @@ class TradingAlgorithm(AlgoStateMachine):
         
     
     def _back_test_generator(self, alert_manager=None):
-        '''
+        """
             The entry point for backtest run. This generator yields
             the current day performance.
-        '''
+        """
         if self.mode != MODE.BACKTEST:
             raise StateMachineError(msg="mode must be back-test")
         
@@ -410,9 +410,9 @@ class TradingAlgorithm(AlgoStateMachine):
         return perfs
     
     def _get_event_loop(self):
-        '''
+        """
             Obtain the current event loop or create one.
-        '''
+        """
         if self._loop is None:
             self._loop = asyncio.get_event_loop()
         if self._loop.is_closed():
@@ -420,27 +420,27 @@ class TradingAlgorithm(AlgoStateMachine):
             self._loop = asyncio.get_event_loop()
     
     def _reset_clock(self, delay=1):
-        '''
+        """
             Reset the realtime clock
-        '''
+        """
         self._get_event_loop()
         self._queue = ClockQueue(loop=self._loop)
         self.context.clock.reset(self._queue, delay)
         
     async def _process_tick(self, alert_manager=None):
-        '''
+        """
             Process ticks from real clock asynchronously. This generator 
             receives a command from the channel, and if it is `continue`,
             continues normal algo loop. Else either pause or stop the algo.
             It can also invoke any member function based on command.
-        '''
+        """
             
         while True:
-            '''
+            """
                 start from the beginning, process all ticks except
                 TRADING_BAR or HEAR_BEAT. For these we skip to the last
                 TODO: implement this logic in ClockQueue.
-            '''
+            """
             try:
                 cmd = yield         # get the command if any.
                 if cmd:
@@ -481,10 +481,10 @@ class TradingAlgorithm(AlgoStateMachine):
                     continue
             
     async def _run_live(self, alert_manager=None, publish_packets=False):
-        '''
+        """
             Function to run the main algo loop generator and also
             handle incoming commands from the command channel.
-        '''
+        """
         g = self._process_tick(alert_manager)
         command_enabled = True
         
@@ -509,9 +509,9 @@ class TradingAlgorithm(AlgoStateMachine):
                     publisher.send(json.dumps(packet))
     
     def live_run(self, alert_manager=None, publish_packets=False):
-        '''
+        """
             The entry point for a live run.
-        '''
+        """
         if self.mode != MODE.LIVE:
             raise StateMachineError(msg="mode must be live")
         
@@ -543,6 +543,7 @@ class TradingAlgorithm(AlgoStateMachine):
             self._loop.close()
         
     def run(self, alert_manager=None, publish=False, show_progress=False):
+        """ single entry point for both backtest and live runs. """
         if alert_manager is None:
             alert_manager = get_alert_manager()
         
@@ -554,11 +555,13 @@ class TradingAlgorithm(AlgoStateMachine):
             raise StateMachineError(msg="undefined mode")
             
     def _set_logger(self):
+        """ set up the logger. """
         self._logger = get_logger()
         if self._logger:
             self._logger.tz = self.context.trading_calendar.tz
         
     def log_info(self, msg, timestamp=None):
+        """ utility function for logging info. """
         if self._logger:
             if timestamp:
                 self._logger.info(msg,"algorithm", timestamp=timestamp,
@@ -567,6 +570,7 @@ class TradingAlgorithm(AlgoStateMachine):
                 self._logger.info(msg,"algorithm")
             
     def log_warning(self, msg, timestamp=None):
+        """ utility function for logging warnings. """
         if self._logger:
             if timestamp:
                 self._logger.warning(msg,"algorithm", timestamp=timestamp,
@@ -575,6 +579,7 @@ class TradingAlgorithm(AlgoStateMachine):
                 self._logger.warning(msg,"algorithm")
             
     def log_error(self, msg, timestamp=None):
+        """ utility function for logging errors. """
         if self._logger:
             if timestamp:
                 self._logger.error(msg,"algorithm", timestamp=timestamp,
@@ -582,12 +587,12 @@ class TradingAlgorithm(AlgoStateMachine):
             else:
                 self._logger.error(msg,"algorithm")
     
-    '''
+    """
         A list of methods for processing commands received on the command
         channel during a live run.
-    '''
+    """
     def _process_command(self, cmd):
-        print(cmd)
+        """ function to dispatch user command on command channel. """
         fn = getattr(self, cmd.cmd, None)
         if fn:
             is_cmd_fn = getattr(fn, "is_command", False)
@@ -602,10 +607,12 @@ class TradingAlgorithm(AlgoStateMachine):
         
     @command_method
     def current_state(self):
+        """ command method to return current state. """
         print(self.state)
     
     @command_method
     def pause(self, *args, **kwargs):
+        """ command method to pause the algorithm. """
         try:
             self.fsm_pause()
             msg = "algorithm paused. No further processing till resumed."
@@ -616,10 +623,10 @@ class TradingAlgorithm(AlgoStateMachine):
         
     @command_method
     def resume(self, *args, **kwargs):
-        '''
+        """
             Resuming an algo trigger state changes starting with a call
             to initialize.
-        '''
+        """
         try:
             self.fsm_resume()       # PAUSED ==> STARTUP
             # TODO: this is risky, there is a change that the queue
@@ -632,6 +639,7 @@ class TradingAlgorithm(AlgoStateMachine):
         
     @command_method
     def shutdown(self, *args, **kwargs):
+        """ shutdown the current algo. """
         try:
             self.fsm_stop()
             self.log_warning("algorithm stopped.")
@@ -642,6 +650,7 @@ class TradingAlgorithm(AlgoStateMachine):
     
     @command_method
     def login(self, *args, **kwargs):
+        """ trigger a login on the broker authentication object. """
         auth = self.context.auth
         if auth:
             auth.login(*args, **kwargs)
@@ -649,6 +658,7 @@ class TradingAlgorithm(AlgoStateMachine):
         
     @command_method
     def refresh_asset_db(self, *args, **kwargs):
+        """ trigger a refresh of the broker asset database. """
         asset_finder = self.context.asset_finder
         if asset_finder:
             asset_finder.refresh_data(*args, **kwargs)
@@ -656,23 +666,31 @@ class TradingAlgorithm(AlgoStateMachine):
         
     @command_method
     def stop_trading(self, *args, **kwargs):
+        """ command method to stop trading. Other updates will continue. """
         self._freeze_trading()
         self.log_warning("All trading stopped. All orders will be ignored.")
     
     @command_method
     def resume_trading(self, *args, **kwargs):
+        """ command method to continue trading. """
         self._unfreeze_trading()
         self.log_warning("Trading resumed. Orders will be sent to broker.")
     
-    '''
+    """
         All API functions related to algorithm objects should go in this
         space. These are accessible from the user code directly.
-    '''
+    """
     @api_method
     def get_datetime(self):
-        '''
+        """
             Get the current date-time of the algorithm context.
-        '''
+            
+            Args:
+                None.
+            
+            Returns:
+                current date-time (Timestamp) in the algo loop.
+        """
         if self.mode == MODE.BACKTEST:
             dt = self.context.timestamp
         else:
@@ -681,10 +699,19 @@ class TradingAlgorithm(AlgoStateMachine):
     
     @api_method
     def register_trading_controls(self, control):
-        '''
+        """
             Register a trading control instance to check before each
             order is created.
-        '''
+            
+            Note:
+                See `blueshift.execution.control.TradingControl`
+            
+            Args:
+                ``control(object)``: control to implement.
+                
+            Returns:
+                None.
+        """
         if not isinstance(control, TradingControl):
             raise TradingControlError(msg="invalid control type.")
         
@@ -692,9 +719,19 @@ class TradingAlgorithm(AlgoStateMachine):
     
     @api_method
     def record(self, *args, **kwargs):
-        '''
+        """
             Record a list of var-name, value pairs for each day.
-        '''
+            
+            Note:
+                The recorded values are tracked within the context, as
+                `recorded_vars` variable.
+            
+            Args:
+                ``kwargs``: the names and values to record. Must be in pairs.
+                
+            Returns:
+                None.
+        """
         args_iter = iter(args)
         var_dict = dict(zip(args_iter,args_iter))
         var_dict = {**var_dict, **kwargs}
@@ -704,10 +741,21 @@ class TradingAlgorithm(AlgoStateMachine):
     
     @api_method
     def schedule_function(self, callback, date_rule=None, time_rule=None):
-        '''
+        """
             Schedule a callable to executed by a set of date and time based
             rules.
-        '''
+            
+            Note:
+                See also :mod:`blueshift.utils.scheduler`
+            
+            Args:
+                ``callback(function)``: A function to call at scheduled times.
+                ``date_rule(object)``: Defines schedules in terms of dates.
+                ``time_rule(object)``: Defines schedules in terms of time.
+                
+            Returns:
+                None
+        """
         if not date_rule and not time_rule:
             return
         
@@ -741,34 +789,69 @@ class TradingAlgorithm(AlgoStateMachine):
         
     @api_method
     def symbol(self,symbol_str:str):
-        '''
-            API function to resolve a symbol string to an asset.
-        '''
+        """
+            API function to resolve a symbol string to an asset. This 
+            method resolves the symbol to an asset object using the 
+            `asset_finder` of the context.
+            
+            Args:
+                ``symbol_str(string)``: The symbol of the asset to fetch.
+                
+            Returns:
+                Asset object corresponding to the symbol.
+        """
         check_input(self.symbol, locals())
         return self.context.asset_finder.lookup_symbol(symbol_str)
     
     @api_method
     def symbols(self, symbol_list):
-        '''
-            API function to resolve a list of symbols to a list of 
-            asset.
-        '''
+        """
+            API function to resolve a list of symbols to assets. This 
+            method resolves the symbols to asset objects using the 
+            `asset_finder` of the context.
+            
+            Note:
+                see also :meth:`.symbol`
+            
+            Args:
+                ``symbol_str(list)``: List of symbols to fetch.
+                
+            Returns:
+                List of asset objects corresponding to the symbols.
+        """
         return self.context.asset_finder.lookup_symbols(
                 symbol_list,self.context.timestamp)
     
     @api_method
     def sid(self, sec_id:int):
-        '''
-            API function to resolve an asset ID (int) to an asset.
-        '''
+        """
+            API function to resolve a symbol identifier to an asset. This 
+            method resolves the ID to an asset object using the 
+            `asset_finder` of the context.
+            
+            Note:
+                See also :meth:`.symbol`.
+            
+            Args:
+                ``sec_id(int)``: The symbol ID of the asset to fetch.
+                
+            Returns:
+                Asset object corresponding to the symbol ID.
+        """
         check_input(self.sid, locals())
         return self.context.asset_finder.fetch_asset(sec_id)
     
     @api_method
     def can_trade(self, assets):
-        '''
+        """
             API function to check if asset can be traded at current dt.
-        '''
+            
+            Args:
+                ``assets(list)``: List of assets to check
+                
+            Returns:
+                ``True`` if all assets in the list can be traded, else ``False``.
+        """
         if not self.is_TRADING_BAR():
             return False
         
@@ -787,16 +870,16 @@ class TradingAlgorithm(AlgoStateMachine):
         return all(_can_trade)
     
     def _control_fail_handler(self, control, asset, dt, amount, context):
-        '''
+        """
             Default control validation fail handler, logs a warning.
-        '''
+        """
         msg = control.get_error_msg(asset, dt)
         self.log_warning(msg, timestamp=self.context.timestamp)
     
     def _validate_trading_controls(self, order):
-        '''
+        """
             Validate all controls. Return false with the first fail.
-        '''
+        """
         for control in self._trading_controls:
             if not control.validate(order, self.context.timestamp, 
                                     self.context, 
@@ -806,15 +889,44 @@ class TradingAlgorithm(AlgoStateMachine):
     
 
     def _freeze_trading(self):
+        """ set trading to freeze. """
         self.__freeze_trading = True
         
     def _unfreeze_trading(self):
+        """ reset frozen trading. """
         self.__freeze_trading = False
         
     # list of trading control APIs affecting order functions
     @api_method
     def set_max_order_size(self, assets=None, max_quantity=None, 
                            max_notional=None, on_fail=None):
+        """
+            Set a limit on the order size - either in terms of quantity,
+            or value. Any order exceeding this limit will not be processed.
+            The dedault control fail handler will also raise an warning. 
+            
+            Note:
+                Only one control of this type can be live in the system
+                at any point in time. Registering another control of this
+                type will silently overwrite the existing one. 
+                
+                See also :mod:`blueshift.execution.controls`
+                
+            Args:
+                ``assets(list or dict)``: List of assets for this control. If
+                assets is a dict, it should be in asset:value format, and
+                will only apply to the assets mentioned. If assets is a 
+                list, the same value wil apply to all assets. If assets is
+                None, the control value will apply to ALL assets.
+                
+                ``max_quantity(int)``: Maximum quantity allowed (unsigned).
+                
+                ``max_notoinal (float)``: Maximum value at current price.                
+                on_fail(function): Function to call if control is violated.
+                
+            Returns:
+                None.
+        """
         if not max_quantity and not max_notional:
             msg = "must specify either max quantity or "
             msg = msg + "max notional"
@@ -955,10 +1067,10 @@ class TradingAlgorithm(AlgoStateMachine):
     @api_method
     def order(self, asset, quantity, 
               limit_price=0, stop_price=0, style=None):
-        '''
+        """
             Place new order. This is the interface to underlying broker
             for ALL order related API functions.
-        '''
+        """
         if self.__freeze_trading:
             return
         
@@ -1004,9 +1116,9 @@ class TradingAlgorithm(AlgoStateMachine):
     @api_method
     def order_value(self, asset, value, 
               limit_price=0, stop_price=0, style=None):
-        '''
+        """
             API function to order an asset worth a specified value.
-        '''
+        """
         last_price = self.context.data_portal.current(asset, "close")
         qty = int(value/last_price)
         return self.order(asset,qty,limit_price,stop_price,style)
@@ -1014,10 +1126,10 @@ class TradingAlgorithm(AlgoStateMachine):
     @api_method
     def order_percent(self, asset, percent, 
               limit_price=0, stop_price=0, style=None):
-        '''
+        """
             API function to order an asset worth a defined percentage 
             of account net value.
-        '''
+        """
         net = self.context.account["net"]
         value = net*percent
         return self.order_value(asset,value,limit_price,stop_price,style)
@@ -1025,10 +1137,10 @@ class TradingAlgorithm(AlgoStateMachine):
     @api_method
     def order_target(self, asset, target, 
               limit_price=0, stop_price=0, style=None):
-        '''
+        """
             API function to order an asset to achieve a specified 
             quantity value in the portfolio.
-        '''
+        """
         pos = self.context.portfolio.get(asset, None)
         pos = pos.quantity if pos else 0
         qty = target - pos
@@ -1037,10 +1149,10 @@ class TradingAlgorithm(AlgoStateMachine):
     @api_method
     def order_target_value(self, asset, target, 
               limit_price=0, stop_price=0, style=None):
-        '''
+        """
             API function to order an asset to achieve a specified 
             target value in the portfolio.
-        '''
+        """
         last_price = self.context.data_portal.current(asset, "close")
         target = target/last_price
         return self.order_target(asset,target,limit_price,stop_price,style)
@@ -1048,21 +1160,21 @@ class TradingAlgorithm(AlgoStateMachine):
     @api_method
     def order_target_percent(self, asset, percent, 
               limit_price=0, stop_price=0, style=None):
-        '''
+        """
             API function to order an asset to achieve a specified 
             percent of account net worth.
-        '''
+        """
         net = self.context.account["net"]
         target = net*percent
         return self.order_target_value(asset,target,limit_price,stop_price,style)
     
     @api_method
     def square_off(self, assets=None):
-        '''
+        """
             API function to square off ALL open positions and cancel 
             all open orders. Typically useful for end-of-day closure for
             intraday strategies or for orderly shut-down.
-        '''
+        """
         open_orders = self.get_open_orders()
         if assets is None:
             for order_id in open_orders:
@@ -1088,9 +1200,9 @@ class TradingAlgorithm(AlgoStateMachine):
     
     @api_method
     def cancel_order(self, order_param):
-        '''
+        """
             Cancel existing order if not already executed.
-        '''
+        """
         if not self.is_TRADING_BAR():
             msg = f"can't cancel order, market not open."
             raise ValidationError(msg=msg)
@@ -1108,23 +1220,23 @@ class TradingAlgorithm(AlgoStateMachine):
         
     @api_method
     def get_order(self, order_id):
-        '''
+        """
             Get an order object by order_id.
-        '''
+        """
         return self.context.broker.order(order_id)
 
     @api_method
     def get_open_orders(self):
-        '''
+        """
             Get a dictionary of all open orders, keyed by their id.
-        '''
+        """
         return self.context.broker.open_orders
     
     @api_method
     def get_open_positions(self):
-        '''
+        """
             Get a dictionary of all open orders, keyed by their id.
-        '''
+        """
         positions = self.context.broker.positions
         open_positions = {}
         for asset, pos in positions.items():
@@ -1135,12 +1247,12 @@ class TradingAlgorithm(AlgoStateMachine):
 
     @api_method
     def set_broker(self, name, *args, **kwargs):
-        '''
+        """
             Change the broker in run time. This is useful to modify
             the broker api (including execution logic if any) or the
             capital. This will NOT change the clock, and we do not 
             want that either.
-        '''
+        """
         if not self.is_INITIALIZED() or not self.is_HEARTBEAT():
             msg = "cannot set broker in state ({self.state})"
             raise StateMachineError(msg=msg)

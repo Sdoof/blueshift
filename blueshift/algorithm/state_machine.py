@@ -43,9 +43,9 @@ class AlgoStateMachine():
             On stop from any signal it goes to `stopped` state.
             
         Args:
-            name (str): A name for the state machine
+            ``name (str)``: A name for the state machine
             
-            mode (int): Mode of the machine (live or backtest)
+            ``mode (int)``: Mode of the machine (live or backtest)
     """
     
     states = [s for s, v in STATE.__members__.items()]

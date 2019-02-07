@@ -1,3 +1,5 @@
+.. note:: for internal use only
+
 blueshift package
 =================
 
@@ -10,6 +12,7 @@ Subpackages
     blueshift.algorithm
     blueshift.assets
     blueshift.blotter
+    blueshift.brokers
     blueshift.configs
     blueshift.data
     blueshift.execution
@@ -26,14 +29,7 @@ blueshift.api module
     :members:
     :undoc-members:
     :show-inheritance:
-
-blueshift.testing module
-------------------------
-
-.. automodule:: blueshift.testing
-    :members:
-    :undoc-members:
-    :show-inheritance:
+    :ignore-module-all:
 
 
 Module contents
@@ -43,3 +39,4 @@ Module contents
     :members:
     :undoc-members:
     :show-inheritance:
+    :ignore-module-all:

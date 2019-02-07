@@ -19,6 +19,8 @@ blueshift.data.dataportal module
     :members:
     :undoc-members:
     :show-inheritance:
+    :ignore-module-all:
+    :noindex:
 
 blueshift.data.rest\_data module
 --------------------------------
@@ -27,6 +29,7 @@ blueshift.data.rest\_data module
     :members:
     :undoc-members:
     :show-inheritance:
+    :ignore-module-all:
 
 
 Module contents
